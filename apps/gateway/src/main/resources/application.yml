@@ -30,6 +30,13 @@ spring:
       default-filters:
         - TokenRelay
       routes:
+        # 裸访问 /game-service 时，统一重定向到大厅页，避免 404 Whitelabel
+        - id: game-service-root
+          uri: http://localhost:8081
+          predicates:
+            - Path=/game-service
+          filters:
+            - RedirectTo=302,/game-service/lobby.html
         - id: game-service
           uri: http://localhost:8081
           predicates:
