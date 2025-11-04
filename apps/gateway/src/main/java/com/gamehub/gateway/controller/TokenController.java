@@ -35,7 +35,7 @@ public class TokenController {
     public Mono<ResponseEntity<Map<String, Object>>> getToken(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             return Mono.just(ResponseEntity.status(401).body(
-                    Map.of("error", "未登录", "message", "请先通过 /oauth2/authorization/keycloak 登录")
+                    Map.<String, Object>of("error", "未登录", "message", "请先通过 /oauth2/authorization/keycloak 登录")
             ));
         }
         
@@ -46,7 +46,7 @@ public class TokenController {
                 .map(authorizedClient -> {
                     if (authorizedClient == null || authorizedClient.getAccessToken() == null) {
                         return ResponseEntity.status(401).<Map<String, Object>>body(
-                                Map.of("error", "未找到授权客户端", "message", "请先完成 OAuth2 登录")
+                                Map.<String, Object>of("error", "未找到授权客户端", "message", "请先完成 OAuth2 登录")
                         );
                     }
                     
@@ -63,7 +63,7 @@ public class TokenController {
                     return ResponseEntity.ok(result);
                 })
                 .defaultIfEmpty(ResponseEntity.status(401).body(
-                        Map.of("error", "未找到授权客户端", "message", "请先完成 OAuth2 登录")
+                        Map.<String, Object>of("error", "未找到授权客户端", "message", "请先完成 OAuth2 登录")
                 ));
     }
 }
