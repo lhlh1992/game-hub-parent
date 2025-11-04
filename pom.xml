@@ -12,10 +12,10 @@
     <name>gamehub-parent</name>
 
     <modules>
-        <module>gateway</module>
-        <!-- 后续可以继续添加 -->
-        <!-- <module>system</module> -->
-        <!-- <module>game-service</module> -->
+        <!-- 应用模块放在 apps 下 -->
+        <module>apps/gateway</module>
+        <!-- 后续可以继续添加更多应用模块，例如： -->
+        <!-- <module>apps/game-service</module> -->
     </modules>
 
     <!-- ✅ 基础属性 -->
