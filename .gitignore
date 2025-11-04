@@ -5,10 +5,8 @@ target/
 .kotlin
 
 ### IntelliJ IDEA ###
-.idea/modules.xml
-.idea/jarRepositories.xml
-.idea/compiler.xml
-.idea/libraries/
+# 忽略整个 .idea 目录，防止 encodings.xml/misc.xml/vcs.xml 等被提交
+.idea/
 *.iws
 *.iml
 *.ipr
@@ -37,3 +35,13 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### Logs/Temp ###
+*.log
+logs/
+tmp/
+temp/
+
+# 保留文档与构建脚本（默认会提交，这里仅作说明）
+!**/*.md
+!pom.xml

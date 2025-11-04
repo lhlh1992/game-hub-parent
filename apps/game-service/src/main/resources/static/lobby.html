@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>游戏大厅 - 五子棋</title>
+    <link rel="stylesheet" href="/game-service/css/common.css">
+</head>
+<body>
+    <div class="app">
+        <h2>游戏大厅</h2>
+        
+        <!-- 用户信息区域 -->
+        <div class="row">
+            <div class="user-info" id="userInfo" style="display: none;">
+                <span class="username" id="username">-</span>
+                <button class="btn ghost" id="btnLogout">退出</button>
+            </div>
+            <div id="loadingInfo" class="loading"></div>
+        </div>
+        
+        <!-- 创建房间区域 -->
+        <div class="row">
+            <h3 style="margin: 0; font-size: 16px;">创建房间</h3>
+        </div>
+        
+        <div class="row">
+            <label>
+                模式：
+                <select id="mode">
+                    <option value="PVE">PVE（人机）</option>
+                    <option value="PVP">PVP（人人）</option>
+                </select>
+            </label>
+            <label>
+                AI执子：
+                <select id="aiPiece">
+                    <option value="O">O（白）</option>
+                    <option value="X">X（黑）</option>
+                </select>
+            </label>
+            <label>
+                规则：
+                <select id="rule">
+                    <option value="STANDARD">标准</option>
+                    <option value="RENJU">连珠（禁手）</option>
+                </select>
+            </label>
+            <button class="btn primary" id="btnCreateRoom">创建房间</button>
+            <span id="createStatus" class="subtle"></span>
+        </div>
+        
+        <!-- 进入房间区域 -->
+        <div class="row">
+            <h3 style="margin: 0; font-size: 16px;">进入房间</h3>
+        </div>
+        
+        <div class="row">
+            <label>
+                房间ID：
+                <input type="text" id="roomId" placeholder="输入房间ID">
+            </label>
+            <button class="btn primary" id="btnEnterRoom">进入房间</button>
+        </div>
+    </div>
+    
+    <!-- 引入公共模块 -->
+    <script src="/game-service/js/auth.js"></script>
+    <script src="/game-service/js/api.js"></script>
+    
+    <script>
+        'use strict';
+        
+        const $ = id => document.getElementById(id);
+        
+        let currentToken = null;
+        let userInfo = null;
+        
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // 确保用户已登录
+                console.log('开始登录流程...');
+                currentToken = await ensureAuthenticated();
+                console.log('登录成功，token:', currentToken ? '已获取' : '未获取');
+                
+                // 获取用户信息
+                userInfo = await getUserInfo();
+                if (userInfo) {
+                    displayUserInfo(userInfo);
+                    console.log('用户信息:', userInfo);
+                } else {
+                    console.warn('未获取到用户信息');
+                }
+                
+                // 绑定事件
+                bindEvents();
+            } catch (error) {
+                console.error('初始化失败:', error);
+                console.error('错误详情:', error.message, error.stack);
+                const errorMsg = error.message || '未知错误';
+                alert(`登录失败: ${errorMsg}\n\n请检查：\n1. Keycloak 是否运行\n2. Keycloak 客户端配置是否正确\n3. 浏览器控制台查看详细错误`);
+            }
+        });
+        
+        /**
+         * 显示用户信息
+         */
+        function displayUserInfo(info) {
+            const usernameEl = $('username');
+            const userInfoEl = $('userInfo');
+            const loadingEl = $('loadingInfo');
+            
+            if (info && info.username) {
+                usernameEl.textContent = info.username;
+                userInfoEl.style.display = 'flex';
+                if (loadingEl) loadingEl.style.display = 'none';
+            }
+        }
+        
+        /**
+         * 绑定事件
+         */
+        function bindEvents() {
+            // 创建房间
+            $('btnCreateRoom').addEventListener('click', async () => {
+                const mode = $('mode').value;
+                const aiPiece = $('aiPiece').value;
+                const rule = $('rule').value;
+                
+                $('btnCreateRoom').disabled = true;
+                $('createStatus').textContent = '创建中...';
+                $('createStatus').className = 'subtle';
+                
+                try {
+                    const roomId = await createRoom(currentToken, mode, aiPiece, rule);
+                    $('createStatus').textContent = `房间创建成功: ${roomId}`;
+                    $('createStatus').className = 'status ok';
+                    
+                    // 延迟跳转，让用户看到成功提示
+                    setTimeout(() => {
+                        window.location.href = `/game-service/game.html?roomId=${roomId}`;
+                    }, 500);
+                } catch (error) {
+                    $('createStatus').textContent = `创建失败: ${error.message}`;
+                    $('createStatus').className = 'status err';
+                    console.error('创建房间失败:', error);
+                } finally {
+                    $('btnCreateRoom').disabled = false;
+                }
+            });
+            
+            // 进入房间
+            $('btnEnterRoom').addEventListener('click', () => {
+                const roomId = $('roomId').value.trim();
+                if (!roomId) {
+                    alert('请输入房间ID');
+                    return;
+                }
+                window.location.href = `/game-service/game.html?roomId=${roomId}`;
+            });
+            
+            // 房间ID输入框支持回车
+            $('roomId').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    $('btnEnterRoom').click();
+                }
+            });
+            
+            // 退出登录
+            $('btnLogout').addEventListener('click', () => {
+                if (confirm('确定要退出登录吗？')) {
+                    clearToken();
+                    window.location.reload();
+                }
+            });
+        }
+    </script>
+</body>
+</html>
+

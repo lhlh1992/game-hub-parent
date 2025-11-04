@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>五子棋 - 游戏进行中</title>
+    <link rel="stylesheet" href="/game-service/css/common.css">
+</head>
+<body>
+    <div class="app">
+        <h2>五子棋</h2>
+        
+        <!-- 用户信息和房间信息 -->
+        <div class="row">
+            <div class="user-info" id="userInfo" style="display: none;">
+                <span class="username" id="username">-</span>
+            </div>
+            <span class="subtle" id="roomIdDisplay">房间: -</span>
+            <span class="spacer"></span>
+            <button class="btn ghost" onclick="window.location.href='/game-service/lobby.html'">返回大厅</button>
+        </div>
+        
+        <!-- 游戏信息 -->
+        <div class="row">
+            <span id="meta" class="badge">当前执子: - | 已结束: 否</span>
+            <span id="winner" class="winner" style="display:none;"></span>
+            <span><b>倒计时：</b><span id="timer">--</span>s</span>
+        </div>
+        
+        <!-- 操作按钮 -->
+        <div class="row">
+            <button class="btn ghost" id="btnResign">认输</button>
+            <button class="btn ghost" id="btnRestart">再开一局</button>
+            <span id="wsStatus" class="subtle">未连接</span>
+        </div>
+        
+        <!-- 棋盘 -->
+        <div id="board" aria-label="棋盘"></div>
+    </div>
+    
+    <!-- 引入依赖库 -->
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    
+    <!-- 引入公共模块 -->
+    <script src="/game-service/js/auth.js"></script>
+    <script src="/game-service/js/api.js"></script>
+    <script src="/game-service/js/ws.js"></script>
+    <script src="/game-service/js/game.js"></script>
+    
+    <script>
+        'use strict';
+        
+        const $ = id => document.getElementById(id);
+        
+        let currentToken = null;
+        let currentRoomId = null;
+        let currentSeatKey = null;
+        let userInfo = null;
+        
+        // 游戏回调函数
+        window.gameCallbacks = {
+            onPlace: (x, y, side) => {
+                if (!currentRoomId) return;
+                sendPlace(currentRoomId, x, y, side, currentSeatKey);
+            },
+            onError: (error) => {
+                console.error('游戏错误:', error);
+                updateStatus('错误: ' + error, false);
+            },
+            onGameOver: (winner) => {
+                console.log('游戏结束，胜者:', winner);
+            }
+        };
+        
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // 从 URL 获取房间ID（兼容拼写错误）
+                const urlParams = new URLSearchParams(window.location.search);
+                currentRoomId = urlParams.get('roomId') || urlParams.get('roomld') || urlParams.get('room');
+                
+                if (!currentRoomId) {
+                    alert('缺少房间ID，返回大厅');
+                    window.location.href = '/game-service/lobby.html';
+                    return;
+                }
+                
+                console.log('房间ID:', currentRoomId);
+                
+                // 同步到 window 对象，供 game.js 使用
+                window._currentRoomId = currentRoomId;
+                
+                $('roomIdDisplay').textContent = `房间: ${currentRoomId}`;
+                
+                // 确保用户已登录
+                console.log('开始登录验证...');
+                currentToken = await ensureAuthenticated();
+                console.log('Token 获取成功:', currentToken ? currentToken.substring(0, 20) + '...' : 'null');
+                
+                if (!currentToken) {
+                    throw new Error('无法获取 token，请重新登录');
+                }
+                
+                // 获取用户信息
+                userInfo = await getUserInfo();
+                if (userInfo) {
+                    displayUserInfo(userInfo);
+                    console.log('用户信息:', userInfo);
+                }
+                
+                // 初始化游戏
+                console.log('初始化游戏...');
+                initGame(currentRoomId);
+                
+                // 获取 seatKey
+                currentSeatKey = getSeatKey(currentRoomId);
+                console.log('SeatKey:', currentSeatKey || 'null');
+                
+                // 连接 WebSocket
+                console.log('开始连接 WebSocket...');
+                connectWebSocket(currentToken, {
+                    onConnect: () => {
+                        updateStatus('已连接', true);
+                        
+                        // 订阅房间事件
+                        subscribeRoom(currentRoomId, (evt) => {
+                            handleGameEvent(evt);
+                        });
+                        
+                        // 订阅 seatKey
+                        subscribeSeatKey((seatKey, side) => {
+                            currentSeatKey = seatKey;
+                            saveSeatKey(currentRoomId, side, seatKey);
+                        });
+                        
+                        // 订阅完整同步
+                        subscribeFullSync((snap) => {
+                            renderFullSync(snap);
+                        });
+                        
+                        // 发送恢复请求
+                        sendResume(currentRoomId, currentSeatKey);
+                    },
+                    onError: (error) => {
+                        updateStatus('连接失败', false);
+                        console.error('WebSocket 连接失败:', error);
+                    }
+                });
+                
+                // 绑定事件
+                bindEvents();
+            } catch (error) {
+                console.error('初始化失败:', error);
+                alert('初始化失败，请刷新页面重试');
+            }
+        });
+        
+        /**
+         * 显示用户信息
+         */
+        function displayUserInfo(info) {
+            const usernameEl = $('username');
+            const userInfoEl = $('userInfo');
+            
+            if (info && info.username) {
+                usernameEl.textContent = info.username;
+                userInfoEl.style.display = 'flex';
+            }
+        }
+        
+        /**
+         * 更新连接状态
+         */
+        function updateStatus(text, ok) {
+            const statusEl = $('wsStatus');
+            statusEl.textContent = text;
+            statusEl.className = ok ? 'status ok' : 'status err';
+        }
+        
+        /**
+         * 绑定事件
+         */
+        function bindEvents() {
+            // 认输
+            $('btnResign').addEventListener('click', () => {
+                if (!currentRoomId) return;
+                if (!confirm('确定要认输吗？')) return;
+                
+                sendResign(currentRoomId, currentSeatKey);
+            });
+            
+            // 重开
+            $('btnRestart').addEventListener('click', () => {
+                if (!currentRoomId) return;
+                if (!confirm('确定要重新开始吗？')) return;
+                
+                sendRestart(currentRoomId, currentSeatKey);
+            });
+        }
+        
+        // 页面卸载时断开连接
+        window.addEventListener('beforeunload', () => {
+            disconnectWebSocket();
+        });
+    </script>
+</body>
+</html>
+

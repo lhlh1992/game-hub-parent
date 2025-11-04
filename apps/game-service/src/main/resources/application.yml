@@ -1,0 +1,38 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: game-service
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # 如果服务运行在宿主机，保持 127.0.0.1；
+          # 如果运行在容器中，请改为实际可达地址（例如 http://keycloak:8180）
+          issuer-uri: http://127.0.0.1:8180/realms/my-realm
+  jackson:
+    serialization:
+      INDENT_OUTPUT: true
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: zaqxsw
+      timeout: 2s
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 0
+          max-wait: 5s
+
+scheduler:
+  clock:
+    corePoolSize: 2
+
+gomoku:
+  pve:
+    auto-ai: false
+  turn:
+    seconds: 30    # 回合时长（秒），默认 30
+    aiTimed: false # AI 回合是否计时，默认不计时

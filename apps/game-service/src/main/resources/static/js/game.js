@@ -1,0 +1,388 @@
+/**
+ * 游戏逻辑模块 - 五子棋棋盘渲染和游戏状态管理
+ */
+
+const DEFAULT_N = 15;
+let grid = null;
+let state = null;
+// 注意：currentRoomId 在 game.html 中声明，这里不重复声明
+let countdownTimer = null;
+let currentCountdown = 0;
+let countdownDeadline = 0;
+
+/**
+ * 初始化游戏
+ * @param {string} roomId - 房间ID
+ */
+function initGame(roomId) {
+    // 将 roomId 存储到 window 对象，供其他函数使用
+    if (typeof window !== 'undefined') {
+        window._currentRoomId = roomId;
+    }
+    grid = makeEmpty(DEFAULT_N);
+    state = null;
+    stopCountdown();
+    renderBoard(grid, null);
+}
+
+/**
+ * 创建空棋盘
+ * @param {number} n - 棋盘大小
+ * @returns {Array}
+ */
+function makeEmpty(n) {
+    return Array.from({length: n}, _ => Array(n).fill('.'));
+}
+
+/**
+ * 标准化棋盘数据
+ * @param {*} raw - 原始数据
+ * @returns {Array|null}
+ */
+function normalizeGrid(raw) {
+    if (!raw) return null;
+    if (Array.isArray(raw) && typeof raw[0] === 'string') {
+        return raw.map(row => row.split(''));
+    }
+    return raw;
+}
+
+/**
+ * 渲染棋盘
+ * @param {Array} grid - 棋盘数据
+ * @param {Object} lastMove - 最后一步坐标 {x, y}
+ */
+function renderBoard(grid, lastMove) {
+    const boardEl = document.getElementById('board');
+    if (!boardEl) return;
+    
+    boardEl.innerHTML = '';
+    boardEl.style.setProperty('--n', grid.length.toString());
+    
+    for (let y = 0; y < grid.length; y++) {
+        for (let x = 0; x < grid.length; x++) {
+            const v = grid[x][y];
+            const isLast = lastMove && lastMove.x === x && lastMove.y === y;
+            
+            const cell = document.createElement('div');
+            cell.className = 'cell' + 
+                (v === 'X' ? ' X' : (v === 'O' ? ' O' : '')) + 
+                (isLast ? ' last' : '');
+            cell.textContent = v === '.' ? '' : v;
+            cell.dataset.x = String(x);
+            cell.dataset.y = String(y);
+            cell.title = `(${x}, ${y})`;
+            
+            if (v === '.') {
+                cell.addEventListener('click', onCellClick);
+            }
+            
+            boardEl.appendChild(cell);
+        }
+    }
+}
+
+/**
+ * 处理棋盘点击事件
+ * @param {Event} e - 点击事件
+ */
+function onCellClick(e) {
+    const currentRoomId = typeof window !== 'undefined' ? window._currentRoomId : null;
+    if (!currentRoomId) {
+        console.warn('未选择房间');
+        return;
+    }
+    
+    const x = parseInt(e.currentTarget.dataset.x, 10);
+    const y = parseInt(e.currentTarget.dataset.y, 10);
+    
+    // 获取当前执子方（从 state 或使用默认值）
+    const side = state?.current || 'X';
+    
+    // 触发外部回调
+    if (window.gameCallbacks && window.gameCallbacks.onPlace) {
+        window.gameCallbacks.onPlace(x, y, side);
+    }
+}
+
+/**
+ * 处理游戏事件
+ * @param {Object} evt - 事件对象
+ */
+function handleGameEvent(evt) {
+    if (!evt) return;
+    
+    // 处理倒计时事件
+    if (evt.type === 'TICK') {
+        if (evt.payload) {
+            if (typeof evt.payload.deadlineEpochMs === 'number' && evt.payload.deadlineEpochMs > 0) {
+                startCountdownFromDeadline(evt.payload.deadlineEpochMs);
+            } else if (typeof evt.payload.left === 'number') {
+                startCountdown(evt.payload.left);
+            }
+        }
+        return;
+    }
+    
+    if (evt.type === 'TIMEOUT') {
+        console.log(`超时：${evt.payload?.side ?? '-'}`);
+        return;
+    }
+    
+    if (evt.type === 'ERROR') {
+        console.error('游戏错误:', evt.payload);
+        if (window.gameCallbacks && window.gameCallbacks.onError) {
+            window.gameCallbacks.onError(evt.payload);
+        }
+        return;
+    }
+    
+    // 处理快照事件
+    if (evt.type === 'SNAPSHOT') {
+        renderFullSync(evt.payload);
+        return;
+    }
+    
+    // 处理状态更新
+    const payload = evt.payload || {};
+    state = payload.state || payload;
+    const series = payload.series || null;
+    
+    const g = normalizeGrid(state?.board?.grid ?? state?.board ?? state?.grid);
+    if (g) {
+        grid = g;
+    }
+    
+    // 渲染最后一步
+    let lastClient = null;
+    if (state?.lastMove && Number.isFinite(state.lastMove.x) && Number.isFinite(state.lastMove.y)) {
+        lastClient = { x: state.lastMove.x, y: state.lastMove.y };
+    }
+    renderBoard(grid, lastClient);
+    
+    // 更新游戏信息显示
+    updateGameInfo(state, series);
+    
+    // 处理游戏结束
+    if (state?.over) {
+        stopCountdown();
+        if (window.gameCallbacks && window.gameCallbacks.onGameOver) {
+            window.gameCallbacks.onGameOver(state.winner);
+        }
+    }
+}
+
+/**
+ * 渲染完整同步数据
+ * @param {Object} snap - 快照数据
+ */
+function renderFullSync(snap) {
+    if (!snap || !snap.board) return;
+    
+    grid = snap.board.cells;
+    renderBoard(grid, snap.lastMove);
+    
+    const seriesView = snap.seriesView || {};
+    updateGameInfo(null, {
+        index: snap.round || seriesView.round || 1,
+        blackWins: seriesView.scoreX || 0,
+        whiteWins: seriesView.scoreO || 0,
+        draws: 0
+    }, snap.sideToMove, snap.mode);
+    
+    // 处理游戏结束
+    if (snap.outcome) {
+        stopCountdown();
+        if (window.gameCallbacks && window.gameCallbacks.onGameOver) {
+            const winner = snap.outcome === 'X_WIN' ? 'X' : 
+                          snap.outcome === 'O_WIN' ? 'O' : null;
+            window.gameCallbacks.onGameOver(winner);
+        }
+    }
+    
+    // 同步倒计时
+    if (snap.deadlineEpochMs && snap.deadlineEpochMs > 0) {
+        startCountdownFromDeadline(snap.deadlineEpochMs);
+    } else {
+        stopCountdown();
+    }
+}
+
+/**
+ * 更新游戏信息显示
+ * @param {Object} state - 游戏状态
+ * @param {Object} series - 系列信息
+ * @param {string} currentSide - 当前执子方
+ * @param {string} mode - 游戏模式
+ */
+function updateGameInfo(state, series, currentSide = null, mode = null) {
+    const metaEl = document.getElementById('meta');
+    const winnerEl = document.getElementById('winner');
+    const timerEl = document.getElementById('timer');
+    
+    if (metaEl) {
+        const current = currentSide || state?.current || '-';
+        const over = state?.over || false;
+        
+        if (series) {
+            metaEl.textContent = 
+                `第 ${series.index || 1} 盘 | 比分 黑:${series.blackWins || 0} 白:${series.whiteWins || 0}` +
+                ` | 当前执子: ${current} | 已结束: ${over ? '是' : '否'}`;
+        } else {
+            metaEl.textContent = `当前执子: ${current} | 已结束: ${over ? '是' : '否'}`;
+        }
+    }
+    
+    if (winnerEl) {
+        if (state?.over && state?.winner) {
+            winnerEl.textContent = `🎉 Winner: ${state.winner}`;
+            winnerEl.style.display = 'inline-block';
+        } else {
+            winnerEl.style.display = 'none';
+        }
+    }
+}
+
+/**
+ * 开始倒计时
+ * @param {number} seconds - 剩余秒数
+ */
+function startCountdown(seconds) {
+    const newDeadline = Date.now() + seconds * 1000;
+    
+    if (Math.abs(newDeadline - countdownDeadline) < 2000) {
+        return;
+    }
+    
+    if (countdownTimer) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+    }
+    
+    countdownDeadline = newDeadline;
+    updateCountdownFromDeadline();
+    
+    if (seconds > 0) {
+        countdownTimer = setInterval(() => {
+            updateCountdownFromDeadline();
+            if (currentCountdown <= 0) {
+                clearInterval(countdownTimer);
+                countdownTimer = null;
+            }
+        }, 100);
+    }
+}
+
+/**
+ * 从截止时间开始倒计时
+ * @param {number} deadlineEpochMs - 截止时间戳（毫秒）
+ */
+function startCountdownFromDeadline(deadlineEpochMs) {
+    if (Math.abs(deadlineEpochMs - countdownDeadline) < 2000) {
+        return;
+    }
+    
+    if (countdownTimer) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+    }
+    
+    countdownDeadline = deadlineEpochMs;
+    updateCountdownFromDeadline();
+    
+    if (countdownDeadline > Date.now()) {
+        countdownTimer = setInterval(() => {
+            updateCountdownFromDeadline();
+            if (currentCountdown <= 0) {
+                clearInterval(countdownTimer);
+                countdownTimer = null;
+            }
+        }, 100);
+    }
+}
+
+/**
+ * 更新倒计时显示
+ */
+function updateCountdownFromDeadline() {
+    const now = Date.now();
+    const remainingMs = Math.max(0, countdownDeadline - now);
+    const newCountdown = Math.ceil(remainingMs / 1000);
+    
+    if (newCountdown !== currentCountdown) {
+        currentCountdown = newCountdown;
+        updateTimerDisplay();
+    }
+    
+    if (currentCountdown <= 0 && countdownTimer) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+    }
+}
+
+/**
+ * 更新计时器显示
+ */
+function updateTimerDisplay() {
+    const timerEl = document.getElementById('timer');
+    if (timerEl) {
+        timerEl.textContent = currentCountdown > 0 ? currentCountdown : '--';
+    }
+}
+
+/**
+ * 停止倒计时
+ */
+function stopCountdown() {
+    if (countdownTimer) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+    }
+    currentCountdown = 0;
+    countdownDeadline = 0;
+    updateTimerDisplay();
+}
+
+/**
+ * 保存 seatKey
+ * @param {string} roomId - 房间ID
+ * @param {string} side - 座位方（X 或 O）
+ * @param {string} key - seatKey
+ */
+function saveSeatKey(roomId, side, key) {
+    localStorage.setItem(`room:${roomId}:seatKey:${side}`, key);
+    sessionStorage.setItem(`room:${roomId}:currentSeatKey`, key);
+}
+
+/**
+ * 获取 seatKey
+ * @param {string} roomId - 房间ID
+ * @returns {string|null}
+ */
+function getSeatKey(roomId) {
+    const ss = sessionStorage.getItem(`room:${roomId}:currentSeatKey`);
+    if (ss) return ss;
+    
+    const x = localStorage.getItem(`room:${roomId}:seatKey:X`);
+    const o = localStorage.getItem(`room:${roomId}:seatKey:O`);
+    
+    if (x && !o) {
+        sessionStorage.setItem(`room:${roomId}:currentSeatKey`, x);
+        return x;
+    }
+    if (o && !x) {
+        sessionStorage.setItem(`room:${roomId}:currentSeatKey`, o);
+        return o;
+    }
+    
+    return null;
+}
+
+/**
+ * 获取当前房间ID
+ * @returns {string|null}
+ */
+function getCurrentRoomId() {
+    return typeof window !== 'undefined' ? window._currentRoomId : null;
+}
+

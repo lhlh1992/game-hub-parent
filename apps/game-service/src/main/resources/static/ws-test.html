@@ -1,0 +1,613 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Gomoku 调试面板（V5.2 刷新恢复）</title>
+<style>
+    :root { --n: 15; --cell: 32px; --bg:#0f172a; --card:#ffffff; --muted:#6b7280; --primary:#2563eb; --ok:#10b981; --err:#ef4444; }
+    html,body{height:100%}
+    body {
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei";
+        margin: 0;
+        background: radial-gradient(1200px 600px at 10% -10%, #1e293b 0%, #0f172a 60%) no-repeat,
+        linear-gradient(180deg, #0f172a, #0b1220) fixed;
+        color:#0f172a;
+        display:flex; align-items:flex-start; justify-content:center;
+        padding: 32px 16px;
+    }
+    .app {
+        width: min(1080px, 100%);
+        background: var(--card);
+        border-radius: 16px;
+        box-shadow: 0 15px 40px rgba(2,6,23,.35);
+        padding: 20px 20px 28px;
+    }
+    h2 { margin: 0 0 12px; font-weight: 800; letter-spacing:.5px; }
+    .subtle { color: var(--muted); font-size: 12px; }
+    .row { margin: 10px 0; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    input[type="text"], input[type="search"] {
+        height: 34px; padding: 0 10px; border:1px solid #e5e7eb; border-radius:8px; outline: none; width: 240px;
+    }
+    fieldset { border:1px solid #e5e7eb; padding:10px 12px; border-radius: 12px; }
+    legend { font-size:12px; color:#6b7280; padding:0 6px }
+    #status.ok { color:var(--ok); }
+    #status.err { color:var(--err); }
+    .btn {
+        height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff;
+        cursor: pointer; transition: .15s ease; font-weight: 600;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(2,6,23,.08); }
+    .btn.primary { background: var(--primary); color:#fff; border-color: transparent; }
+    .btn.ghost   { background: #f8fafc; }
+    #board {
+        display:grid; grid-template-columns:repeat(var(--n), var(--cell));
+        grid-template-rows:repeat(var(--n), var(--cell));
+        gap:2px; margin-top:10px; user-select:none;
+        background: #f1f5f9; padding: 8px; border-radius: 12px; border:1px solid #e5e7eb;
+        box-shadow: inset 0 1px 0 rgba(148,163,184,.25);
+    }
+    .cell {
+        width:var(--cell); height:var(--cell);
+        display:flex; align-items:center; justify-content:center;
+        border:1px solid #e5e7eb; background:#ffffff; cursor:pointer;
+        font-weight:700; font-size:16px; border-radius:6px;
+    }
+    .cell:hover { background:#f0f7ff; }
+    .cell.X { color:#111827; }
+    .cell.O { color:#2563eb; }
+    .cell.last { outline:2px solid #f59e0b; outline-offset:-2px; }
+    #log { white-space:pre-wrap; border:1px dashed #e5e7eb; padding:10px; height:160px; overflow:auto; background:#fff; border-radius:12px; }
+    .badge { padding:2px 8px; border-radius:999px; background:#eef3ff; }
+    .winner { padding:6px 10px; border-radius:6px; background:#fffbe6; border:1px solid #ffe58f; }
+    .spacer{flex:1}
+</style>
+
+<div class="app">
+    <h2>Gomoku 调试面板</h2>
+
+    <div class="row">
+        <label>房间ID <input id="roomId" value="R1" /></label>
+        <button id="btnConnect"   class="btn primary">Connect</button>
+        <button id="btnDisconnect" class="btn ghost">Disconnect</button>
+        <span id="status" class="subtle">未连接</span>
+        <span class="spacer"></span>
+        <span class="subtle">V5.2 刷新恢复</span>
+    </div>
+
+    <div class="row">
+        <label>JWT <input id="token" style="width:420px" placeholder="粘贴 access_token（或先点登录获取）" /></label>
+        <button id="btnLogin" class="btn">Keycloak 登录</button>
+    </div>
+
+    <div class="row">
+        <label>模式 <select id="mode" style="height:34px; padding:0 8px; border:1px solid #e5e7eb; border-radius:8px;">
+            <option value="PVE">PVE（人机）</option>
+            <option value="PVP">PVP（人人）</option>
+        </select></label>
+        <label>AI执子 <select id="aiPiece" style="height:34px; padding:0 8px; border:1px solid #e5e7eb; border-radius:8px;">
+            <option value="O">O（白）</option>
+            <option value="X">X（黑）</option>
+        </select></label>
+        <label>规则 <select id="rule" style="height:34px; padding:0 8px; border:1px solid #e5e7eb; border-radius:8px;">
+            <option value="STANDARD">标准</option>
+            <option value="RENJU">连珠（禁手）</option>
+        </select></label>
+        <button id="btnNewRoom" class="btn primary">创建房间</button>
+        <span id="roomStatus" class="subtle"></span>
+    </div>
+
+    <div class="row">
+        <label title="勾选：玩家落子后前端等待 1.5–2.0s 再请求 AI（/app/gomoku.suggest）">
+            <input type="checkbox" id="pve" checked> 人机回手（前端延迟 1.5–2s）
+        </label>
+        <label title="未勾选时用于 PVP/单机双人：用所选棋子下子">
+            玩家棋子：
+            <label><input type="radio" name="piece" value="X" checked>X</label>
+            <label><input type="radio" name="piece" value="O">O</label>
+        </label>
+        <button id="btnResign"  class="btn ghost">认输</button>
+        <button id="btnRestart" class="btn ghost">再开一局</button>
+        <span id="meta" class="badge"></span>
+        <span id="winner" class="winner" style="display:none;"></span>
+        <span><b>倒计时：</b><span id="timer">--</span>s</span>
+    </div>
+
+    <fieldset style="max-width:720px;">
+        <legend>坐标适配（为“点的不对位”准备）</legend>
+        <label><input type="checkbox" id="swapXY"> 交换 X/Y（默认开）</label>
+        <label><input type="checkbox" id="oneBase"> 1 基坐标</label>
+        <label><input type="checkbox" id="flipY"> 反转 Y 轴</label>
+    </fieldset>
+
+    <div id="board" aria-label="棋盘"></div>
+
+    <h4 style="margin:14px 0 8px">控制台</h4>
+    <pre id="log"></pre>
+</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/keycloak-js@22.0.5/dist/keycloak.min.js"></script>
+<script>
+    'use strict';
+
+    // ===== 全局状态 =====
+    const DEFAULT_N = 15;
+    let grid = makeEmpty(DEFAULT_N);
+    let state = null;
+    let stomp = null, sub = null, room = null;
+    let aiTimer = null;
+    let countdownTimer = null; // 倒计时定时器
+    let currentCountdown = 0; // 当前倒计时秒数
+    let countdownDeadline = 0; // 倒计时截止时间（毫秒时间戳）
+
+    const $ = id => document.getElementById(id);
+    const log = m => { const L=$('log'); L.textContent += m + "\n"; L.scrollTop=L.scrollHeight; };
+    const setStatus = (txt, ok)=>{ const s=$('status'); s.textContent=txt; s.className = ok?'ok':'err'; };
+
+    // ===== 页面初始化：先画空棋盘 =====
+    document.addEventListener('DOMContentLoaded', () => {
+        renderBoard(grid, null);
+        $('meta').textContent = `当前执子: - | 已结束: 否`;
+        $('timer').textContent = '--';
+
+        // ★★★ 自动进入房间（本地 seatKey 或 URL ?room=xxx）—— 只追加，不改原逻辑
+        const urlRoom   = parseRoomFromUrl();
+        const savedRoom = sessionStorage.getItem("lastRoomId") || localStorage.getItem("lastRoomId");
+        const autoRoom  = urlRoom || savedRoom;
+        if (autoRoom) {
+            $('roomId').value = autoRoom;
+            //"document.visibilityState" 页面当前是否可见
+            if (hasAnySeatKey(autoRoom) && document.visibilityState === 'visible') {
+                $('btnConnect').click(); // 复用原有连接逻辑
+            }
+        }
+    });
+
+    // ===== seatKey：保存/选择 =====
+    function saveSeatKey(roomId, side, key) {
+        localStorage.setItem(`room:${roomId}:seatKey:${side}`, key);
+        sessionStorage.setItem(`room:${roomId}:currentSeatKey`, key);
+    }
+    /**
+     * 从本地获取指定房间的座位令牌 seatKey
+     * - 优先取当前会话(sessionStorage)
+     * - 若无则从长期存储(localStorage)恢复
+     * - 用于刷新重连时自动恢复身份
+     */
+    function pickSeatKey(roomId) {
+        const ss = sessionStorage.getItem(`room:${roomId}:currentSeatKey`);
+        // 当前会话已有seatKey → 直接用
+        if (ss) return ss;
+        const x = localStorage.getItem(`room:${roomId}:seatKey:X`);
+        const o = localStorage.getItem(`room:${roomId}:seatKey:O`);
+        // 当前会话已有seatKey → 直接用
+        if (x && !o) { sessionStorage.setItem(`room:${roomId}:currentSeatKey`, x); return x; }
+        // 仅有白方seatKey → 恢复并写回sessionStorage
+        if (o && !x) { sessionStorage.setItem(`room:${roomId}:currentSeatKey`, o); return o; }
+        // 仅有白方seatKey → 恢复并写回sessionStorage
+        return null;
+    }
+
+    // ===== 连接 / 断开 =====
+    $('btnConnect').onclick = () => {
+        room = $('roomId').value.trim();
+        if(!room) return alert('请输入房间ID');
+        // 走网关（推荐）：/game-service/ws ；若直连下游：改为 '/ws'
+        const sock = new SockJS('/game-service/ws');
+        stomp = Stomp.over(sock);
+        const tok = $('token').value.trim();
+        const headers = tok ? { Authorization: 'Bearer ' + tok } : {};
+        stomp.connect(headers, () => {
+            setStatus(`已连接（${room}）`, true);
+            log(`connected to /ws, room=${room}`);
+            rememberRoom(room); // ★ 记住成功连接过的房间
+            // 若已存在旧订阅，先取消以避免重复接收消息
+            if (sub) sub.unsubscribe();
+            sub = stomp.subscribe(`/topic/room.${room}`, onEvent);
+
+            // 点对点 seatKey：占座成功后发给当前会话
+            stomp.subscribe('/user/queue/gomoku.seat', frame => {
+                try {
+                    const payload = JSON.parse(frame.body);
+                    const seatKey = typeof payload === 'string' ? payload : payload.seatKey;
+                    const side    = payload.side || 'X';
+                    saveSeatKey(room, side, seatKey);
+                    log(`seatKey received: side=${side}, key=${seatKey}`);
+                } catch (e) { log('seatKey parse error: ' + e.message); }
+            });
+
+            // 点对点 FullSync：刷新页面重入棋局
+            stomp.subscribe('/user/queue/gomoku.full', frame => {
+                try {
+                    const s = JSON.parse(frame.body);
+                    log('FULLSYNC: ' + JSON.stringify(s));
+                    renderFullSync(s);
+                } catch (e) { log('full parse error: ' + e.message); }
+            });
+
+            // 连接后自动 resume
+            const seatKey = pickSeatKey(room);
+            stomp.send('/app/gomoku.resume', {}, JSON.stringify({ roomId: room, seatKey }));
+        }, err => { setStatus('连接失败', false); log('ERROR: '+err); });
+    };
+
+    $('btnDisconnect').onclick = () => {
+        if (aiTimer) { clearTimeout(aiTimer); aiTimer=null; }
+        stopCountdown(); // 断开连接时停止倒计时
+        if (sub) sub.unsubscribe();
+        if (stomp && stomp.connected) stomp.disconnect(()=>{});
+        setStatus('未连接', false);
+        log('disconnected');
+    };
+
+    // —— Keycloak 最小登录流程（可选；用于一键拿到 token）——
+    $('btnLogin').onclick = async () => {
+        try {
+            const keycloak = new Keycloak({
+                url: 'http://127.0.0.1:8180',
+                realm: 'my-realm',
+                clientId: 'game-hub'
+            });
+            await keycloak.init({ onLoad: 'login-required' });
+            await keycloak.updateToken(30);
+            $('token').value = keycloak.token || '';
+            setStatus('登录成功，已获取 token', true);
+            log('token acquired');
+        } catch (e) {
+            setStatus('登录失败', false);
+            log('login error: ' + e);
+        }
+    };
+
+    // —— 创建房间 ——
+    $('btnNewRoom').onclick = async () => {
+        const token = $('token').value.trim();
+        if (!token) {
+            alert('请先登录获取 token');
+            return;
+        }
+        const mode = $('mode').value;
+        const aiPiece = $('aiPiece').value;
+        const rule = $('rule').value;
+        $('roomStatus').textContent = '创建中...';
+        try {
+            const url = `/game-service/api/gomoku/new?mode=${mode}&aiPiece=${aiPiece}&rule=${rule}`;
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                }
+            });
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(`HTTP ${res.status}: ${text}`);
+            }
+            const roomId = await res.text();
+            $('roomId').value = roomId;
+            $('roomStatus').textContent = `房间已创建: ${roomId}`;
+            $('roomStatus').className = 'ok';
+            log(`房间创建成功: ${roomId}`);
+        } catch (e) {
+            $('roomStatus').textContent = '创建失败';
+            $('roomStatus').className = 'err';
+            log('创建房间失败: ' + e.message);
+            alert('创建房间失败: ' + e.message);
+        }
+    };
+
+    // 允许回车快速连接
+    $('roomId').addEventListener('keydown', (e)=>{ if(e.key==='Enter') $('btnConnect').click(); });
+
+    // ===== 互逆坐标变换（点击→服务端 / 服务端→高亮） =====
+    function toServer(x, y) {
+        let cx = x, cy = y;
+        if ($('swapXY').checked) { const t=cx; cx=cy; cy=t; }
+        if ($('flipY').checked)  { cy = (grid.length - 1) - cy; }
+        if ($('oneBase').checked){ cx += 1; cy += 1; }
+        return { x: cx, y: cy };
+    }
+    function toClient(xs, ys) {
+        let cx = xs, cy = ys;
+        if ($('oneBase').checked){ cx -= 1; cy -= 1; }
+        if ($('flipY').checked)  { cy = (grid.length - 1) - cy; }
+        if ($('swapXY').checked) { const t=cx; cx=cy; cy=t; }
+        return { x: cx, y: cy };
+    }
+
+    // ===== 倒计时相关函数 =====
+    function startCountdown(seconds) {
+        // 计算截止时间（基于当前时间 + 剩余秒数）
+        const newDeadline = Date.now() + seconds * 1000;
+
+        // 如果新的截止时间与当前差异不大（小于2秒），则不重新启动倒计时
+        if (Math.abs(newDeadline - countdownDeadline) < 2000) {
+            return;
+        }
+
+        // 清除现有倒计时
+        if (countdownTimer) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+        }
+
+        countdownDeadline = newDeadline;
+        updateCountdownFromDeadline();
+
+        if (seconds > 0) {
+            countdownTimer = setInterval(() => {
+                updateCountdownFromDeadline();
+
+                if (currentCountdown <= 0) {
+                    clearInterval(countdownTimer);
+                    countdownTimer = null;
+                }
+            }, 100); // 更频繁的更新，提高同步精度
+        }
+    }
+
+    function startCountdownFromDeadline(deadlineEpochMs) {
+        // 如果新的截止时间与当前差异不大（小于2秒），则不重新启动倒计时
+        if (Math.abs(deadlineEpochMs - countdownDeadline) < 2000) {
+            return;
+        }
+
+        // 清除现有倒计时
+        if (countdownTimer) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+        }
+
+        // 使用服务端提供的绝对截止时间
+        countdownDeadline = deadlineEpochMs;
+        updateCountdownFromDeadline();
+
+        if (countdownDeadline > Date.now()) {
+            countdownTimer = setInterval(() => {
+                updateCountdownFromDeadline();
+
+                if (currentCountdown <= 0) {
+                    clearInterval(countdownTimer);
+                    countdownTimer = null;
+                }
+            }, 100); // 更频繁的更新，提高同步精度
+        }
+    }
+
+    function updateCountdownFromDeadline() {
+        const now = Date.now();
+        const remainingMs = Math.max(0, countdownDeadline - now);
+        const newCountdown = Math.ceil(remainingMs / 1000);
+
+        // 只有当倒计时真正变化时才更新显示，避免停留在1秒
+        if (newCountdown !== currentCountdown) {
+            currentCountdown = newCountdown;
+            updateTimerDisplay();
+        }
+
+        // 如果倒计时结束，确保停止定时器
+        if (currentCountdown <= 0 && countdownTimer) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+        }
+    }
+
+    function stopCountdown() {
+        if (countdownTimer) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+        }
+        currentCountdown = 0;
+        countdownDeadline = 0;
+        updateTimerDisplay();
+    }
+
+    function updateTimerDisplay() {
+        $('timer').textContent = currentCountdown > 0 ? currentCountdown : '--';
+    }
+
+    // ===== 收到服务端事件 → 渲染 =====
+    function onEvent(frame) {
+        try {
+            const evt = JSON.parse(frame.body);
+
+            // 轻量事件：倒计时/超时/错误
+            if (evt.type === 'TICK') {
+                if (evt.payload) {
+                    // 添加调试日志
+                    log(`TICK received: left=${evt.payload.left}, deadline=${evt.payload.deadlineEpochMs}, side=${evt.payload.side}`);
+
+                    // 优先使用服务端提供的绝对截止时间（更精确的同步）
+                    if (typeof evt.payload.deadlineEpochMs === 'number' && evt.payload.deadlineEpochMs > 0) {
+                        startCountdownFromDeadline(evt.payload.deadlineEpochMs);
+                    } else if (typeof evt.payload.left === 'number') {
+                        // 降级到相对时间（向后兼容）
+                        startCountdown(evt.payload.left);
+                    }
+                }
+                return;
+            }
+            if (evt.type === 'TIMEOUT') { log(`超时：${evt.payload?.side ?? '-'}`); return; }
+            if (evt.type === 'ERROR')   { log('EVENT ERROR: ' + evt.payload);  return; }
+
+            // SNAPSHOT 事件：包含完整的游戏状态和倒计时信息
+            if (evt.type === 'SNAPSHOT') {
+                renderFullSync(evt.payload);
+                return;
+            }
+
+            // STATE / 其他
+            const payload = evt.payload || {};
+            state = payload.state || payload;
+            const series = payload.series || null;
+
+            const g = normalizeGrid(state?.board?.grid ?? state?.board ?? state?.grid);
+            if (g) { grid = g; $('board').style.setProperty('--n', grid.length.toString()); }
+
+            // 用"后端→前端"的逆变换显示 lastMove
+            let lastClient = null;
+            if (state?.lastMove && Number.isFinite(state.lastMove.x) && Number.isFinite(state.lastMove.y)) {
+                lastClient = toClient(state.lastMove.x, state.lastMove.y);
+            }
+            renderBoard(grid, lastClient);
+
+            if (series) {
+                $('meta').textContent =
+                    `第 ${series.index} 盘 | 比分 黑:${series.blackWins} 白:${series.whiteWins}` +
+                    (series.draws != null ? ` 和:${series.draws}` : '') +
+                    ` | 当前执子: ${state?.current ?? '-'} | 已结束: ${state?.over ? '是' : '否'}`;
+            } else {
+                $('meta').textContent =
+                    `当前执子: ${state?.current ?? '-'} | 已结束: ${state?.over ? '是' : '否'}`;
+            }
+
+            if (state?.over) {
+                $('winner').textContent = `🎉 Winner: ${state?.winner ?? '未知'}`;
+                $('winner').style.display = 'inline-block';
+                stopCountdown(); // 游戏结束时停止倒计时
+                if (aiTimer) { clearTimeout(aiTimer); aiTimer=null; }
+            } else {
+                $('winner').style.display = 'none';
+                if ($('pve').checked) scheduleAiReply();
+            }
+        } catch (e) { log('PARSE ERROR: ' + e.message); }
+    }
+
+    // ===== FullSync（刷新恢复） =====
+    function renderFullSync(s) {
+        if (!s || !s.board) return;
+        grid = s.board.cells;
+        $('board').style.setProperty('--n', grid.length.toString());
+        const lastClient = s.lastMove ? toClient(s.lastMove.x, s.lastMove.y) : null;
+        renderBoard(grid, lastClient);
+        $('meta').textContent =
+            `第 ${s.seriesView.round} 盘 | 比分 X:${s.seriesView.scoreX} O:${s.seriesView.scoreO}` +
+            ` | 当前执子: ${s.sideToMove ?? '-'} | 模式:${s.mode}`;
+        $('winner').style.display = s.outcome ? 'inline-block' : 'none';
+        $('winner').textContent = s.outcome ? `🎉 ${s.outcome}` : '';
+
+        // 同步倒计时（如果快照包含截止时间）
+        if (s.deadlineEpochMs && s.deadlineEpochMs > 0) {
+            startCountdownFromDeadline(s.deadlineEpochMs);
+        } else {
+            stopCountdown();
+        }
+    }
+
+    // ===== 棋盘渲染（每格写 data-x/y；点击现取，避免闭包误差） =====
+    function renderBoard(grid, lastMoveClient) {
+        const el = $('board'); el.innerHTML = '';
+        for (let y=0; y<grid.length; y++) {
+            for (let x=0; x<grid.length; x++) {
+                const v = grid[x][y];
+                const isLast = lastMoveClient && lastMoveClient.x === x && lastMoveClient.y === y;
+
+                const cell = document.createElement('div');
+                cell.className = 'cell' + (v==='X'?' X': (v==='O'?' O':'')) + (isLast ? ' last' : '');
+                cell.textContent = v==='.' ? '' : v;
+                cell.dataset.x = String(x);
+                cell.dataset.y = String(y);
+                cell.title = `(${x}, ${y})`;
+                cell.addEventListener('click', onCellClick);
+                el.appendChild(cell);
+            }
+        }
+    }
+
+    // 统一点击处理：坐标从 DOM dataset 读取 → toServer 变换
+    function onCellClick(e) {
+        if (!stomp || !stomp.connected) return log('not connected');
+        if (!room) return log('no room');
+        const x = parseInt(e.currentTarget.dataset.x, 10);
+        const y = parseInt(e.currentTarget.dataset.y, 10);
+        const piece = $('pve').checked && state?.current ? state.current : pickManualPiece();
+        const xy = toServer(x, y);
+
+        const seatKey = sessionStorage.getItem(`room:${room}:currentSeatKey`);
+        const cmd = { roomId: room, x: xy.x, y: xy.y, side: piece, seatKey };
+        stomp.send('/app/gomoku.place', {}, JSON.stringify(cmd));
+        log('SEND place: ' + JSON.stringify(cmd));
+
+        if (aiTimer) { clearTimeout(aiTimer); aiTimer=null; }
+    }
+
+    function pickManualPiece() {
+        const sel = [...document.querySelectorAll('input[name="piece"]')].find(i=>i.checked);
+        return sel ? sel.value : 'X';
+    }
+
+    // ===== 人机回手：前端延迟 1.5–2.0s 后请求 /app/gomoku.suggest =====
+    function scheduleAiReply() {
+        if (!stomp || !stomp.connected) return;
+        if (!room || !state || state.over) return;
+
+        const aiSide = state.current;
+        if (!aiSide) return;
+
+        const delay = 1500 + Math.random() * 500;
+        if (aiTimer) { clearTimeout(aiTimer); }
+        aiTimer = setTimeout(() => {
+            aiTimer = null;
+            try {
+                const payload = { roomId: room, side: aiSide };
+                stomp.send('/app/gomoku.suggest', {}, JSON.stringify(payload));
+                log(`SEND suggest (AI after ${(delay/1000).toFixed(2)}s)`);
+            } catch (e) { log('AI send error: ' + e.message); }
+        }, delay);
+    }
+
+    // ===== 小工具 =====
+    function makeEmpty(n) { return Array.from({length:n}, _=> Array(n).fill('.')); }
+    function normalizeGrid(raw) {
+        if (!raw) return null;
+        if (Array.isArray(raw) && typeof raw[0] === 'string') return raw.map(row => row.split(''));
+        return raw; // 已是二维数组
+    }
+
+    // ===== 认输 / 再来一局 =====
+    $('btnResign').onclick = () => {
+        if (!stomp || !stomp.connected || !room) return;
+        const seatKey = sessionStorage.getItem(`room:${room}:currentSeatKey`);
+        stomp.send('/app/gomoku.resign', {}, JSON.stringify({ roomId: room, seatKey }));
+        log('SEND resign');
+    };
+    $('btnRestart').onclick = () => {
+        if (!stomp || !stomp.connected || !room) return;
+        const seatKey = sessionStorage.getItem(`room:${room}:currentSeatKey`);
+        stomp.send('/app/gomoku.restart', {}, JSON.stringify({ roomId: room, seatKey }));
+        stopCountdown(); // 重新开始游戏时停止倒计时
+        log('SEND restart');
+    };
+
+    /**
+     * 解析当前页面 URL，提取房间ID（支持 ?room=xxx 或 /room/xxx）
+     */
+    function parseRoomFromUrl() {
+        try {
+            // 解析当前地址为 URL 对象
+            const u = new URL(location.href);
+            // 从查询参数中取 ?room=xxx
+            const q = u.searchParams.get("room");
+            // 若存在则直接返回
+            if (q) return q;
+            // 否则尝试匹配路径 /room/xxx
+            const m = location.pathname.match(/\/room\/([^/?#]+)/);
+            // 返回匹配结果或 null
+            return m ? decodeURIComponent(m[1]) : null;
+        } catch { return null; }
+    }
+    /**
+     * 检查本地是否保存了指定房间的任意座位令牌（seatKey）
+     * - 若房间有 X 或 O 的 seatKey，返回 true
+     */
+    function hasAnySeatKey(roomId) {
+        return !!(localStorage.getItem(`room:${roomId}:seatKey:X`)
+            || localStorage.getItem(`room:${roomId}:seatKey:O`));
+    }
+    /**
+     * 记住最近进入的房间ID（用于刷新自动回房）
+     * - 同时写入 sessionStorage 与 localStorage
+     */
+    function rememberRoom(roomId) {
+        sessionStorage.setItem("lastRoomId", roomId);
+        localStorage.setItem("lastRoomId", roomId);
+    }
+</script>
