@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- apps 作为目录聚合 POM，统一聚合各应用模块（gateway、game-service） -->
+    <parent>
+        <groupId>com.gamehub</groupId>
+        <artifactId>gamehub-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>apps</artifactId>
+    <name>apps</name>
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>gateway</module>
+        <module>game-service</module>
+    </modules>
+
+</project>

@@ -12,10 +12,10 @@
     <name>gamehub-parent</name>
 
     <modules>
-        <!-- 应用模块放在 apps 下 -->
-        <module>apps/gateway</module>
-        <!-- 后续可以继续添加更多应用模块，例如： -->
-        <!-- <module>apps/game-service</module> -->
+        <!-- 目录聚合：apps 负责聚合各应用模块（gateway、game-service 等） -->
+        <module>apps</module>
+        <!-- 如有通用库，可在 libs 下再建聚合 POM，再在此加入 libs -->
+        <!-- <module>libs</module> -->
     </modules>
 
     <!-- ✅ 基础属性 -->
@@ -105,6 +105,9 @@
                     <configuration>
                         <release>${maven.compiler.release}</release>
                         <encoding>${project.build.sourceEncoding}</encoding>
+                        <compilerArgs>
+                            <arg>-parameters</arg>
+                        </compilerArgs>
                     </configuration>
                 </plugin>
 
@@ -126,6 +129,21 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+        <plugins>
+            <!-- 使所有子模块实际启用 -parameters，而不只是在 pluginManagement 中声明 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>${maven.compiler.release}</release>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                    <compilerArgs>
+                        <arg>-parameters</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+        </plugins>
     </build>
 
     <!-- ✅ 仓库配置（国内建议加阿里源） -->
