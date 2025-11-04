@@ -1,0 +1,38 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: zaqxsw
+  security:
+    oauth2:
+      client:
+        registration:
+          keycloak:
+            client-id: game-hub                # 你在 Keycloak 建的客户端ID
+            client-secret: Lt2kkFyWYjJAEBNd7ZAk3TQTjMkj89iZ # 在 Keycloak “凭证”页复制的值
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid,profile,email,roles
+        provider:
+          keycloak:
+            issuer-uri: http://127.0.0.1:8180/realms/my-realm
+      resourceserver:
+        jwt:
+          issuer-uri: http://127.0.0.1:8180/realms/my-realm
+  cloud:
+    gateway:
+      default-filters:
+        - TokenRelay
+      routes:
+        - id: game-service
+          uri: http://localhost:8081
+          predicates:
+            - Path=/game-service/**          # 网关拦 /api/** 转到 9090
+          filters:
+            - StripPrefix=1         # /api/user/ping -> /user/ping

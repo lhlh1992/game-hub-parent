@@ -1,0 +1,190 @@
+services:
+  postgres:
+    image: postgres:17.6-bookworm
+    container_name: pgsql
+    restart: always
+    environment:
+      POSTGRES_USER: postgres              # 超级用户
+      POSTGRES_PASSWORD: postgres          # 超级用户密码（生产请改强密码）
+      POSTGRES_DB: mydb                    # 初始化默认数据库
+      TZ: Asia/Shanghai                    # 时区
+      # 仅在首次初始化空 data 目录时生效
+      # UTF8 编码、C 排序规则（稳定且可预期）、开启数据校验
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C --data-checksums"
+    ports:
+      - "5432:5432"
+    volumes:
+      - D:/DockerData/pgsql/data:/var/lib/postgresql/data
+      - D:/DockerData/pgsql/init:/docker-entrypoint-initdb.d
+    command:
+      - postgres                           # 启动主进程
+      - -c
+      - listen_addresses=*                 # 允许远程访问
+      - -c
+      - port=5432                          # 监听端口
+      - -c
+      - shared_buffers=512MB               # 主缓存
+      - -c
+      - max_connections=200                # 最大连接数
+      - -c
+      - wal_buffers=16MB                   # WAL 缓冲区
+      - -c
+      - logging_collector=on               # 启用日志收集
+      - -c
+      - shared_preload_libraries=pg_stat_statements  # 性能监控扩展
+      - -c
+      - timezone=Asia/Shanghai             # 时区
+      - -c
+      - log_min_duration_statement=1000    # 慢 SQL 日志 ≥1 秒
+      - -c
+      - log_statement=ddl                  # 记录 DDL 语句
+    networks:
+      pgnet:
+        ipv4_address: 172.30.0.10          # 固定 IP
+
+  # 可选：网页管理 pgAdmin（浏览器用）
+  pgadmin:
+    image: dpage/pgadmin4:8.12
+    container_name: pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "admin@qq.com"   # 登录 pgAdmin 的邮箱
+      PGADMIN_DEFAULT_PASSWORD: "zaqxsw123"   # 登录密码
+      TZ: Asia/Shanghai                    # 时区
+    ports:
+      - "5050:80"                          # 浏览器访问端口 http://localhost:5050
+    volumes:
+      - D:/DockerData/pgsql/pgadmin:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      pgnet:
+        ipv4_address: 172.30.0.11          # 固定 IP
+      
+   
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"     # 仅本机访问：绑到 127.0.0.1（建议如此）。若需局域网访问，改为 "6379:6379"
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    volumes:
+      - "D:/DockerData/redis/conf/redis.conf:/usr/local/etc/redis/redis.conf:ro"
+      - "D:/DockerData/redis/data:/data"
+      - "D:/DockerData/redis/logs:/var/log/redis"     # 若用文件日志：映射日志目录（配合 redis.conf 的 logfile 配置）
+    environment:
+      TZ: Asia/Shanghai
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "zaqxsw", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: "1g"
+        reservations:
+          cpus: "0.25"
+          memory: "256m"
+    networks:
+      pgnet:
+        ipv4_address: 172.30.0.12          # 固定 IP
+
+  # ========================================
+  # 【2025-01-XX 新增】Keycloak 认证服务器
+  # ========================================
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0.1
+    container_name: gamehub-keycloak
+    restart: always
+    # 启动命令：开发模式 + 自动导入 realm
+    command:
+      - start-dev
+      - --import-realm
+    environment:
+      # === 数据库连接（你现有的 Postgres） ===
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://172.30.0.10:5432/keycloak
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: postgres
+      # === 管理员账号 ===
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      # === HTTP 服务 ===
+      KC_HTTP_ENABLED: "true"
+      KC_HTTP_PORT: "8180"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      # === 其他配置 ===
+      KC_TOKEN_STORE: jpa
+      TZ: Asia/Shanghai
+    ports:
+      - "8180:8180"
+    volumes:
+      # 数据持久化
+      - D:/DockerData/Keycloak/data:/opt/keycloak/data
+      # Realm 导入目录（放 JSON）
+      - D:/DockerData/Keycloak/import:/opt/keycloak/data/import:ro
+      # 自定义主题
+      - D:/DockerData/Keycloak/themes:/opt/keycloak/themes:ro
+      # SPI 扩展（jar）
+      - D:/DockerData/Keycloak/providers:/opt/keycloak/providers:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8180/health/ready >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      pgnet:
+        ipv4_address: 172.30.0.13
+
+  # ========================================
+  # 【2025-01-XX 新增】Gateway 网关服务
+  # ========================================
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    container_name: gamehub-gateway
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      # Spring Profile（用于区分容器环境和本地环境）
+      SPRING_PROFILES_ACTIVE: docker
+      # Keycloak 地址（容器内使用固定IP）
+      KEYCLOAK_ISSUER_URI: http://172.30.0.13:8180/auth/realms/gamehub
+      # Redis 地址（容器内使用固定IP）
+      SPRING_DATA_REDIS_HOST: 172.30.0.12
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: zaqxsw
+      TZ: Asia/Shanghai
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      pgnet:
+        ipv4_address: 172.30.0.14          # 固定 IP
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+networks:
+  pgnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24            # 独立子网，避免与宿主机冲突
