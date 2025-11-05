@@ -7,25 +7,31 @@ import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 
 @Configuration
+/**
+ * Gateway 安全配置（基于 WebFlux）：
+ * - 明确放行的端点（健康检查、OAuth2 发起/回调、静态资源）。
+ * - 其余请求统一要求认证，未登录将触发 OAuth2 登录流程。
+ * - 启用 OAuth2 Client（配合 TokenRelay 透传 token）。
+ * - 启用 Resource Server（校验并解析下游携带的 JWT）。
+ */
 public class SecurityConfig {
+
+    // WebFlux 安全配置：负责“放行哪些路径、其余走 OAuth2 登录；并作为资源服务器校验 JWT”。
 
     @Bean
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
         http
                 .authorizeExchange(ex -> ex
-                        .pathMatchers("/", "/actuator/**").permitAll()
-                        // 放行 OAuth2 登录相关端点
-                        .pathMatchers("/oauth2/**", "/login/**").permitAll()
-                        // 放行静态资源（HTML/CSS/JS），这些文件本身不需要认证
-                        // 但访问 REST API 和 WebSocket 时仍需要认证
-                        .pathMatchers("/game-service/*.html", "/game-service/css/**", "/game-service/js/**", "/game-service/static/**").permitAll()
-                        // /token 端点需要认证（只有登录用户才能获取 token）
-                        .pathMatchers("/token").authenticated()
-                        .anyExchange().authenticated()
+                        .pathMatchers("/", "/actuator/**").permitAll()                 // 健康检查等放行
+                        .pathMatchers("/oauth2/**", "/login/**").permitAll()            // OAuth2 发起与回调放行
+                        .pathMatchers("/game-service/*.html", "/game-service/css/**",
+                                      "/game-service/js/**", "/game-service/static/**").permitAll() // 静态资源放行
+                        .pathMatchers("/token").authenticated()                           // 仅登录用户可取 token
+                        .anyExchange().authenticated()                                      // 其余均需认证
                 )
-                .oauth2Login(Customizer.withDefaults())     // WebFlux 的登录（默认会重定向到登录前的页面）
-                .oauth2Client(Customizer.withDefaults())    // 启用 OAuth2 Client
-                .oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults())); // ✅ 新写法
+                .oauth2Login(Customizer.withDefaults())                                     // 使用默认 OAuth2 登录流程
+                .oauth2Client(Customizer.withDefaults())                                    // 启用 OAuth2 客户端能力（TokenRelay 依赖）
+                .oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()));               // 作为资源服务器校验 JWT
 
         return http.build();
     }

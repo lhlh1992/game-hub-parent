@@ -12,14 +12,25 @@ spring:
   security:
     oauth2:
       client:
+        #客户端注册配置
         registration:
+          #这个名称是自定义的，叫什么都行
           keycloak:
-            client-id: game-hub                # 你在 Keycloak 建的客户端ID
-            client-secret: Lt2kkFyWYjJAEBNd7ZAk3TQTjMkj89iZ # 在 Keycloak “凭证”页复制的值
+            # 你在 Keycloak 建的客户端ID
+            client-id: game-hub
+            # 在 Keycloak “凭证”页复制的值
+            client-secret: Lt2kkFyWYjJAEBNd7ZAk3TQTjMkj89iZ
+            # 授权模式：使用 OAuth2 授权码模式（最常见，浏览器重定向登录后由网关用 code 换 token）
             authorization-grant-type: authorization_code
+            # 回调地址模板：登录成功后 Keycloak 把授权码回传到此；
+            # {baseUrl}=http://localhost:8080（由 server.port 推导），{registrationId}=keycloak（上面这个注册名）
+            # 该展开后的完整 URL 必须配置进 Keycloak 客户端的 Valid redirect URIs 白名单
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            # 申请的 OpenID Connect 范围：openid 为必需，其它如 profile/email/roles 视业务需要追加
             scope: openid,profile,email,roles
+        # 授权服务器配置
         provider:
+          #必须和上面的 registration 名称一致
           keycloak:
             issuer-uri: http://127.0.0.1:8180/realms/my-realm
       resourceserver:
@@ -28,19 +39,13 @@ spring:
   cloud:
     gateway:
       default-filters:
+        # 全局过滤器：自动将 OAuth2 token 转发到下游
         - TokenRelay
       routes:
-        # 裸访问 /game-service 时，统一重定向到大厅页，避免 404 Whitelabel
-        - id: game-service-root
-          uri: http://localhost:8081
-          predicates:
-            - Path=/game-service
-          filters:
-            - RedirectTo=302,/game-service/lobby.html
+        # 只匹配 /game-service/**，不处理根路径（根路径会返回 404，这是预期行为）
         - id: game-service
           uri: http://localhost:8081
           predicates:
-            # 同时匹配 /game-service 与 /game-service/**，避免登录回跳到根路径时 404
-            - Path=/game-service,/game-service/**
+            - Path=/game-service/**
           filters:
             - StripPrefix=1
