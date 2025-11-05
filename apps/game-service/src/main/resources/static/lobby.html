@@ -167,12 +167,15 @@
                 }
             });
             
-            // 退出登录
+            // 退出登录：清本地 token -> 表单 POST /logout（浏览器自动跟随 302 完成 OIDC 登出）
             $('btnLogout').addEventListener('click', () => {
-                if (confirm('确定要退出登录吗？')) {
-                    clearToken();
-                    window.location.reload();
-                }
+                if (!confirm('确定要退出登录吗？')) return;
+                clearToken();
+                const form = document.createElement('form');
+                form.method = 'post';
+                form.action = '/logout';
+                document.body.appendChild(form);
+                form.submit();
             });
         }
     </script>
