@@ -6,9 +6,17 @@ spring:
     name: gateway
   data:
     redis:
-      host: localhost
+      host: 127.0.0.1
       port: 6379
       password: zaqxsw
+      database: 1
+      timeout: 2s
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 0
+          max-wait: 5s
   security:
     oauth2:
       client:
@@ -42,6 +50,13 @@ spring:
         # 全局过滤器：自动将 OAuth2 token 转发到下游
         - TokenRelay
       routes:
+        # 访问网关根路径时，统一跳转到大厅作为欢迎页，避免登录回跳到根导致 404
+        - id: root-to-lobby
+          uri: http://localhost:8080
+          predicates:
+            - Path=/
+          filters:
+            - RedirectTo=302,/game-service/lobby.html
         # 只匹配 /game-service/**，不处理根路径（根路径会返回 404，这是预期行为）
         - id: game-service
           uri: http://localhost:8081
