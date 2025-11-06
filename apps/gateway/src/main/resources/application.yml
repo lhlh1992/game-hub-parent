@@ -35,6 +35,7 @@ spring:
             # 该展开后的完整 URL 必须配置进 Keycloak 客户端的 Valid redirect URIs 白名单
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             # 申请的 OpenID Connect 范围：openid 为必需，其它如 profile/email/roles 视业务需要追加
+            # offline_access 用于获取 refresh_token，支持长期会话（无需频繁重新登录）
             scope: openid,profile,email,roles
         # 授权服务器配置
         provider:

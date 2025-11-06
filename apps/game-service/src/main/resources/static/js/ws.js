@@ -19,11 +19,26 @@ let subscriptions = new Map();
 function connectWebSocket(token, callbacks = {}) {
     if (stomp && stomp.connected) {
         console.warn('WebSocket 已连接');
+        if (callbacks.onConnect) {
+            callbacks.onConnect();
+        }
         return;
     }
     
+    // 如果已有连接尝试，先断开
+    if (socket) {
+        try {
+            socket.close();
+        } catch (e) {
+            // ignore
+        }
+    }
+    
     console.log('创建 SockJS 连接: /game-service/ws');
-    socket = new SockJS('/game-service/ws');
+    // 通过 URL 参数传递 token（SockJS 握手请求无法在请求头中传递自定义 header）
+    // WebSocketTokenFilter 会将 URL 参数中的 token 提取到请求头中
+    const wsUrl = token ? `/game-service/ws?access_token=${encodeURIComponent(token)}` : '/game-service/ws';
+    socket = new SockJS(wsUrl);
     stomp = Stomp.over(socket);
     
     // 设置调试模式（可选，生产环境可关闭）
@@ -34,14 +49,26 @@ function connectWebSocket(token, callbacks = {}) {
     const headers = token ? { Authorization: 'Bearer ' + token } : {};
     console.log('WebSocket 连接 headers:', headers);
     
+    // 设置连接超时（10秒）
+    const connectTimeout = setTimeout(() => {
+        if (!stomp.connected) {
+            console.error('WebSocket 连接超时');
+            if (callbacks.onError) {
+                callbacks.onError(new Error('连接超时'));
+            }
+        }
+    }, 10000);
+    
     try {
         stomp.connect(headers, (frame) => {
+            clearTimeout(connectTimeout);
             console.log('WebSocket 连接成功，frame:', frame);
             
             if (callbacks.onConnect) {
                 callbacks.onConnect();
             }
         }, (error) => {
+            clearTimeout(connectTimeout);
             console.error('WebSocket 连接失败:', error);
             console.error('错误详情:', error.headers, error.body);
             if (callbacks.onError) {
@@ -49,6 +76,7 @@ function connectWebSocket(token, callbacks = {}) {
             }
         });
     } catch (error) {
+        clearTimeout(connectTimeout);
         console.error('WebSocket 连接异常:', error);
         if (callbacks.onError) {
             callbacks.onError(error);

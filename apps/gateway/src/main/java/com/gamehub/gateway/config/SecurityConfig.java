@@ -41,7 +41,6 @@ public class SecurityConfig {
                 .pathMatchers("/logout").permitAll()
                 .pathMatchers("/game-service/*.html", "/game-service/css/**", 
                               "/game-service/js/**", "/game-service/static/**").permitAll()
-                .pathMatchers("/token").authenticated()
                 .anyExchange().authenticated()
         );
 
