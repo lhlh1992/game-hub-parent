@@ -41,6 +41,10 @@ public class SecurityConfig {
                 .pathMatchers("/logout").permitAll()
                 .pathMatchers("/game-service/*.html", "/game-service/css/**", 
                               "/game-service/js/**", "/game-service/static/**").permitAll()
+                // 放行 system-service 的用户注册接口（不需要认证）
+                .pathMatchers("/system-service/api/users/save").permitAll()
+                // 放行 system-service 的获取 Token 接口（用于测试和开发）
+                .pathMatchers("/system-service/api/auth/token").permitAll()
                 .anyExchange().authenticated()
         );
 

@@ -1,0 +1,99 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: system-service
+  
+  # 数据源配置（PostgreSQL）
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:5432/gamehub_db
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # 连接池配置
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      pool-name: SystemServiceHikariCP
+  
+  # JPA/Hibernate 配置
+  jpa:
+    hibernate:
+      ddl-auto: update  # 开发环境用 update（自动创建/更新表），生产环境用 validate
+    show-sql: true         # 开发时显示 SQL
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+        # 命名策略
+        naming:
+          physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+          implicit-strategy: org.hibernate.boot.model.naming.ImplicitNamingStrategyLegacyJpaImpl
+  
+  # Redis 配置（使用第3个库）
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: zaqxsw
+      database: 3
+      timeout: 2s
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 0
+          max-wait: 5s
+  
+  # OAuth2 Resource Server（JWT 验证）
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Keycloak JWT 验证地址
+          issuer-uri: http://127.0.0.1:8180/realms/my-realm
+  
+  # Jackson JSON 配置
+  jackson:
+    serialization:
+      INDENT_OUTPUT: true
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+
+# Actuator 健康检查配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# Keycloak Admin Client 配置
+keycloak:
+  server-url: http://127.0.0.1:8180
+  realm: my-realm
+  client-id: admin-cli
+  client-secret: 
+  admin-username: admin
+  admin-password: admin
+  # 用于获取 Token 的客户端配置（如果和 admin-cli 不同）
+  token-client-id: game-hub
+  token-client-secret: Lt2kkFyWYjJAEBNd7ZAk3TQTjMkj89iZ
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.gamehub.systemservice: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

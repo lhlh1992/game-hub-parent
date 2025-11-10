@@ -65,3 +65,12 @@ spring:
             - Path=/game-service/**
           filters:
             - StripPrefix=1
+        # system-service 路由：用户管理和RBAC权限系统
+        # 路径：/system-service/** -> 转发到 http://localhost:8082/**
+        # 例如：/system-service/api/users/me -> 转发到 http://localhost:8082/api/users/me
+        - id: system-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/system-service/**
+          filters:
+            - StripPrefix=1
