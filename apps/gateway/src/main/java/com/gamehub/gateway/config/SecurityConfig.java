@@ -50,6 +50,7 @@ public class SecurityConfig {
                                                             ReactiveJwtDecoder jwtDecoder,
                                                             JwtBlacklistService blacklistService,
                                                             ServerOAuth2AuthorizedClientRepository authorizedClientRepository) {
+        // 前后端分离 + 使用 JWT，不需要 CSRF token，直接关闭即可
         http.csrf(csrf -> csrf.disable());
 
         http.authorizeExchange(ex -> ex
@@ -65,8 +66,6 @@ public class SecurityConfig {
 
                 // 放行 事件驱动
                 .pathMatchers("/system-service/internal/keycloak/events/**").permitAll()
-//                // 兼容某些客户端误用或直连后端时的路径（预留）
-//                .pathMatchers("/internal/keycloak/events", "/internal/keycloak/events/**").permitAll()
                 .anyExchange().authenticated()
         );
 
