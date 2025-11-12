@@ -32,49 +32,36 @@ public class KeycloakEventServiceImpl implements KeycloakEventService {
         if (payload == null) {
             return;
         }
+        
+        // 只处理用户注册事件
         if (payload.getEvent() != null) {
-            handleUserEvent(payload.getEvent());
-        } else if (payload.getAdminEvent() != null) {
-            handleAdminEvent(payload.getAdminEvent());
+            KeycloakEventPayload.Event event = payload.getEvent();
+            String type = event.getType();
+            String userId = event.getUserId();
+            
+            // 只处理 REGISTER 事件
+            if ("REGISTER".equalsIgnoreCase(type)) {
+                log.info("处理用户注册事件: userId={}, realmId={}", userId, event.getRealmId());
+                createLocalUser(event);
+            } else {
+                log.debug("忽略非注册事件: type={}, userId={}", type, userId);
+            }
         } else {
-            log.warn("收到未知的 Keycloak 事件负载: {}", payload);
+            log.debug("收到非用户事件，忽略处理");
         }
     }
 
-    private void handleUserEvent(KeycloakEventPayload.Event event) {
-        String type = event.getType();
-        String userId = event.getUserId();
-        log.info("接收 Keycloak 用户事件: type={}, userId={}, realmId={}", type, userId, event.getRealmId());
-
-        if (userId == null || userId.isBlank()) {
+    /**
+     * 创建本地用户（仅用于注册事件）
+     * 优先使用事件 details 中的信息，避免额外调用 Keycloak Admin API
+     */
+    private void createLocalUser(KeycloakEventPayload.Event event) {
+        String keycloakUserId = event.getUserId();
+        if (keycloakUserId == null || keycloakUserId.isBlank()) {
+            log.warn("事件缺少 userId，跳过创建");
             return;
         }
-        // 仅对 REGISTER/UPDATE_PROFILE 类事件进行同步落库
-        if ("REGISTER".equalsIgnoreCase(type) || "UPDATE_PROFILE".equalsIgnoreCase(type)) {
-            upsertLocalUser(userId);
-        }
-    }
 
-    private void handleAdminEvent(KeycloakEventPayload.AdminEvent adminEvent) {
-        String resourceType = adminEvent.getResourceType();
-        String operationType = adminEvent.getOperationType();
-        String resourcePath = adminEvent.getResourcePath();
-        log.info("接收 Keycloak 管理事件: resourceType={}, operationType={}, resourcePath={}",
-                resourceType, operationType, resourcePath);
-
-        // 例如: users/2f4c2a1f-... 提取用户ID
-        if ("USER".equalsIgnoreCase(resourceType) && resourcePath != null && resourcePath.startsWith("users/")) {
-            String userId = resourcePath.substring("users/".length());
-            if ("CREATE".equalsIgnoreCase(operationType) || "UPDATE".equalsIgnoreCase(operationType)) {
-                upsertLocalUser(userId);
-            }
-            if ("DELETE".equalsIgnoreCase(operationType)) {
-                softDeleteLocalUser(userId);
-            }
-        }
-    }
-
-    private void upsertLocalUser(String keycloakUserId) {
         UUID kcUserUuid;
         try {
             kcUserUuid = UUID.fromString(keycloakUserId);
@@ -83,51 +70,65 @@ public class KeycloakEventServiceImpl implements KeycloakEventService {
             return;
         }
 
-        UserRepresentation kcUser = keycloak.realm(realm).users().get(keycloakUserId).toRepresentation();
-        if (kcUser == null) {
-            log.warn("在 Keycloak 未找到用户: {}", keycloakUserId);
+        // 检查是否已存在（幂等性保护）
+        Optional<SysUser> existed = userRepository.findByKeycloakUserIdAndNotDeleted(kcUserUuid);
+        if (existed.isPresent()) {
+            log.info("用户已存在，跳过创建: keycloakUserId={}, localUserId={}", keycloakUserId, existed.get().getId());
             return;
         }
 
-        String username = kcUser.getUsername();
-        String email = kcUser.getEmail();
-        String nickname = kcUser.getFirstName() != null && !kcUser.getFirstName().isBlank()
-                ? kcUser.getFirstName()
-                : username;
-
-        Optional<SysUser> existed = userRepository.findByKeycloakUserIdAndNotDeleted(kcUserUuid);
-        if (existed.isPresent()) {
-            SysUser user = existed.get();
-            user.setUsername(username);
-            user.setEmail(email);
-            user.setNickname(nickname);
-            userRepository.save(user);
-            log.info("更新本地用户成功: {}", user.getId());
-        } else {
-            SysUser user = SysUser.builder()
-                    .keycloakUserId(kcUserUuid)
-                    .username(username)
-                    .email(email)
-                    .nickname(nickname)
-                    .status(Boolean.TRUE.equals(kcUser.isEnabled()) ? 1 : 0)
-                    .build();
-            userRepository.save(user);
-            log.info("创建本地用户成功: {}", user.getId());
+        // 优先使用事件 details 中的信息（vymalo/keycloak-webhook 插件会在 details 中包含用户信息）
+        String username = null;
+        String email = null;
+        String nickname = null;
+        
+        if (event.getDetails() != null) {
+            username = event.getDetails().get("username");
+            email = event.getDetails().get("email");
+            String firstName = event.getDetails().get("first_name");
+            
+            // 昵称直接使用 firstName
+            if (firstName != null && !firstName.isBlank()) {
+                nickname = firstName;
+            }
         }
-    }
 
-    private void softDeleteLocalUser(String keycloakUserId) {
-        try {
-            UUID kcUserUuid = UUID.fromString(keycloakUserId);
-            userRepository.findByKeycloakUserIdAndNotDeleted(kcUserUuid).ifPresent(user -> {
-                user.setStatus(0);
-                user.setDeletedAt(java.time.OffsetDateTime.now());
-                userRepository.save(user);
-                log.info("软删除本地用户成功: {}", user.getId());
-            });
-        } catch (IllegalArgumentException ignored) {
-            log.warn("Keycloak userId 不是有效的 UUID: {}", keycloakUserId);
+        // 如果 details 中没有足够信息，才调用 Keycloak Admin API 获取
+        if (username == null || email == null) {
+            log.debug("事件 details 信息不完整，调用 Keycloak Admin API 获取用户信息");
+            try {
+                UserRepresentation kcUser = keycloak.realm(realm).users().get(keycloakUserId).toRepresentation();
+                if (kcUser != null) {
+                    if (username == null) username = kcUser.getUsername();
+                    if (email == null) email = kcUser.getEmail();
+                    if (nickname == null) {
+                        nickname = kcUser.getFirstName() != null && !kcUser.getFirstName().isBlank()
+                                ? kcUser.getFirstName()
+                                : username;
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("调用 Keycloak Admin API 获取用户信息失败: {}", ex.getMessage());
+            }
         }
+
+        // 如果仍然没有足够信息，记录警告并跳过
+        if (username == null || username.isBlank()) {
+            log.warn("无法获取用户名，跳过创建: keycloakUserId={}", keycloakUserId);
+            return;
+        }
+
+        // 创建本地用户
+        SysUser user = SysUser.builder()
+                .keycloakUserId(kcUserUuid)
+                .username(username)
+                .email(email != null ? email : username)  // email 可以为空，用 username 兜底
+                .nickname(nickname != null ? nickname : username)  // nickname 用 username 兜底
+                .status(1)  // 注册事件默认启用
+                .build();
+        userRepository.save(user);
+        log.info("创建本地用户成功: keycloakUserId={}, localUserId={}, username={}, email={}", 
+                keycloakUserId, user.getId(), username, email);
     }
 }
 

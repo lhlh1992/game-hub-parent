@@ -89,8 +89,9 @@ keycloak:
   # Keycloak 事件回调共享密钥（用于校验来自 Keycloak 的事件 Webhook）
   event-webhook-secret: change-me-please
   # 可选：若插件使用 Basic Auth 方式推送事件，则配置用户名与密码（两者都配置才生效）
-  event-webhook-basic-username: 
-  event-webhook-basic-password: 
+  # 注意：必须与 docker-compose.yml 中的 WEBHOOK_HTTP_AUTH_USERNAME 和 WEBHOOK_HTTP_AUTH_PASSWORD 一致
+  event-webhook-basic-username: admin
+  event-webhook-basic-password: 123456 
 
 # 日志配置
 logging:

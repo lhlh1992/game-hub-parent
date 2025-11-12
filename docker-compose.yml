@@ -126,10 +126,12 @@ services:
       KC_TOKEN_STORE: jpa
       TZ: Asia/Shanghai
       # === Webhook 插件配置 ===
-      WEBHOOK_HTTP_BASE_PATH: http://host.docker.internal:8080/system-service/internal/keycloak/events
-      WEBHOOK_HTTP_EVENTS_INCLUDE: REGISTER,LOGIN,LOGOUT
-      WEBHOOK_HTTP_AUTH_USERNAME: admin
+      WEBHOOK_HTTP_BASE_PATH: "http://host.docker.internal:8080/system-service/internal/keycloak/events"
+      WEBHOOK_HTTP_EVENTS_INCLUDE: "REGISTER"
+      WEBHOOK_HTTP_AUTH_USERNAME: "admin"
       WEBHOOK_HTTP_AUTH_PASSWORD: "123456"
+      # === 日志调试级别 ===
+      KC_LOG_LEVEL: "info,com.vymalo.keycloak.webhook:debug"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
