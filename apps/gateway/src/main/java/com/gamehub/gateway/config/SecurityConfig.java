@@ -45,6 +45,11 @@ public class SecurityConfig {
                 .pathMatchers("/system-service/api/users/save").permitAll()
                 // 放行 system-service 的获取 Token 接口（用于测试和开发）
                 .pathMatchers("/system-service/api/auth/token").permitAll()
+
+                // 放行 事件驱动
+                .pathMatchers("/system-service/internal/keycloak/events/**").permitAll()
+//                // 兼容某些客户端误用或直连后端时的路径（预留）
+//                .pathMatchers("/internal/keycloak/events", "/internal/keycloak/events/**").permitAll()
                 .anyExchange().authenticated()
         );
 

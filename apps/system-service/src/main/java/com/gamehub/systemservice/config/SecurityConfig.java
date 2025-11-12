@@ -33,6 +33,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/save").permitAll()
                         // 获取 Token 接口放行（用于测试和开发）
                         .requestMatchers("/api/auth/token").permitAll()
+                        // Keycloak 事件回调（内部使用，使用共享密钥校验）
+                        .requestMatchers("/internal/keycloak/events/**").permitAll()
                         // 其他请求需要认证
                         .anyRequest().authenticated()
                 )

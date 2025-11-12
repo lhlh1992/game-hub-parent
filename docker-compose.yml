@@ -125,6 +125,13 @@ services:
       # === 其他配置 ===
       KC_TOKEN_STORE: jpa
       TZ: Asia/Shanghai
+      # === Webhook 插件配置 ===
+      WEBHOOK_HTTP_BASE_PATH: http://host.docker.internal:8080/system-service/internal/keycloak/events
+      WEBHOOK_HTTP_EVENTS_INCLUDE: REGISTER,LOGIN,LOGOUT
+      WEBHOOK_HTTP_AUTH_USERNAME: admin
+      WEBHOOK_HTTP_AUTH_PASSWORD: "123456"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8180:8180"
     volumes:
