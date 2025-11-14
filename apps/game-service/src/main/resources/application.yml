@@ -35,6 +35,12 @@ session:
     port: 6379
     database: 2
     password: zaqxsw
+  # Kafka 会话失效事件通知
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    topic: session-invalidated
+    consumer:
+      group-id: game-service-session-group
 
 scheduler:
   clock:

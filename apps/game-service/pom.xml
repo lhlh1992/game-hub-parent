@@ -114,6 +114,12 @@
             <version>1.0.0-SNAPSHOT</version>
         </dependency>
 
+        <!-- 会话失效事件通知（Kafka） -->
+        <dependency>
+            <groupId>com.gamehub</groupId>
+            <artifactId>session-kafka-notifier</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
 
     </dependencies>
 

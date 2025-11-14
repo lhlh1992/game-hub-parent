@@ -74,3 +74,10 @@ spring:
             - Path=/system-service/**
           filters:
             - StripPrefix=1
+
+# session 会话失效事件通知（Kafka）
+# 注意：这个配置必须在 spring 外面，作为顶级配置
+session:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    topic: session-invalidated

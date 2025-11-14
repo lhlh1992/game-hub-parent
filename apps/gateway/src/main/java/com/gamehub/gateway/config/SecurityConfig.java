@@ -1,8 +1,11 @@
 package com.gamehub.gateway.config;
 
 import com.gamehub.gateway.service.JwtBlacklistService;
+import com.gamehub.sessionkafkanotifier.event.SessionInvalidatedEvent;
+import com.gamehub.sessionkafkanotifier.publisher.SessionEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -12,6 +15,7 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.oauth2.client.oidc.web.server.logout.OidcClientInitiatedServerLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.web.server.ServerOAuth2AuthorizedClientRepository;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.authentication.logout.ServerLogoutHandler;
@@ -49,7 +53,8 @@ public class SecurityConfig {
                                                             ReactiveClientRegistrationRepository clientRegistrationRepository,
                                                             ReactiveJwtDecoder jwtDecoder,
                                                             JwtBlacklistService blacklistService,
-                                                            ServerOAuth2AuthorizedClientRepository authorizedClientRepository) {
+                                                            ServerOAuth2AuthorizedClientRepository authorizedClientRepository,
+                                                            @Autowired(required = false) SessionEventPublisher sessionEventPublisher) {
         // 前后端分离 + 使用 JWT，不需要 CSRF token，直接关闭即可
         http.csrf(csrf -> csrf.disable());
 
@@ -79,7 +84,16 @@ public class SecurityConfig {
         http.oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()));
 
         // 登出：使用 OIDC 客户端发起登出，成功后回到网关根路径（由路由再跳大厅）
-        http.logout(l -> l.logoutSuccessHandler(oidcLogoutSuccessHandler(clientRegistrationRepository)));
+        // 添加自定义登出处理器：写入黑名单 + 发布会话失效事件（如果 SessionEventPublisher 可用）
+        http.logout(l -> {
+            // 总是添加登出处理器（负责黑名单），内部会处理 sessionEventPublisher 为 null 的情况
+            l.logoutHandler(jwtBlacklistLogoutHandler(blacklistService, authorizedClientRepository, sessionEventPublisher));
+            l.logoutSuccessHandler(oidcLogoutSuccessHandler(clientRegistrationRepository));
+            // 如果 SessionEventPublisher 不存在，记录警告但不影响登出功能
+            if (sessionEventPublisher == null) {
+                log.warn("SessionEventPublisher Bean 未找到，登出时将不会发布会话失效事件。请检查 Kafka 配置和自动配置是否生效。");
+            }
+        });
 
         return http.build();
     }
@@ -97,20 +111,33 @@ public class SecurityConfig {
     /**
      * 自定义登出处理器：
      * - 读取当前 OAuth2AuthorizedClient，写入黑名单；
+     * - 发布会话失效事件到 Kafka（通知各服务断开 WebSocket 连接）；
      * - 移除授权客户端，避免旧 token 被重复复用。
      */
     @Bean
     public ServerLogoutHandler jwtBlacklistLogoutHandler(JwtBlacklistService blacklistService,
-                                                         ServerOAuth2AuthorizedClientRepository authorizedClientRepository) {
+                                                         ServerOAuth2AuthorizedClientRepository authorizedClientRepository,
+                                                         @Autowired(required = false) SessionEventPublisher sessionEventPublisher) {
         return (WebFilterExchange exchange, Authentication authentication) -> {
             if (authentication == null) {
                 return Mono.empty();
             }
             return authorizedClientRepository
                     .loadAuthorizedClient(REGISTRATION_ID, authentication, exchange.getExchange())
-                    .flatMap(client -> addTokenToBlacklist(client, blacklistService))
+                    .flatMap(client -> {
+                        // 1. 写入黑名单
+                        Mono<Void> blacklistMono = addTokenToBlacklist(client, blacklistService);
+                        
+                        // 2. 发布会话失效事件（从 JWT 中提取用户 ID，如果 SessionEventPublisher 可用）
+                        Mono<Void> publishMono = (sessionEventPublisher != null) 
+                                ? publishSessionInvalidatedEvent(authentication, sessionEventPublisher)
+                                : Mono.empty();
+                        
+                        // 并行执行，不阻塞
+                        return Mono.when(blacklistMono, publishMono);
+                    })
                     .then(authorizedClientRepository.removeAuthorizedClient(REGISTRATION_ID, authentication, exchange.getExchange()))
-                    .doOnError(ex -> log.error("写入黑名单或移除授权客户端失败", ex))
+                    .doOnError(ex -> log.error("登出处理失败", ex))
                     .onErrorResume(ex -> Mono.empty());
         };
     }
@@ -130,6 +157,44 @@ public class SecurityConfig {
         }
         expiresIn = Math.max(expiresIn, 0);
         return blacklistService.addToBlacklist(token, expiresIn);
+    }
+
+    /**
+     * 发布会话失效事件到 Kafka。
+     * 
+     * 从 Authentication 中提取用户 ID（JWT 的 subject），然后发布事件。
+     * 注意：SessionEventPublisher 是同步的，需要在 Mono.fromRunnable 中调用。
+     */
+    private Mono<Void> publishSessionInvalidatedEvent(Authentication authentication, 
+                                                       SessionEventPublisher sessionEventPublisher) {
+        return Mono.fromRunnable(() -> {
+            try {
+                // 从 Authentication 中提取用户 ID
+                // 在 OAuth2 场景下，principal 通常是 JwtAuthenticationToken，其 principal 是 Jwt
+                String userId = null;
+                if (authentication.getPrincipal() instanceof Jwt jwt) {
+                    userId = jwt.getSubject();
+                } else if (authentication.getPrincipal() instanceof org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal principal) {
+                    userId = principal.getName();
+                } else {
+                    userId = authentication.getName();
+                }
+                
+                if (userId != null && !userId.isBlank()) {
+                    sessionEventPublisher.publishSessionInvalidated(
+                            userId, 
+                            SessionInvalidatedEvent.EventType.LOGOUT,
+                            "用户主动登出"
+                    );
+                    log.debug("已发布会话失效事件: userId={}", userId);
+                } else {
+                    log.warn("无法从 Authentication 中提取用户 ID，跳过发布会话失效事件");
+                }
+            } catch (Exception e) {
+                log.error("发布会话失效事件失败", e);
+                // 不抛出异常，避免影响登出流程
+            }
+        });
     }
 }
 
