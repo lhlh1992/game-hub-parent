@@ -15,7 +15,7 @@
         <!-- 目录聚合：apps 负责聚合各应用模块（gateway、game-service 等） -->
         <module>apps</module>
         <!-- 如有通用库，可在 libs 下再建聚合 POM，再在此加入 libs -->
-        <!-- <module>libs</module> -->
+         <module>libs</module>
     </modules>
 
     <!-- ✅ 基础属性 -->
