@@ -5,7 +5,6 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -30,9 +29,11 @@ import java.util.Map;
  *     consumer:
  *       group-id: session-invalidated-group
  * </pre>
+ * 
+ * 注意：
+ * - 条件控制由 {@link SessionKafkaNotifierAutoConfiguration} 统一管理，此处不需要 @ConditionalOnProperty。
  */
 @Configuration
-@ConditionalOnProperty(prefix = "session.kafka", name = "bootstrap-servers")
 public class SessionKafkaConfig {
     
     /**

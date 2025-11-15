@@ -3,7 +3,6 @@ package com.gamehub.session.config;
 import com.gamehub.session.SessionRegistry;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
@@ -15,11 +14,13 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
  * 会话管理专用的 Redis 配置。
  *
  * 说明：
- * - 本配置创建一个独立的 {@link RedisTemplate}，只用于“会话管理”（登录会话 + WebSocket 会话）。
+ * - 本配置创建一个独立的 {@link RedisTemplate}，只用于"会话管理"（登录会话 + WebSocket 会话）。
  * - 这样做可以与业务缓存隔离（独立 database/实例），互不影响。
+ * 
+ * 注意：
+ * - 条件控制由 {@link SessionCommonAutoConfiguration} 统一管理，此处不需要 @ConditionalOnProperty。
  */
 @Configuration
-@ConditionalOnProperty(prefix = "session.redis", name = "host")
 public class SessionRedisConfig {
 
     /**

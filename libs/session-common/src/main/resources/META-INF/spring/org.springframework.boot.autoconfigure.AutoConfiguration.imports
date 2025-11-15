@@ -1,1 +1,1 @@
-com.gamehub.session.config.SessionRedisConfig
+com.gamehub.session.config.SessionCommonAutoConfiguration
