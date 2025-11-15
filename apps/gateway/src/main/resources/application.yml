@@ -75,9 +75,16 @@ spring:
           filters:
             - StripPrefix=1
 
-# session 会话失效事件通知（Kafka）
+# session 会话管理配置
 # 注意：这个配置必须在 spring 外面，作为顶级配置
 session:
+  # Redis 配置（用于会话管理）
+  redis:
+    host: ${SESSION_REDIS_HOST:127.0.0.1}
+    port: ${SESSION_REDIS_PORT:6379}
+    database: ${SESSION_REDIS_DATABASE:1}
+    password: ${SESSION_REDIS_PASSWORD:zaqxsw}
+  # Kafka 会话失效事件通知
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     topic: session-invalidated

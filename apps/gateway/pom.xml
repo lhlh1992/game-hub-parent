@@ -43,11 +43,24 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis-reactive</artifactId>
         </dependency>
+        
+        <!-- Spring Session（用于 HTTP Session 管理） -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+        </dependency>
 
         <!-- 会话失效事件通知（Kafka） -->
         <dependency>
             <groupId>com.gamehub</groupId>
             <artifactId>session-kafka-notifier</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+        
+        <!-- 会话管理（Redis） -->
+        <dependency>
+            <groupId>com.gamehub</groupId>
+            <artifactId>session-common</artifactId>
             <version>1.0.0-SNAPSHOT</version>
         </dependency>
     </dependencies>

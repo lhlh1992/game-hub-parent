@@ -1,5 +1,6 @@
 package com.gamehub.gateway.config;
 
+import com.gamehub.gateway.handler.LoginSessionKickHandler;
 import com.gamehub.gateway.service.JwtBlacklistService;
 import com.gamehub.sessionkafkanotifier.event.SessionInvalidatedEvent;
 import com.gamehub.sessionkafkanotifier.publisher.SessionEventPublisher;
@@ -12,12 +13,14 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
+import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.oauth2.client.oidc.web.server.logout.OidcClientInitiatedServerLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.web.server.ServerOAuth2AuthorizedClientRepository;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.server.authentication.ServerAuthenticationSuccessHandler;
 import org.springframework.security.web.server.authentication.logout.ServerLogoutHandler;
 import org.springframework.security.web.server.authentication.logout.ServerLogoutSuccessHandler;
 import org.springframework.security.web.server.WebFilterExchange;
@@ -54,6 +57,7 @@ public class SecurityConfig {
                                                             ReactiveJwtDecoder jwtDecoder,
                                                             JwtBlacklistService blacklistService,
                                                             ServerOAuth2AuthorizedClientRepository authorizedClientRepository,
+                                                            LoginSessionKickHandler loginSessionKickHandler,
                                                             @Autowired(required = false) SessionEventPublisher sessionEventPublisher) {
         // 前后端分离 + 使用 JWT，不需要 CSRF token，直接关闭即可
         http.csrf(csrf -> csrf.disable());
@@ -63,6 +67,8 @@ public class SecurityConfig {
                 .pathMatchers("/oauth2/**", "/login/**").permitAll()
                 .pathMatchers("/logout").permitAll()
                 .pathMatchers("/token").permitAll()
+                // 步骤0验证端点（验证完成后可以删除或改为需要认证）
+                .pathMatchers("/verify/**").permitAll()
                 .pathMatchers("/game-service/*.html", "/game-service/css/**",
                               "/game-service/js/**", "/game-service/static/**").permitAll()
                 // 放行 system-service 的用户注册接口（不需要认证）
@@ -74,8 +80,8 @@ public class SecurityConfig {
                 .anyExchange().authenticated()
         );
 
-        // 登录：使用默认 OAuth2 客户端登录（存在 SavedRequest 则回原地址，否则回“/”）
-        http.oauth2Login(Customizer.withDefaults());
+        // 登录：使用自定义登录成功处理器（实现单点登录：后连踢前）
+        http.oauth2Login(oauth2 -> oauth2.authenticationSuccessHandler(loginSessionKickHandler));
 
         // OAuth2 Client 能力（TokenRelay 等）
         http.oauth2Client(Customizer.withDefaults());
@@ -97,6 +103,7 @@ public class SecurityConfig {
 
         return http.build();
     }
+
 
     /**
      * OIDC 登出成功后跳回大厅页面。
@@ -162,18 +169,38 @@ public class SecurityConfig {
     /**
      * 发布会话失效事件到 Kafka。
      * 
-     * 从 Authentication 中提取用户 ID（JWT 的 subject），然后发布事件。
+     * 从 Authentication 中提取用户 ID（JWT 的 subject）和 loginSessionId（JWT 的 sid），然后发布事件。
      * 注意：SessionEventPublisher 是同步的，需要在 Mono.fromRunnable 中调用。
      */
     private Mono<Void> publishSessionInvalidatedEvent(Authentication authentication, 
                                                        SessionEventPublisher sessionEventPublisher) {
         return Mono.fromRunnable(() -> {
             try {
-                // 从 Authentication 中提取用户 ID
+                // 从 Authentication 中提取用户 ID 和 loginSessionId
                 // 在 OAuth2 场景下，principal 通常是 JwtAuthenticationToken，其 principal 是 Jwt
                 String userId = null;
+                String loginSessionId = null;
+                
                 if (authentication.getPrincipal() instanceof Jwt jwt) {
                     userId = jwt.getSubject();
+                    // 从 JWT 中提取 loginSessionId（优先使用 sid）
+                    Object sidObj = jwt.getClaim("sid");
+                    if (sidObj != null) {
+                        String sid = sidObj.toString();
+                        if (sid != null && !sid.isBlank()) {
+                            loginSessionId = sid;
+                        }
+                    }
+                    // 如果没有 sid，尝试使用 session_state（向后兼容）
+                    if (loginSessionId == null) {
+                        Object sessionStateObj = jwt.getClaim("session_state");
+                        if (sessionStateObj != null) {
+                            String sessionState = sessionStateObj.toString();
+                            if (sessionState != null && !sessionState.isBlank()) {
+                                loginSessionId = sessionState;
+                            }
+                        }
+                    }
                 } else if (authentication.getPrincipal() instanceof org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal principal) {
                     userId = principal.getName();
                 } else {
@@ -181,12 +208,19 @@ public class SecurityConfig {
                 }
                 
                 if (userId != null && !userId.isBlank()) {
-                    sessionEventPublisher.publishSessionInvalidated(
-                            userId, 
-                            SessionInvalidatedEvent.EventType.LOGOUT,
-                            "用户主动登出"
-                    );
-                    log.debug("已发布会话失效事件: userId={}", userId);
+                    // 如果提取到了 loginSessionId，使用包含 loginSessionId 的工厂方法
+                    SessionInvalidatedEvent event;
+                    if (loginSessionId != null && !loginSessionId.isBlank()) {
+                        event = SessionInvalidatedEvent.of(userId, loginSessionId, 
+                                SessionInvalidatedEvent.EventType.LOGOUT, "用户主动登出");
+                        log.debug("已发布会话失效事件: userId={}, loginSessionId={}", userId, loginSessionId);
+                    } else {
+                        // 如果没有 loginSessionId，使用不包含 loginSessionId 的工厂方法（向后兼容）
+                        event = SessionInvalidatedEvent.of(userId, 
+                                SessionInvalidatedEvent.EventType.LOGOUT, "用户主动登出");
+                        log.debug("已发布会话失效事件（无 loginSessionId）: userId={}", userId);
+                    }
+                    sessionEventPublisher.publishSessionInvalidated(event);
                 } else {
                     log.warn("无法从 Authentication 中提取用户 ID，跳过发布会话失效事件");
                 }

@@ -39,21 +39,37 @@ public class SessionInvalidatedListener implements SessionEventListener {
      * 当收到会话失效事件时（如用户登出），查询该用户在 game-service 中的所有 WebSocket 会话，
      * 发送踢人通知并强制断开连接。
      * 
+     * 重要：支持基于 loginSessionId 的精确查询（如果事件包含 loginSessionId）。
+     * 如果事件只有 userId，则基于 userId 查询（向后兼容）。
+     * 
      * @param event 会话失效事件
      */
     @Override
     public void onSessionInvalidated(SessionInvalidatedEvent event) {
         String userId = event.getUserId();
-        log.info("收到会话失效事件，开始断开用户 WebSocket 连接: userId={}, eventType={}, reason={}", 
-                userId, event.getEventType(), event.getReason());
+        String loginSessionId = event.getLoginSessionId();
+        log.info("收到会话失效事件，开始断开用户 WebSocket 连接: userId={}, loginSessionId={}, eventType={}, reason={}", 
+                userId, loginSessionId, event.getEventType(), event.getReason());
 
-        // 查询该用户在 game-service 中的所有 WebSocket 会话
-        List<WebSocketSessionInfo> wsSessions = sessionRegistry.getWebSocketSessions(userId);
+        List<WebSocketSessionInfo> gameServiceSessions;
         
-        // 过滤出 game-service 的会话
-        List<WebSocketSessionInfo> gameServiceSessions = wsSessions.stream()
-                .filter(session -> "game-service".equals(session.getService()))
-                .toList();
+        // 如果事件包含 loginSessionId，基于 loginSessionId 精确查询
+        if (loginSessionId != null && !loginSessionId.isBlank()) {
+            log.debug("基于 loginSessionId 查询 WebSocket 会话: loginSessionId={}", loginSessionId);
+            List<WebSocketSessionInfo> wsSessions = sessionRegistry.getWebSocketSessionsByLoginSessionId(loginSessionId);
+            // 过滤出 game-service 的会话
+            gameServiceSessions = wsSessions.stream()
+                    .filter(session -> "game-service".equals(session.getService()))
+                    .toList();
+        } else {
+            // 如果事件只有 userId，基于 userId 查询（向后兼容）
+            log.debug("基于 userId 查询 WebSocket 会话（向后兼容）: userId={}", userId);
+            List<WebSocketSessionInfo> wsSessions = sessionRegistry.getWebSocketSessions(userId);
+            // 过滤出 game-service 的会话
+            gameServiceSessions = wsSessions.stream()
+                    .filter(session -> "game-service".equals(session.getService()))
+                    .toList();
+        }
 
         if (CollectionUtils.isEmpty(gameServiceSessions)) {
             log.debug("用户 {} 在 game-service 中无 WebSocket 连接", userId);
