@@ -67,7 +67,7 @@ public class SecurityConfig {
                 .pathMatchers("/oauth2/**", "/login/**").permitAll()
                 .pathMatchers("/logout").permitAll()
                 .pathMatchers("/token").permitAll()
-                // 步骤0验证端点（验证完成后可以删除或改为需要认证）
+                // 验证端点,返回当前登录用户详细JWT信息
                 .pathMatchers("/verify/**").permitAll()
                 .pathMatchers("/game-service/*.html", "/game-service/css/**",
                               "/game-service/js/**", "/game-service/static/**").permitAll()
@@ -213,12 +213,9 @@ public class SecurityConfig {
                     if (loginSessionId != null && !loginSessionId.isBlank()) {
                         event = SessionInvalidatedEvent.of(userId, loginSessionId, 
                                 SessionInvalidatedEvent.EventType.LOGOUT, "用户主动登出");
-                        log.debug("已发布会话失效事件: userId={}, loginSessionId={}", userId, loginSessionId);
                     } else {
-                        // 如果没有 loginSessionId，使用不包含 loginSessionId 的工厂方法（向后兼容）
                         event = SessionInvalidatedEvent.of(userId, 
                                 SessionInvalidatedEvent.EventType.LOGOUT, "用户主动登出");
-                        log.debug("已发布会话失效事件（无 loginSessionId）: userId={}", userId);
                     }
                     sessionEventPublisher.publishSessionInvalidated(event);
                 } else {

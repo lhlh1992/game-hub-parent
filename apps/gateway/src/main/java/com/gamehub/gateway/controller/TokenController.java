@@ -52,11 +52,8 @@ public class TokenController {
 	 */
 	@GetMapping("/token")
 	public Mono<ResponseEntity<Map<String, Object>>> getToken(Authentication authentication, ServerWebExchange exchange) {
-		log.info("【Token获取】🚀 ========== /token 接口被调用 ========== authentication={}", 
-				authentication != null ? authentication.getName() : "null");
-		
 		if (authentication == null || !authentication.isAuthenticated()) {
-			log.warn("【Token获取】❌ 未认证，返回 401");
+			log.warn("Token获取失败：未认证");
 			return Mono.just(ResponseEntity.status(401).body(
 					Map.<String, Object>of("error", "未登录", "message", "请先通过 /oauth2/authorization/keycloak 登录")
 			));
@@ -66,8 +63,6 @@ public class TokenController {
 				.withClientRegistrationId("keycloak")
 				.principal(authentication)
 				.build();
-		
-		log.info("【Token获取】📞 调用 authorizedClientManager.authorize() 获取 token");
 
 		return authorizedClientManager.authorize(authorizeRequest)
 				.flatMap(authorizedClient -> {
@@ -79,78 +74,49 @@ public class TokenController {
 
 					OAuth2AccessToken accessToken = authorizedClient.getAccessToken();
 					String tokenValue = accessToken.getTokenValue();
-
-					// ========== 步骤4修复：检查 token 的 loginSessionId 是否与当前会话匹配 ==========
-					// 如果 token 的 loginSessionId 与 SessionRegistry 中的不匹配，说明 token 已被其他登录覆盖
-					log.info("【Token获取】🔍 开始验证 token: token前10位={}", 
-							tokenValue != null && tokenValue.length() > 10 ? tokenValue.substring(0, 10) : tokenValue);
 					
 					return jwtDecoder.decode(tokenValue)
 							.flatMap(jwt -> {
-								// 从 JWT 中提取 loginSessionId
 								String loginSessionId = extractLoginSessionId(jwt);
 								String jwtJti = jwt.getId();
 								String userId = jwt.getSubject();
 								
-								log.info("【Token获取】📋 JWT 信息提取: userId={}, jti={}, loginSessionId={}", 
-										userId, jwtJti, loginSessionId);
-								
-								// 如果 JWT 中有 loginSessionId，检查会话状态
 								if (loginSessionId != null && !loginSessionId.isBlank()) {
-									// ========== 关键检查：验证 token 的 loginSessionId 是否与当前 HTTP Session 匹配 ==========
 									return exchange.getSession()
 											.flatMap((WebSession session) -> {
 												String sessionLoginSessionId = (String) session.getAttributes().get(SESSION_LOGIN_SESSION_ID_KEY);
 												
-												log.info("【Token获取】🔐 Session 验证: tokenLoginSessionId={}, sessionLoginSessionId={}", 
-														loginSessionId, sessionLoginSessionId);
-												
-												// 如果 Session 中没有 loginSessionId，说明是旧登录（向后兼容），跳过此检查
 												if (sessionLoginSessionId == null || sessionLoginSessionId.isBlank()) {
-													log.warn("【Token获取】⚠️ HTTP Session 中没有 loginSessionId，跳过 Session 验证（向后兼容）: userId={}, jwtJti={}", 
-															userId, jwtJti);
+													log.debug("HTTP Session 中没有 loginSessionId，跳过验证（向后兼容）: userId={}", userId);
 												} else if (!loginSessionId.equals(sessionLoginSessionId)) {
-													// Token 的 loginSessionId 与 Session 中的不匹配，说明 token 已被其他登录覆盖
-													log.error("【Token获取】❌ Token 的 loginSessionId 与 HTTP Session 不匹配，token 已被覆盖！拒绝返回 token: " +
-															"tokenLoginSessionId={}, sessionLoginSessionId={}, userId={}, jwtJti={}", 
-															loginSessionId, sessionLoginSessionId, userId, jwtJti);
+													log.error("Token 的 loginSessionId 与 HTTP Session 不匹配，拒绝返回: userId={}, loginSessionId={}, sessionLoginSessionId={}", 
+															userId, loginSessionId, sessionLoginSessionId);
 													return Mono.just(ResponseEntity.status(401).<Map<String, Object>>body(
 															Map.<String, Object>of("error", "Token 已失效", "message", "请重新登录")
 													));
 												}
 												
-												// Session 验证通过，继续检查 SessionRegistry
 												var sessionInfo = sessionRegistry.getLoginSessionByLoginSessionId(loginSessionId);
 												if (sessionInfo != null) {
-													log.info("【Token获取】📊 查询到会话信息: loginSessionId={}, sessionId={}, status={}", 
-															loginSessionId, sessionInfo.getSessionId(), sessionInfo.getStatus());
-													
-													// 检查会话状态
 													if (sessionInfo.getStatus() != null 
 															&& sessionInfo.getStatus() != com.gamehub.session.model.SessionStatus.ACTIVE) {
-														log.error("【Token获取】❌ 会话状态非 ACTIVE，拒绝返回 token: loginSessionId={}, status={}, userId={}, jwtJti={}", 
-																loginSessionId, sessionInfo.getStatus(), userId, jwtJti);
+														log.error("会话状态非 ACTIVE，拒绝返回 token: userId={}, loginSessionId={}, status={}", 
+																userId, loginSessionId, sessionInfo.getStatus());
 														return Mono.just(ResponseEntity.status(401).<Map<String, Object>>body(
 																Map.<String, Object>of("error", "会话已失效", "message", "请重新登录")
 														));
 													}
 													
-													// 检查 token 的 jti 是否与会话的 sessionId 匹配
 													String sessionJti = sessionInfo.getSessionId();
 													if (!jwtJti.equals(sessionJti)) {
-														log.error("【Token获取】❌ Token 的 jti 与会话的 sessionId 不匹配，token 已被覆盖！拒绝返回 token: " +
-																"jwtJti={}, sessionJti={}, loginSessionId={}, userId={}", 
-																jwtJti, sessionJti, loginSessionId, userId);
+														log.error("Token 的 jti 与会话的 sessionId 不匹配，拒绝返回: userId={}, jwtJti={}, sessionJti={}", 
+																userId, jwtJti, sessionJti);
 														return Mono.just(ResponseEntity.status(401).<Map<String, Object>>body(
 																Map.<String, Object>of("error", "Token 已失效", "message", "请重新登录")
 														));
 													}
-													
-													log.info("【Token获取】✅ Token 验证通过: loginSessionId={}, jti={}, status={}", 
-															loginSessionId, jwtJti, sessionInfo.getStatus());
 												} else {
-													log.warn("【Token获取】⚠️ SessionRegistry 中找不到会话: loginSessionId={}, userId={}, jwtJti={}", 
-															loginSessionId, userId, jwtJti);
+													log.debug("SessionRegistry 中找不到会话: userId={}, loginSessionId={}", userId, loginSessionId);
 												}
 												
 												// 所有验证通过，返回 token
@@ -170,8 +136,7 @@ public class TokenController {
 												return Mono.just(ResponseEntity.ok(result));
 											});
 								} else {
-									log.warn("【Token获取】⚠️ JWT 中没有 loginSessionId，跳过验证（向后兼容）: userId={}, jwtJti={}", 
-											userId, jwtJti);
+									log.debug("JWT 中没有 loginSessionId，跳过验证（向后兼容）: userId={}", userId);
 									
 									// 没有 loginSessionId，直接返回 token（向后兼容）
 									Map<String, Object> result = new HashMap<>();
@@ -191,7 +156,7 @@ public class TokenController {
 								}
 							})
 							.onErrorResume(ex -> {
-								log.error("【Token获取】解析 JWT 失败", ex);
+								log.error("解析 JWT 失败", ex);
 								// 如果解析失败，仍然返回 token（向后兼容）
 								Map<String, Object> result = new HashMap<>();
 								result.put("access_token", tokenValue);
