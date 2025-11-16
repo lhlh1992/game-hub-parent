@@ -10,9 +10,9 @@ import org.springframework.security.oauth2.client.registration.ReactiveClientReg
 import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientService;
 
 /**
- * 配置 Reactive OAuth2 Client 管理器：
- * - 支持 authorization_code 与 refresh_token 流程
- * - 使得在 access_token 过期时可自动使用 refresh_token 静默刷新
+ * OAuth2 Client 配置：支持自动刷新 token
+ * - authorization_code：首次登录流程
+ * - refresh_token：token 过期时自动刷新
  */
 @Configuration
 public class OAuth2ClientConfig {
@@ -25,10 +25,11 @@ public class OAuth2ClientConfig {
 				new AuthorizedClientServiceReactiveOAuth2AuthorizedClientManager(
 						clientRegistrationRepository, authorizedClientService);
 
+		// 配置 Provider：支持授权码流程和刷新 token 流程
 		ReactiveOAuth2AuthorizedClientProvider provider =
 				ReactiveOAuth2AuthorizedClientProviderBuilder.builder()
-						.authorizationCode()
-						.refreshToken()
+						.authorizationCode()  // 首次登录
+						.refreshToken()       // 自动刷新
 						.build();
 		manager.setAuthorizedClientProvider(provider);
 		return manager;

@@ -9,11 +9,9 @@ import com.gamehub.sessionkafkanotifier.publisher.SessionEventPublisher;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.web.server.WebFilterExchange;
 import org.springframework.security.web.server.authentication.ServerAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
@@ -67,7 +65,7 @@ public class LoginSessionKickHandler implements ServerAuthenticationSuccessHandl
 
     @Override
     public Mono<Void> onAuthenticationSuccess(WebFilterExchange exchange, Authentication authentication) {
-        // 1. 获取 OAuth2AuthorizedClient（包含 access_token）
+        // 步骤1：获取 OAuth2AuthorizedClient（包含 access_token）
         OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
                 .withClientRegistrationId(REGISTRATION_ID)
                 .principal(authentication)
@@ -80,11 +78,10 @@ public class LoginSessionKickHandler implements ServerAuthenticationSuccessHandl
                         return defaultSuccessHandler.onAuthenticationSuccess(exchange, authentication);
                     }
 
-                    // 2. 从 access_token 中提取信息
                     OAuth2AccessToken accessToken = authorizedClient.getAccessToken();
                     String tokenValue = accessToken.getTokenValue();
                     
-                    // 3. 解析 JWT，提取所需信息
+                    // 步骤2：解析 JWT，提取 userId、sessionId(jti)、loginSessionId(sid)
                     return extractJwtInfo(tokenValue)
                             .flatMap(jwtInfo -> {
                                 String userId = (String) jwtInfo.get("userId");
@@ -98,10 +95,10 @@ public class LoginSessionKickHandler implements ServerAuthenticationSuccessHandl
                                     return defaultSuccessHandler.onAuthenticationSuccess(exchange, authentication);
                                 }
 
-                                // 4. 构建 LoginSessionInfo
+                                // 步骤3：构建 LoginSessionInfo
                                 LoginSessionInfo newSession = LoginSessionInfo.builder()
                                         .sessionId(sessionId)
-                                        .loginSessionId(loginSessionId) // 可能为 null（向后兼容）
+                                        .loginSessionId(loginSessionId)
                                         .userId(userId)
                                         .token(tokenValue)
                                         .status(SessionStatus.ACTIVE)
@@ -110,20 +107,20 @@ public class LoginSessionKickHandler implements ServerAuthenticationSuccessHandl
                                         .attributes(buildAttributes(exchange.getExchange()))
                                         .build();
 
-                                // 5. 计算 TTL（秒）
+                                // 步骤4：计算 TTL
                                 long ttlSeconds = 0;
                                 if (expiresAt != null) {
                                     ttlSeconds = Duration.between(Instant.now(), expiresAt).getSeconds();
                                     ttlSeconds = Math.max(ttlSeconds, 0);
                                 }
 
-                                // 6. 调用 registerLoginSessionEnforceSingle（会标记旧会话为 KICKED）
+                                // 步骤5：注册新会话，标记旧会话为 KICKED（单点登录核心）
                                 List<LoginSessionInfo> kickedSessions = sessionRegistry.registerLoginSessionEnforceSingle(newSession, ttlSeconds);
                                 
                                 log.info("【单点登录】新登录会话已注册: userId={}, sessionId={}, loginSessionId={}, 踢掉旧会话数={}", 
                                         userId, sessionId, loginSessionId, kickedSessions.size());
 
-                                // 7. 将 loginSessionId 存储到 HTTP Session 中（用于后续验证）
+                                // 步骤6：存储 loginSessionId 到 HTTP Session，黑名单旧 token，发布踢下线事件
                                 return storeLoginSessionIdInSession(exchange.getExchange(), loginSessionId)
                                         .then(blacklistKickedSessions(kickedSessions))
                                         .then(publishKickedEvent(userId, loginSessionId, kickedSessions))

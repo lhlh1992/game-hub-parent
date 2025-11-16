@@ -52,6 +52,7 @@ public class TokenController {
 	 */
 	@GetMapping("/token")
 	public Mono<ResponseEntity<Map<String, Object>>> getToken(Authentication authentication, ServerWebExchange exchange) {
+		// 步骤1：检查认证状态
 		if (authentication == null || !authentication.isAuthenticated()) {
 			log.warn("Token获取失败：未认证");
 			return Mono.just(ResponseEntity.status(401).body(
@@ -59,6 +60,7 @@ public class TokenController {
 			));
 		}
 
+		// 步骤2：获取 OAuth2AuthorizedClient（支持自动刷新 token）
 		OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
 				.withClientRegistrationId("keycloak")
 				.principal(authentication)
@@ -75,6 +77,7 @@ public class TokenController {
 					OAuth2AccessToken accessToken = authorizedClient.getAccessToken();
 					String tokenValue = accessToken.getTokenValue();
 					
+					// 步骤3：解析 JWT，提取 loginSessionId
 					return jwtDecoder.decode(tokenValue)
 							.flatMap(jwt -> {
 								String loginSessionId = extractLoginSessionId(jwt);
@@ -84,6 +87,7 @@ public class TokenController {
 								if (loginSessionId != null && !loginSessionId.isBlank()) {
 									return exchange.getSession()
 											.flatMap((WebSession session) -> {
+												// 步骤4：验证 token 的 loginSessionId 与 HTTP Session 匹配（防止 token 被覆盖）
 												String sessionLoginSessionId = (String) session.getAttributes().get(SESSION_LOGIN_SESSION_ID_KEY);
 												
 												if (sessionLoginSessionId == null || sessionLoginSessionId.isBlank()) {
@@ -96,8 +100,10 @@ public class TokenController {
 													));
 												}
 												
+												// 步骤5：查询 SessionRegistry，验证会话状态和 jti 匹配
 												var sessionInfo = sessionRegistry.getLoginSessionByLoginSessionId(loginSessionId);
 												if (sessionInfo != null) {
+													// 检查会话状态是否为 ACTIVE
 													if (sessionInfo.getStatus() != null 
 															&& sessionInfo.getStatus() != com.gamehub.session.model.SessionStatus.ACTIVE) {
 														log.error("会话状态非 ACTIVE，拒绝返回 token: userId={}, loginSessionId={}, status={}", 
@@ -107,6 +113,7 @@ public class TokenController {
 														));
 													}
 													
+													// 检查 token 的 jti 与会话的 sessionId 是否匹配
 													String sessionJti = sessionInfo.getSessionId();
 													if (!jwtJti.equals(sessionJti)) {
 														log.error("Token 的 jti 与会话的 sessionId 不匹配，拒绝返回: userId={}, jwtJti={}, sessionJti={}", 
@@ -119,7 +126,7 @@ public class TokenController {
 													log.debug("SessionRegistry 中找不到会话: userId={}, loginSessionId={}", userId, loginSessionId);
 												}
 												
-												// 所有验证通过，返回 token
+												// 步骤6：所有验证通过，返回 token
 												Map<String, Object> result = new HashMap<>();
 												result.put("access_token", tokenValue);
 												result.put("token_type", accessToken.getTokenType().getValue());

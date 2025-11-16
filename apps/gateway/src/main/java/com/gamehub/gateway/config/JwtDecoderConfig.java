@@ -34,14 +34,18 @@ public class JwtDecoderConfig {
     @Bean
     public ReactiveJwtDecoder jwtDecoder() {
         ReactiveJwtDecoder delegate = NimbusReactiveJwtDecoder.withIssuerLocation(issuerUri).build();
-        return token -> jwtBlacklistService.isBlacklisted(token)
+        return token -> 
+                // 步骤1：检查黑名单
+                jwtBlacklistService.isBlacklisted(token)
                 .flatMap(blacklisted -> {
                     if (Boolean.TRUE.equals(blacklisted)) {
                         log.warn("JWT 命中黑名单，拒绝访问");
                         return Mono.error(new JwtException("Token has been revoked"));
                     }
+                    // 步骤2：验证签名并解析 JWT
                     return delegate.decode(token)
                             .flatMap(jwt -> {
+                                // 步骤3：检查会话状态
                                 return checkSessionStatus(jwt, token)
                                         .then(Mono.just(jwt));
                             });
@@ -62,6 +66,7 @@ public class JwtDecoderConfig {
      */
     private Mono<Void> checkSessionStatus(Jwt jwt, String token) {
         try {
+            // 提取 loginSessionId（优先使用 sid）
             String loginSessionId = extractLoginSessionId(jwt);
             
             if (loginSessionId == null || loginSessionId.isBlank()) {
@@ -69,6 +74,7 @@ public class JwtDecoderConfig {
                 return Mono.empty();
             }
             
+            // 查询 SessionRegistry
             LoginSessionInfo sessionInfo = sessionRegistry.getLoginSessionByLoginSessionId(loginSessionId);
             
             if (sessionInfo == null) {
@@ -77,6 +83,7 @@ public class JwtDecoderConfig {
                 return Mono.empty();
             }
             
+            // 验证 jti 匹配（防止查询到错误的会话）
             String jwtJti = jwt.getId();
             String sessionJti = sessionInfo.getSessionId();
             
@@ -85,6 +92,7 @@ public class JwtDecoderConfig {
                         jwtJti, sessionJti, loginSessionId, jwt.getSubject());
             }
             
+            // 检查会话状态
             SessionStatus status = sessionInfo.getStatus();
             if (status == null) {
                 status = SessionStatus.ACTIVE;

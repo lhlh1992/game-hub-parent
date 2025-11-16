@@ -80,22 +80,19 @@ public class SecurityConfig {
                 .anyExchange().authenticated()
         );
 
-        // 登录：使用自定义登录成功处理器（实现单点登录：后连踢前）
+        // 登录：使用自定义处理器实现单点登录（后连踢前）
         http.oauth2Login(oauth2 -> oauth2.authenticationSuccessHandler(loginSessionKickHandler));
 
-        // OAuth2 Client 能力（TokenRelay 等）
+        // OAuth2 Client：支持 TokenRelay 等功能
         http.oauth2Client(Customizer.withDefaults());
 
-        // 资源服务器：启用 JWT 校验
+        // 资源服务器：使用自定义 JWT 解码器（含黑名单和会话状态检查）
         http.oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()));
 
-        // 登出：使用 OIDC 客户端发起登出，成功后回到网关根路径（由路由再跳大厅）
-        // 添加自定义登出处理器：写入黑名单 + 发布会话失效事件（如果 SessionEventPublisher 可用）
+        // 登出：写入黑名单 + 发布会话失效事件 + OIDC 登出
         http.logout(l -> {
-            // 总是添加登出处理器（负责黑名单），内部会处理 sessionEventPublisher 为 null 的情况
             l.logoutHandler(jwtBlacklistLogoutHandler(blacklistService, authorizedClientRepository, sessionEventPublisher));
             l.logoutSuccessHandler(oidcLogoutSuccessHandler(clientRegistrationRepository));
-            // 如果 SessionEventPublisher 不存在，记录警告但不影响登出功能
             if (sessionEventPublisher == null) {
                 log.warn("SessionEventPublisher Bean 未找到，登出时将不会发布会话失效事件。请检查 Kafka 配置和自动配置是否生效。");
             }
