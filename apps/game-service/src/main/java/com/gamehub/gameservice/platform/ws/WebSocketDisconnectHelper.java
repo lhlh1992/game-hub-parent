@@ -70,9 +70,11 @@ public class WebSocketDisconnectHelper {
      */
     public void forceDisconnect(String sessionId) {
         try {
+            // 创建 STOMP DISCONNECT 命令（断连命令）
             StompHeaderAccessor header = StompHeaderAccessor.create(StompCommand.DISCONNECT);
             header.setSessionId(sessionId);
             header.setLeaveMutable(true);
+            // 发送断连命令到客户端入站通道，触发框架断开连接
             clientInboundChannel.send(MessageBuilder.createMessage(new byte[0], header.getMessageHeaders()));
         } catch (Exception e) {
             log.warn("强制断开连接失败: sessionId={}", sessionId, e);

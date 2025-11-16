@@ -124,6 +124,7 @@ public class LoginSessionKickHandler implements ServerAuthenticationSuccessHandl
                                 return storeLoginSessionIdInSession(exchange.getExchange(), loginSessionId)
                                         .then(blacklistKickedSessions(kickedSessions))
                                         .then(publishKickedEvent(userId, loginSessionId, kickedSessions))
+                                         // 调用默认成功处理器，重定向到首页
                                         .then(defaultSuccessHandler.onAuthenticationSuccess(exchange, authentication));
                             })
                             .onErrorResume(ex -> {

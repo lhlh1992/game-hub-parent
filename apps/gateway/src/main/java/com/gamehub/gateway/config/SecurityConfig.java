@@ -69,6 +69,7 @@ public class SecurityConfig {
                 .pathMatchers("/token").permitAll()
                 // 验证端点,返回当前登录用户详细JWT信息
                 .pathMatchers("/verify/**").permitAll()
+                //静态资源放行
                 .pathMatchers("/game-service/*.html", "/game-service/css/**",
                               "/game-service/js/**", "/game-service/static/**").permitAll()
                 // 放行 system-service 的用户注册接口（不需要认证）
@@ -83,15 +84,17 @@ public class SecurityConfig {
         // 登录：使用自定义处理器实现单点登录（后连踢前）
         http.oauth2Login(oauth2 -> oauth2.authenticationSuccessHandler(loginSessionKickHandler));
 
-        // OAuth2 Client：支持 TokenRelay 等功能
+        // OAuth2 Client：支持 TokenRelay 等功能,自动将 OAuth2 token 从 Gateway 透传到下游服务
         http.oauth2Client(Customizer.withDefaults());
 
-        // 资源服务器：使用自定义 JWT 解码器（含黑名单和会话状态检查）
+        // 资源服务器：使用自定义 JWT 解码器（Customizer.withDefaults() 会自动使用容器中的 ReactiveJwtDecoder Bean）
         http.oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()));
 
         // 登出：写入黑名单 + 发布会话失效事件 + OIDC 登出
         http.logout(l -> {
+            //登出处理器(token写入黑名单,发布会话失效事件到 Kafka,移除授权客户端)
             l.logoutHandler(jwtBlacklistLogoutHandler(blacklistService, authorizedClientRepository, sessionEventPublisher));
+            //登出成功后处理器
             l.logoutSuccessHandler(oidcLogoutSuccessHandler(clientRegistrationRepository));
             if (sessionEventPublisher == null) {
                 log.warn("SessionEventPublisher Bean 未找到，登出时将不会发布会话失效事件。请检查 Kafka 配置和自动配置是否生效。");
@@ -140,6 +143,7 @@ public class SecurityConfig {
                         // 并行执行，不阻塞
                         return Mono.when(blacklistMono, publishMono);
                     })
+                    //移除存储的 OAuth2 授权信息
                     .then(authorizedClientRepository.removeAuthorizedClient(REGISTRATION_ID, authentication, exchange.getExchange()))
                     .doOnError(ex -> log.error("登出处理失败", ex))
                     .onErrorResume(ex -> Mono.empty());

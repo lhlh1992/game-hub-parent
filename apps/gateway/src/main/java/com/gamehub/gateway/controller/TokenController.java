@@ -49,6 +49,9 @@ public class TokenController {
 	 * 获取当前登录用户的 access_token（自动刷新策略）：
 	 * - 若 access_token 已过期且存在 refresh_token，将静默刷新后返回最新 token
 	 * - 若无法刷新（未登录/无 refresh_token/会话过期），返回 401
+	 * 
+	 * @param authentication 当前登录用户的认证信息（从 Session 中自动获取）
+	 * @param exchange HTTP 请求-响应上下文（用于获取 Session）
 	 */
 	@GetMapping("/token")
 	public Mono<ResponseEntity<Map<String, Object>>> getToken(Authentication authentication, ServerWebExchange exchange) {
@@ -60,12 +63,13 @@ public class TokenController {
 			));
 		}
 
-		// 步骤2：获取 OAuth2AuthorizedClient（支持自动刷新 token）
+		// 构建授权请求，通过 Manager 获取 当前登录用户 token（过期会自动刷新）keycloak：OAuth2客户端
 		OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
 				.withClientRegistrationId("keycloak")
 				.principal(authentication)
 				.build();
 
+		// 执行授权请求，从存储中获取或刷新 token
 		return authorizedClientManager.authorize(authorizeRequest)
 				.flatMap(authorizedClient -> {
 					if (authorizedClient == null || authorizedClient.getAccessToken() == null) {
@@ -133,6 +137,7 @@ public class TokenController {
 												if (accessToken.getExpiresAt() != null) {
 													result.put("expires_at", accessToken.getExpiresAt().toEpochMilli());
 												}
+												// 获取 refresh_token（用于刷新 access_token）
 												OAuth2RefreshToken refreshToken = authorizedClient.getRefreshToken();
 												if (refreshToken != null) {
 													result.put("refresh_token", refreshToken.getTokenValue());

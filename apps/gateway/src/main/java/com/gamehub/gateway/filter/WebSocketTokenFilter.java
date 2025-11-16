@@ -26,7 +26,7 @@ public class WebSocketTokenFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
-        // 如果请求头中已存在 Authorization，直接放行
+        // 如果请求头中已存在 Authorization，直接放行 （避免重复处理,防止覆盖）
         String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authHeader != null && !authHeader.isBlank()) {
             return chain.filter(exchange);
@@ -51,4 +51,5 @@ public class WebSocketTokenFilter implements GlobalFilter, Ordered {
         return Ordered.HIGHEST_PRECEDENCE + 100;
     }
 }
+
 

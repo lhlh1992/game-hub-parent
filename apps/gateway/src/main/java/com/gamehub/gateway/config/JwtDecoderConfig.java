@@ -19,6 +19,7 @@ import reactor.core.publisher.Mono;
  * 网关使用的 JWT 解码器：
  * - 先检查黑名单，再委托默认的 Nimbus 解码器完成验签；
  * - 命中黑名单则直接抛出异常，让 Spring Security 返回 401。
+ * - 会话状态验证
  */
 @Slf4j
 @Configuration
@@ -31,8 +32,15 @@ public class JwtDecoderConfig {
     @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}")
     private String issuerUri;
 
+    /**
+     * 自定义 JWT 解码器：三层校验
+     * 1. 黑名单检查：拒绝已撤销的 token
+     * 2. 签名验证：委托 Nimbus 验证 JWT 签名
+     * 3. 会话状态检查：验证会话状态是否为 ACTIVE
+     */
     @Bean
     public ReactiveJwtDecoder jwtDecoder() {
+        // 创建标准 JWT 解码器（委托对象）：从 Keycloak 获取公钥，用于验证签名和解析 JWT
         ReactiveJwtDecoder delegate = NimbusReactiveJwtDecoder.withIssuerLocation(issuerUri).build();
         return token -> 
                 // 步骤1：检查黑名单
