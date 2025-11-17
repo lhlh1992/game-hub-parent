@@ -64,6 +64,10 @@ public class WebSocketStompConfig implements WebSocketMessageBrokerConfigurer {
         registry.setUserDestinationPrefix("/user");
     }
 
+    /**
+     * 为客户端入站 STOMP 通道添加拦截器。
+     * 用于在 CONNECT / SUBSCRIBE / SEND 时做认证与权限校验。
+     */
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
         registration.interceptors(authInterceptor);

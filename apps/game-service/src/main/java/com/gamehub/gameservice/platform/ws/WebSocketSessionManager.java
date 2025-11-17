@@ -63,7 +63,7 @@ public class WebSocketSessionManager {
                 .loginSessionId(loginSessionId) // 可能为 null（向后兼容）
                 .service("game-service")
                 .build();
-
+        //注册 WebSocket 会话,清理旧ws会话并返回旧ws会话集合
         List<WebSocketSessionInfo> kicked = sessionRegistry.registerWebSocketSessionEnforceSingle(info, 0);
         if (!CollectionUtils.isEmpty(kicked)) {
             log.info("用户 {} WebSocket 单点登录，新连接 {} 踢掉旧连接 {} 个, loginSessionId={}", 
