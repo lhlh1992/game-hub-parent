@@ -2,10 +2,12 @@
 
 会话失效事件通知库：基于 Kafka 实现跨服务的会话失效事件广播，支持手动提交 offset。
 
+> 说明：本库只负责“如何通过 Kafka 发送/消费事件”，**会话领域事件本身（`SessionInvalidatedEvent`）定义在 `session-common` 中**，与 Kafka 解耦。
+
 ## 核心功能
 
-- **事件发布**：通过 `SessionEventPublisher` 发布会话失效事件到 Kafka
-- **事件消费**：自动监听 Kafka 消息，调用所有注册的 `SessionEventListener` 实现
+- **事件发布**：通过 `SessionEventPublisher` 发布 `com.gamehub.session.event.SessionInvalidatedEvent` 到 Kafka
+- **事件消费**：自动监听 Kafka 消息，解析为领域事件并调用所有注册的 `SessionEventListener` 实现
 - **手动提交**：使用手动提交 offset，确保消息处理成功后才提交
 - **自动配置**：通过 Spring Boot AutoConfiguration 自动启用（需配置 `session.kafka.bootstrap-servers`）
 

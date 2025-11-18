@@ -1,6 +1,6 @@
 # Session Common
 
-统一会话管理库：同时管理 JWT 登录会话与 WebSocket/WebFlux 长连接，可用于后台查看在线用户、强制下线等场景。
+统一会话管理库：同时管理 JWT 登录会话与 WebSocket/WebFlux 长连接，并提供跨服务共享的“会话领域模型”（如 `SessionInvalidatedEvent`），可用于后台查看在线用户、强制下线等场景。
 
 ## 核心思想
 
@@ -34,6 +34,7 @@
 
 - 登录会话管理：记录 / 查询 / 清理用户的 JWT / Token
 - WebSocket 会话管理：记录 / 查询 / 清理长连接
+- 会话领域事件：提供跨服务共享的 `SessionInvalidatedEvent`，用于表达“用户会话失效”这一领域含义（与 Kafka 等传输方式解耦）
 - 聚合视图：获取用户所有会话快照，统计在线数量
 - 会话清理能力：提供批量清理登录 / WebSocket 会话的 API，供业务层实现强制下线（如写黑名单、断开 WS）
 - Redis 持久化：独立 Redis 库，多服务协同
