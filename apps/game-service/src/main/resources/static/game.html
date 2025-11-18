@@ -163,8 +163,13 @@
             const usernameEl = $('username');
             const userInfoEl = $('userInfo');
             
-            if (info && info.username) {
-                usernameEl.textContent = info.username;
+            const nickname = info && typeof info.nickname === 'string' && info.nickname.trim()
+                ? info.nickname.trim()
+                : null;
+            const displayName = nickname || (info && info.username) || null;
+
+            if (displayName) {
+                usernameEl.textContent = displayName;
                 userInfoEl.style.display = 'flex';
             }
         }

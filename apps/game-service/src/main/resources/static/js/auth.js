@@ -330,6 +330,49 @@ async function getUserInfo() {
     const token = getToken();
     if (!token) return null;
 
+    // 优先从 system-service 获取完整资料（含昵称/头像等）
+    const profile = await fetchSystemUserProfile(token);
+    if (profile) {
+        return profile;
+    }
+
+    // 兜底：从 game-service 的 /me 接口读取 JWT 基础信息
+    return await fetchGatewayUserProfile(token);
+}
+
+async function fetchSystemUserProfile(token) {
+    try {
+        const res = await fetch('/system-service/api/users/me', {
+            headers: {
+                'Authorization': 'Bearer ' + token
+            }
+        });
+
+        if (res.status === 401) {
+            handleAuthExpiredResponse(res, '/system-service/api/users/me 返回 401');
+            return null;
+        }
+
+        if (!res.ok) {
+            console.warn('获取系统用户信息失败: HTTP', res.status);
+            return null;
+        }
+
+        const body = await res.json();
+        const data = body?.data || body;
+        if (data) {
+            if (!data.nickname && data.username) {
+                data.nickname = data.username;
+            }
+            return data;
+        }
+    } catch (error) {
+        console.warn('获取系统用户信息异常:', error);
+    }
+    return null;
+}
+
+async function fetchGatewayUserProfile(token) {
     try {
         const res = await fetch('/game-service/me', {
             headers: {
@@ -338,17 +381,24 @@ async function getUserInfo() {
         });
 
         if (res.status === 401) {
-            handleAuthExpiredResponse(res, '/game-service/me 返回 401 (getUserInfo)');
+            handleAuthExpiredResponse(res, '/game-service/me 返回 401 (fallback)');
             return null;
         }
 
-        if (res.ok) {
-            return await res.json();
+        if (!res.ok) {
+            console.warn('获取基础用户信息失败: HTTP', res.status);
+            return null;
         }
-    } catch (e) {
-        handleFetchFailure(e, '获取用户信息失败');
+
+        const profile = await res.json();
+        if (profile && !profile.nickname && profile.username) {
+            profile.nickname = profile.username;
+        }
+        return profile;
+    } catch (error) {
+        console.warn('获取基础用户信息异常:', error);
+        return null;
     }
-    return null;
 }
 
 
