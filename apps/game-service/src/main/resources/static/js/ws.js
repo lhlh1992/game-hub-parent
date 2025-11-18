@@ -7,6 +7,23 @@ let socket = null;
 let subscriptions = new Map();
 
 /**
+ * 判断 WebSocket 错误是否为 401/未授权
+ */
+function isUnauthorizedWebSocketError(error) {
+    if (!error) {
+        return false;
+    }
+    const headers = error.headers || {};
+    const headerMessage = String(headers.message || headers['message'] || '').toLowerCase();
+    const body = String(error.body || '').toLowerCase();
+    const message = String(error.message || '').toLowerCase();
+
+    return headerMessage.includes('401') || headerMessage.includes('unauthorized')
+        || body.includes('401') || body.includes('unauthorized')
+        || message.includes('401') || message.includes('unauthorized');
+}
+
+/**
  * 连接 WebSocket
  * @param {string} token - 认证 token
  * @param {Object} callbacks - 回调函数对象
@@ -24,7 +41,7 @@ function connectWebSocket(token, callbacks = {}) {
         }
         return;
     }
-    
+
     // 如果已有连接尝试，先断开
     if (socket) {
         try {
@@ -33,22 +50,22 @@ function connectWebSocket(token, callbacks = {}) {
             // ignore
         }
     }
-    
+
     console.log('创建 SockJS 连接: /game-service/ws');
     // 通过 URL 参数传递 token（SockJS 握手请求无法在请求头中传递自定义 header）
     // WebSocketTokenFilter 会将 URL 参数中的 token 提取到请求头中
     const wsUrl = token ? `/game-service/ws?access_token=${encodeURIComponent(token)}` : '/game-service/ws';
     socket = new SockJS(wsUrl);
     stomp = Stomp.over(socket);
-    
+
     // 设置调试模式（可选，生产环境可关闭）
-    stomp.debug = function(str) {
+    stomp.debug = function (str) {
         console.log('STOMP:', str);
     };
-    
+
     const headers = token ? { Authorization: 'Bearer ' + token } : {};
     console.log('WebSocket 连接 headers:', headers);
-    
+
     // 设置连接超时（10秒）
     const connectTimeout = setTimeout(() => {
         if (!stomp.connected) {
@@ -58,12 +75,12 @@ function connectWebSocket(token, callbacks = {}) {
             }
         }
     }, 10000);
-    
+
     try {
         stomp.connect(headers, (frame) => {
             clearTimeout(connectTimeout);
             console.log('WebSocket 连接成功，frame:', frame);
-            
+
             if (callbacks.onConnect) {
                 callbacks.onConnect();
             }
@@ -71,6 +88,13 @@ function connectWebSocket(token, callbacks = {}) {
             clearTimeout(connectTimeout);
             console.error('WebSocket 连接失败:', error);
             console.error('错误详情:', error.headers, error.body);
+
+            // 如果是 401 / 未授权，直接自动登出（和手工“退出”一致）
+            if (typeof performSessionLogout === 'function' && isUnauthorizedWebSocketError(error)) {
+                performSessionLogout('WebSocket 连接返回 401/未授权');
+                return;
+            }
+
             if (callbacks.onError) {
                 callbacks.onError(error);
             }
@@ -94,12 +118,12 @@ function subscribeRoom(roomId, onEvent) {
         console.warn('WebSocket 未连接');
         return;
     }
-    
+
     const topic = `/topic/room.${roomId}`;
     if (subscriptions.has(topic)) {
         subscriptions.get(topic).unsubscribe();
     }
-    
+
     const sub = stomp.subscribe(topic, (frame) => {
         try {
             const evt = JSON.parse(frame.body);
@@ -108,7 +132,7 @@ function subscribeRoom(roomId, onEvent) {
             console.error('解析事件失败:', e);
         }
     });
-    
+
     subscriptions.set(topic, sub);
 }
 
@@ -121,12 +145,12 @@ function subscribeSeatKey(onSeatKey) {
         console.warn('WebSocket 未连接');
         return;
     }
-    
+
     const topic = '/user/queue/gomoku.seat';
     if (subscriptions.has(topic)) {
         subscriptions.get(topic).unsubscribe();
     }
-    
+
     const sub = stomp.subscribe(topic, (frame) => {
         try {
             const payload = JSON.parse(frame.body);
@@ -137,7 +161,7 @@ function subscribeSeatKey(onSeatKey) {
             console.error('解析 seatKey 失败:', e);
         }
     });
-    
+
     subscriptions.set(topic, sub);
 }
 
@@ -150,12 +174,12 @@ function subscribeFullSync(onFullSync) {
         console.warn('WebSocket 未连接');
         return;
     }
-    
+
     const topic = '/user/queue/gomoku.full';
     if (subscriptions.has(topic)) {
         subscriptions.get(topic).unsubscribe();
     }
-    
+
     const sub = stomp.subscribe(topic, (frame) => {
         try {
             const snap = JSON.parse(frame.body);
@@ -164,7 +188,7 @@ function subscribeFullSync(onFullSync) {
             console.error('解析完整同步失败:', e);
         }
     });
-    
+
     subscriptions.set(topic, sub);
 }
 
@@ -178,7 +202,7 @@ function sendResume(roomId, seatKey = null) {
         console.warn('WebSocket 未连接');
         return;
     }
-    
+
     stomp.send('/app/gomoku.resume', {}, JSON.stringify({ roomId, seatKey }));
 }
 
@@ -195,7 +219,7 @@ function sendPlace(roomId, x, y, side, seatKey = null) {
         console.warn('WebSocket 未连接');
         return;
     }
-    
+
     const cmd = { roomId, x, y, side, seatKey };
     stomp.send('/app/gomoku.place', {}, JSON.stringify(cmd));
 }
@@ -210,7 +234,7 @@ function sendResign(roomId, seatKey = null) {
         console.warn('WebSocket 未连接');
         return;
     }
-    
+
     stomp.send('/app/gomoku.resign', {}, JSON.stringify({ roomId, seatKey }));
 }
 
@@ -224,7 +248,7 @@ function sendRestart(roomId, seatKey = null) {
         console.warn('WebSocket 未连接');
         return;
     }
-    
+
     stomp.send('/app/gomoku.restart', {}, JSON.stringify({ roomId, seatKey }));
 }
 
@@ -234,15 +258,15 @@ function sendRestart(roomId, seatKey = null) {
 function disconnectWebSocket() {
     subscriptions.forEach(sub => sub.unsubscribe());
     subscriptions.clear();
-    
+
     if (stomp && stomp.connected) {
         stomp.disconnect();
     }
-    
+
     if (socket) {
         socket.close();
     }
-    
+
     stomp = null;
     socket = null;
 }
@@ -254,4 +278,6 @@ function disconnectWebSocket() {
 function isConnected() {
     return stomp !== null && stomp.connected;
 }
+
+
 

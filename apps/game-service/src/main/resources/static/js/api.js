@@ -27,15 +27,19 @@ async function createRoom(token, mode = 'PVE', aiPiece = 'O', rule = 'STANDARD')
         });
     };
 
-    // 2) 第一次尝试
-    let res = await doFetch(freshToken);
+    // 2) 发起请求
+    let res;
+    try {
+        res = await doFetch(freshToken);
+    } catch (error) {
+        handleFetchFailure(error, '创建房间请求异常');
+        throw error;
+    }
 
-    // 3) 如果 401，说明 token 失效，立即再向网关取一次并重试一次
+    // 401：会话失效 → 自动登出
     if (res.status === 401) {
-        const retryToken = await getTokenFromGateway();
-        if (retryToken) {
-            res = await doFetch(retryToken);
-        }
+        handleAuthExpiredResponse(res, '创建房间接口返回 401');
+        throw new Error('创建房间失败：会话已失效');
     }
 
     if (!res.ok) {
@@ -52,16 +56,29 @@ async function createRoom(token, mode = 'PVE', aiPiece = 'O', rule = 'STANDARD')
  * @returns {Promise<Object>} 用户信息
  */
 async function getMe(token) {
-    const res = await fetch('/game-service/me', {
+    let res;
+    try {
+        res = await fetch('/game-service/me', {
         headers: {
             'Authorization': 'Bearer ' + token
         }
     });
-    
+    } catch (error) {
+        handleFetchFailure(error, 'GET /game-service/me 请求异常 (getMe)');
+        throw error;
+    }
+
+    if (res.status === 401) {
+        handleAuthExpiredResponse(res, 'GET /game-service/me 返回 401 (getMe)');
+        throw new Error('获取用户信息失败：会话已失效');
+    }
+
     if (!res.ok) {
         throw new Error(`获取用户信息失败 (HTTP ${res.status})`);
     }
-    
+
     return await res.json();
 }
+
+
 
