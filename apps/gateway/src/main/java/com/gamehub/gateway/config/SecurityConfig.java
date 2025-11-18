@@ -257,6 +257,7 @@ public class SecurityConfig {
                                                    JwtBlacklistService blacklistService,
                                                    ReactiveJwtDecoder jwtDecoder,
                                                    SessionEventPublisher sessionEventPublisher) {
+        logAuthFailure(exchange);
         return invalidateSession(exchange)
                 .then(blacklistCurrentToken(exchange, blacklistService, jwtDecoder, sessionEventPublisher))
                 .onErrorResume(ex -> {
@@ -276,6 +277,7 @@ public class SecurityConfig {
                                              SessionEventPublisher sessionEventPublisher) {
         String authorization = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authorization == null || !authorization.startsWith("Bearer ")) {
+            log.debug("认证失败但未携带 Authorization 头，path={}", exchange.getRequest().getPath());
             return Mono.empty();
         }
         String token = authorization.substring("Bearer ".length());
@@ -289,6 +291,9 @@ public class SecurityConfig {
                     Mono<Void> blacklistMono = blacklistService.addToBlacklist(token, ttlSeconds);
                     Mono<Void> publishMono = publishSessionInvalidatedEvent(jwt, sessionEventPublisher,
                             SessionInvalidatedEvent.EventType.LOGOUT, "Token失效自动登出");
+                    log.info("Token 写入黑名单: userId={}, loginSessionId={}, path={}, ttl={}s",
+                            jwt.getSubject(), extractLoginSessionId(jwt),
+                            exchange.getRequest().getPath(), ttlSeconds);
                     return Mono.when(blacklistMono, publishMono);
                 })
                 .onErrorResume(ex -> {
@@ -410,6 +415,18 @@ public class SecurityConfig {
                     log.debug("清理 WebSession 时出现异常，忽略继续流程", ex);
                     return Mono.empty();
                 });
+    }
+
+    private void logAuthFailure(ServerWebExchange exchange) {
+        try {
+            log.warn("检测到 401/403，准备清理并重定向: method={}, path={}, query={}, requestId={}",
+                    exchange.getRequest().getMethod(),
+                    exchange.getRequest().getPath().pathWithinApplication().value(),
+                    exchange.getRequest().getURI().getQuery(),
+                    exchange.getRequest().getId());
+        } catch (Exception ex) {
+            log.warn("记录认证失败日志时异常", ex);
+        }
     }
 }
 
