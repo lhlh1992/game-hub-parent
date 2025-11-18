@@ -63,6 +63,13 @@
             <artifactId>session-common</artifactId>
             <version>1.0.0-SNAPSHOT</version>
         </dependency>
+
+        <!-- Keycloak Admin Client（用于注销 SSO 会话） -->
+        <dependency>
+            <groupId>org.keycloak</groupId>
+            <artifactId>keycloak-admin-client</artifactId>
+            <version>25.0.1</version>
+        </dependency>
     </dependencies>
 
     <build>

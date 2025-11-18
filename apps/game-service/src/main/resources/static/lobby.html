@@ -97,9 +97,7 @@
                 bindEvents();
             } catch (error) {
                 console.error('初始化失败:', error);
-                console.error('错误详情:', error.message, error.stack);
-                const errorMsg = error.message || '未知错误';
-                alert(`登录失败: ${errorMsg}\n\n请检查：\n1. Keycloak 是否运行\n2. Keycloak 客户端配置是否正确\n3. 浏览器控制台查看详细错误`);
+                handleFetchFailure(error, '大厅初始化失败');
             }
         });
         

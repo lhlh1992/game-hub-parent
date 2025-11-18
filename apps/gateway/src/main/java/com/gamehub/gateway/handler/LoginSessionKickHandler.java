@@ -1,6 +1,7 @@
 package com.gamehub.gateway.handler;
 
 import com.gamehub.gateway.service.JwtBlacklistService;
+import com.gamehub.gateway.service.KeycloakSsoLogoutService;
 import com.gamehub.session.SessionRegistry;
 import com.gamehub.session.model.LoginSessionInfo;
 import com.gamehub.session.model.SessionStatus;
@@ -49,16 +50,19 @@ public class LoginSessionKickHandler implements ServerAuthenticationSuccessHandl
     private final JwtBlacklistService blacklistService;
     private final ServerAuthenticationSuccessHandler defaultSuccessHandler;
     private final SessionEventPublisher sessionEventPublisher;
+    private final KeycloakSsoLogoutService keycloakSsoLogoutService;
 
     public LoginSessionKickHandler(
             ReactiveOAuth2AuthorizedClientManager authorizedClientManager,
             SessionRegistry sessionRegistry,
             JwtBlacklistService blacklistService,
-            @Autowired(required = false) SessionEventPublisher sessionEventPublisher) {
+            @Autowired(required = false) SessionEventPublisher sessionEventPublisher,
+            KeycloakSsoLogoutService keycloakSsoLogoutService) {
         this.authorizedClientManager = authorizedClientManager;
         this.sessionRegistry = sessionRegistry;
         this.blacklistService = blacklistService;
         this.sessionEventPublisher = sessionEventPublisher;
+        this.keycloakSsoLogoutService = keycloakSsoLogoutService;
         // 使用默认的成功处理器（用于重定向）
         this.defaultSuccessHandler = new org.springframework.security.web.server.authentication.RedirectServerAuthenticationSuccessHandler("/");
     }
@@ -242,19 +246,22 @@ public class LoginSessionKickHandler implements ServerAuthenticationSuccessHandl
     /**
      * 发布 SESSION_KICKED 事件（可选）。
      */
+    /**
+     * 向下游发布被踢事件，并同步注销 Keycloak SSO 中的对应会话。
+     */
     private Mono<Void> publishKickedEvent(String userId, String loginSessionId, List<LoginSessionInfo> kickedSessions) {
-        if (sessionEventPublisher == null || kickedSessions.isEmpty()) {
+        if (kickedSessions.isEmpty()) {
             return Mono.empty();
         }
 
         return Mono.fromRunnable(() -> {
-            try {
-                // 发布事件：通知各服务断开被踢掉的会话的 WebSocket 连接
-                // 注意：这里发布的是被踢掉的旧会话的 loginSessionId
-                for (LoginSessionInfo kickedSession : kickedSessions) {
-                    String kickedLoginSessionId = kickedSession.getLoginSessionId();
-                    if (kickedLoginSessionId != null && !kickedLoginSessionId.isBlank()) {
-                        // 使用 SessionInvalidatedEvent.of() 创建事件对象，然后发布
+            for (LoginSessionInfo kickedSession : kickedSessions) {
+                String kickedLoginSessionId = kickedSession.getLoginSessionId();
+                if (kickedLoginSessionId == null || kickedLoginSessionId.isBlank()) {
+                    continue;
+                }
+                try {
+                    if (sessionEventPublisher != null) {
                         SessionInvalidatedEvent event = SessionInvalidatedEvent.of(
                                 userId,
                                 kickedLoginSessionId,
@@ -262,13 +269,20 @@ public class LoginSessionKickHandler implements ServerAuthenticationSuccessHandl
                                 "单点登录：被新登录踢下线"
                         );
                         sessionEventPublisher.publishSessionInvalidated(event);
-                        log.debug("已发布 SESSION_KICKED 事件: userId={}, loginSessionId={}", 
+                        log.debug("已发布 SESSION_KICKED 事件: userId={}, loginSessionId={}",
                                 userId, kickedLoginSessionId);
                     }
+                } catch (Exception e) {
+                    log.error("发布 SESSION_KICKED 事件失败: userId={}, loginSessionId={}",
+                            userId, kickedLoginSessionId, e);
+                } finally {
+                    try {
+                        keycloakSsoLogoutService.logout(userId, kickedLoginSessionId);
+                    } catch (Exception ex) {
+                        log.warn("Keycloak SSO 注销失败: userId={}, loginSessionId={}",
+                                userId, kickedLoginSessionId, ex);
+                    }
                 }
-            } catch (Exception e) {
-                log.error("发布 SESSION_KICKED 事件失败", e);
-                // 不抛出异常，避免影响登录流程
             }
         });
     }

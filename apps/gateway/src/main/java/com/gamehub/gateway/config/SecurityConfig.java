@@ -2,6 +2,7 @@ package com.gamehub.gateway.config;
 
 import com.gamehub.gateway.handler.LoginSessionKickHandler;
 import com.gamehub.gateway.service.JwtBlacklistService;
+import com.gamehub.gateway.service.KeycloakSsoLogoutService;
 import com.gamehub.session.event.SessionInvalidatedEvent;
 import com.gamehub.sessionkafkanotifier.publisher.SessionEventPublisher;
 import org.slf4j.Logger;
@@ -49,6 +50,15 @@ public class SecurityConfig {
     private static final String REGISTRATION_ID = "keycloak";
     private static final URI LOGIN_REDIRECT_URI = URI.create("/oauth2/authorization/" + REGISTRATION_ID);
     private static final String REDIRECT_HEADER = "X-Auth-Redirect-To";
+
+    /**
+     * 用于在本地会话失效时同步告知 Keycloak 注销 SSO。
+     */
+    private final KeycloakSsoLogoutService keycloakSsoLogoutService;
+
+    public SecurityConfig(KeycloakSsoLogoutService keycloakSsoLogoutService) {
+        this.keycloakSsoLogoutService = keycloakSsoLogoutService;
+    }
  
 
     /**
@@ -192,58 +202,39 @@ public class SecurityConfig {
      * 从 Authentication 中提取用户 ID（JWT 的 subject）和 loginSessionId（JWT 的 sid），然后发布事件。
      * 注意：SessionEventPublisher 是同步的，需要在 Mono.fromRunnable 中调用。
      */
-    private Mono<Void> publishSessionInvalidatedEvent(Authentication authentication, 
-                                                       SessionEventPublisher sessionEventPublisher) {
+    private Mono<Void> publishSessionInvalidatedEvent(Authentication authentication,
+                                                      SessionEventPublisher sessionEventPublisher) {
         return Mono.fromRunnable(() -> {
             try {
-                // 从 Authentication 中提取用户 ID 和 loginSessionId
-                // 在 OAuth2 场景下，principal 通常是 JwtAuthenticationToken，其 principal 是 Jwt
                 String userId = null;
                 String loginSessionId = null;
-                
+
                 if (authentication.getPrincipal() instanceof Jwt jwt) {
                     userId = jwt.getSubject();
-                    // 从 JWT 中提取 loginSessionId（优先使用 sid）
-                    Object sidObj = jwt.getClaim("sid");
-                    if (sidObj != null) {
-                        String sid = sidObj.toString();
-                        if (sid != null && !sid.isBlank()) {
-                            loginSessionId = sid;
-                        }
-                    }
-                    // 如果没有 sid，尝试使用 session_state（向后兼容）
-                    if (loginSessionId == null) {
-                        Object sessionStateObj = jwt.getClaim("session_state");
-                        if (sessionStateObj != null) {
-                            String sessionState = sessionStateObj.toString();
-                            if (sessionState != null && !sessionState.isBlank()) {
-                                loginSessionId = sessionState;
-                            }
-                        }
-                    }
+                    loginSessionId = extractLoginSessionId(jwt);
                 } else if (authentication.getPrincipal() instanceof org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal principal) {
                     userId = principal.getName();
                 } else {
                     userId = authentication.getName();
                 }
-                
+
                 if (userId != null && !userId.isBlank()) {
-                    // 如果提取到了 loginSessionId，使用包含 loginSessionId 的工厂方法
-                    SessionInvalidatedEvent event;
-                    if (loginSessionId != null && !loginSessionId.isBlank()) {
-                        event = SessionInvalidatedEvent.of(userId, loginSessionId, 
-                                SessionInvalidatedEvent.EventType.LOGOUT, "用户主动登出");
-                    } else {
-                        event = SessionInvalidatedEvent.of(userId, 
-                                SessionInvalidatedEvent.EventType.LOGOUT, "用户主动登出");
+                    SessionInvalidatedEvent event = (loginSessionId != null && !loginSessionId.isBlank())
+                            ? SessionInvalidatedEvent.of(userId, loginSessionId,
+                            SessionInvalidatedEvent.EventType.LOGOUT, "用户主动登出")
+                            : SessionInvalidatedEvent.of(userId,
+                            SessionInvalidatedEvent.EventType.LOGOUT, "用户主动登出");
+
+                    if (sessionEventPublisher != null) {
+                        sessionEventPublisher.publishSessionInvalidated(event);
                     }
-                    sessionEventPublisher.publishSessionInvalidated(event);
+                    // 无论事件是否发布成功，都强制 Keycloak 端的 SSO 会话失效
+                    keycloakSsoLogoutService.logout(userId, loginSessionId);
                 } else {
                     log.warn("无法从 Authentication 中提取用户 ID，跳过发布会话失效事件");
                 }
             } catch (Exception e) {
                 log.error("发布会话失效事件失败", e);
-                // 不抛出异常，避免影响登出流程
             }
         });
     }
@@ -310,7 +301,7 @@ public class SecurityConfig {
                                                       SessionEventPublisher sessionEventPublisher,
                                                       SessionInvalidatedEvent.EventType eventType,
                                                       String reason) {
-        if (sessionEventPublisher == null || jwt == null) {
+        if (jwt == null) {
             return Mono.empty();
         }
         return Mono.fromRunnable(() -> {
@@ -321,13 +312,15 @@ public class SecurityConfig {
                     return;
                 }
                 String loginSessionId = extractLoginSessionId(jwt);
-                SessionInvalidatedEvent event;
-                if (loginSessionId != null && !loginSessionId.isBlank()) {
-                    event = SessionInvalidatedEvent.of(userId, loginSessionId, eventType, reason);
-                } else {
-                    event = SessionInvalidatedEvent.of(userId, eventType, reason);
+                SessionInvalidatedEvent event = (loginSessionId != null && !loginSessionId.isBlank())
+                        ? SessionInvalidatedEvent.of(userId, loginSessionId, eventType, reason)
+                        : SessionInvalidatedEvent.of(userId, eventType, reason);
+
+                if (sessionEventPublisher != null) {
+                    sessionEventPublisher.publishSessionInvalidated(event);
                 }
-                sessionEventPublisher.publishSessionInvalidated(event);
+                // 401/403 场景同样同步注销 Keycloak SSO，防止静默登录
+                keycloakSsoLogoutService.logout(userId, loginSessionId);
             } catch (Exception e) {
                 log.error("认证失败时发布会话失效事件异常", e);
             }

@@ -88,3 +88,14 @@ session:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     topic: session-invalidated
+
+keycloak:
+  admin:
+    # Keycloak Admin API 配置：用于在 token 失效后同步注销 Keycloak SSO 会话
+    server-url: ${KEYCLOAK_SERVER_URL:http://127.0.0.1:8180}
+    realm: ${KEYCLOAK_REALM:my-realm}
+    auth-realm: ${KEYCLOAK_AUTH_REALM:master}
+    client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:admin-cli}
+    client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:}
+    username: ${KEYCLOAK_ADMIN_USERNAME:admin}
+    password: ${KEYCLOAK_ADMIN_PASSWORD:admin}

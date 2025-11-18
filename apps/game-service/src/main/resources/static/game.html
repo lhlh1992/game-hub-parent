@@ -152,7 +152,7 @@
                 bindEvents();
             } catch (error) {
                 console.error('初始化失败:', error);
-                alert('初始化失败，请刷新页面重试');
+                handleFetchFailure(error, '游戏页面初始化失败');
             }
         });
         
