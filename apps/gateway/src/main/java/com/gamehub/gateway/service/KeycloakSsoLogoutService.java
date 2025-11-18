@@ -33,15 +33,19 @@ public class KeycloakSsoLogoutService {
             return;
         }
         try {
+            // 拿到当前配置 realm 的管理接口入口，用它调用 admin API（例如用户登出）
             RealmResource realmResource = keycloak.realm(properties.getRealm());
 
-            // TODO：如果要精确按 loginSessionId 注销，可在此调用 admin REST:
-            // DELETE /admin/realms/{realm}/sessions/{id}
-            // 目前为了简单可靠，直接调用用户 logout（会注销该用户在该 realm 下的所有会话）
-            realmResource.users().get(userId).logout();
-
-            log.info("已执行 Keycloak SSO 注销: realm={}, userId={}, loginSessionId={}",
-                    properties.getRealm(), userId, loginSessionId);
+            if (StringUtils.hasText(loginSessionId)) {
+                // 精确注销在线 SSO 会话（isOffline=false 表示只踢浏览器/在线会话）
+                realmResource.deleteSession(loginSessionId, false);
+                log.info("已精确注销 Keycloak SSO 会话: realm={}, userId={}, loginSessionId={}",
+                        properties.getRealm(), userId, loginSessionId);
+            } else {
+                // 兜底：如果拿不到 loginSessionId，只能注销该用户的全部会话
+                realmResource.users().get(userId).logout();
+                log.info("已兜底注销 Keycloak 用户所有会话: realm={}, userId={}", properties.getRealm(), userId);
+            }
         } catch (Exception ex) {
             log.error("Keycloak SSO 注销失败: realm={}, userId={}, loginSessionId={}",
                     properties.getRealm(), userId, loginSessionId, ex);

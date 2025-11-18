@@ -244,9 +244,6 @@ public class LoginSessionKickHandler implements ServerAuthenticationSuccessHandl
     }
 
     /**
-     * 发布 SESSION_KICKED 事件（可选）。
-     */
-    /**
      * 向下游发布被踢事件，并同步注销 Keycloak SSO 中的对应会话。
      */
     private Mono<Void> publishKickedEvent(String userId, String loginSessionId, List<LoginSessionInfo> kickedSessions) {

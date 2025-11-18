@@ -47,13 +47,14 @@ import java.time.Instant;
 public class SecurityConfig {
 
     private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
+    // Spring Security 中注册的 Keycloak client id
     private static final String REGISTRATION_ID = "keycloak";
+    // 统一的登录入口，HTML/AJAX 都会重定向到这里
     private static final URI LOGIN_REDIRECT_URI = URI.create("/oauth2/authorization/" + REGISTRATION_ID);
+    // AJAX 场景通过该响应头告知前端需要跳转的地址
     private static final String REDIRECT_HEADER = "X-Auth-Redirect-To";
 
-    /**
-     * 用于在本地会话失效时同步告知 Keycloak 注销 SSO。
-     */
+    // 用于在本地会话失效时同步告知 Keycloak 注销 SSO
     private final KeycloakSsoLogoutService keycloakSsoLogoutService;
 
     public SecurityConfig(KeycloakSsoLogoutService keycloakSsoLogoutService) {
@@ -112,10 +113,12 @@ public class SecurityConfig {
         // 资源服务器：使用自定义 JWT 解码器（Customizer.withDefaults() 会自动使用容器中的 ReactiveJwtDecoder Bean）
         http.oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()));
 
-        // 认证或鉴权失败时，统一按“登出”逻辑清理并重定向到登录入口
-        // 拦截所有 401/403 异常，清除会话、拉黑 token、发布事件，然后根据请求类型返回 303 或 401
+
+        // 两者都复用 handleAuthenticationFailure → 清理会话、拉黑 token、通知下游
         http.exceptionHandling(handler -> handler
+                // authenticationEntryPoint：未登录访问受保护资源的入口（401）
                 .authenticationEntryPoint((exchange, ex) -> handleAuthenticationFailure(exchange, blacklistService, jwtDecoder, sessionEventPublisher))
+                // accessDeniedHandler：已登录但无权限时的处理（403）
                 .accessDeniedHandler((exchange, denied) -> handleAuthenticationFailure(exchange, blacklistService, jwtDecoder, sessionEventPublisher))
         );
 
@@ -247,6 +250,7 @@ public class SecurityConfig {
                                                    JwtBlacklistService blacklistService,
                                                    ReactiveJwtDecoder jwtDecoder,
                                                    SessionEventPublisher sessionEventPublisher) {
+        //暂时的日志打印处理
         logAuthFailure(exchange);
         return invalidateSession(exchange)
                 .then(blacklistCurrentToken(exchange, blacklistService, jwtDecoder, sessionEventPublisher))
