@@ -1,6 +1,6 @@
 package com.gamehub.sessionkafkanotifier.listener;
 
-import com.gamehub.sessionkafkanotifier.event.SessionInvalidatedEvent;
+import com.gamehub.session.event.SessionInvalidatedEvent;
 
 /**
  * 会话事件监听器接口。

@@ -2,7 +2,7 @@ package com.gamehub.gateway.config;
 
 import com.gamehub.gateway.handler.LoginSessionKickHandler;
 import com.gamehub.gateway.service.JwtBlacklistService;
-import com.gamehub.sessionkafkanotifier.event.SessionInvalidatedEvent;
+import com.gamehub.session.event.SessionInvalidatedEvent;
 import com.gamehub.sessionkafkanotifier.publisher.SessionEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +17,6 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
-import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.security.oauth2.client.oidc.web.server.logout.OidcClientInitiatedServerLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.web.server.ServerOAuth2AuthorizedClientRepository;

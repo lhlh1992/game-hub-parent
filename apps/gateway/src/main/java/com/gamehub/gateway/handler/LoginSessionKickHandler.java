@@ -4,7 +4,7 @@ import com.gamehub.gateway.service.JwtBlacklistService;
 import com.gamehub.session.SessionRegistry;
 import com.gamehub.session.model.LoginSessionInfo;
 import com.gamehub.session.model.SessionStatus;
-import com.gamehub.sessionkafkanotifier.event.SessionInvalidatedEvent;
+import com.gamehub.session.event.SessionInvalidatedEvent;
 import com.gamehub.sessionkafkanotifier.publisher.SessionEventPublisher;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

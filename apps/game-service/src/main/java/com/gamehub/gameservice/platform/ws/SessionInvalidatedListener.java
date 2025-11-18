@@ -1,8 +1,8 @@
 package com.gamehub.gameservice.platform.ws;
 
 import com.gamehub.session.SessionRegistry;
+import com.gamehub.session.event.SessionInvalidatedEvent;
 import com.gamehub.session.model.WebSocketSessionInfo;
-import com.gamehub.sessionkafkanotifier.event.SessionInvalidatedEvent;
 import com.gamehub.sessionkafkanotifier.listener.SessionEventListener;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

@@ -31,6 +31,13 @@
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
         </dependency>
+
+        <!-- 会话领域模型（包含 SessionInvalidatedEvent 等） -->
+        <dependency>
+            <groupId>com.gamehub</groupId>
+            <artifactId>session-common</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
         
         <!-- JSON 处理（事件序列化） -->
         <dependency>
