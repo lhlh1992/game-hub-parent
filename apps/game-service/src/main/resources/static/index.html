@@ -14,25 +14,44 @@
     <main class="gh-main-inner">
                     <div class="home-layout">
                         <div class="hero-column">
-                <!-- Hero 卡片 -->
-                <div class="hero-card">
-                    <div class="hero-left">
-                        <div class="hero-logo" aria-hidden="true">
-                            <img src="/game-service/images/game-logo.png" alt="GameHub Joker logo">
-                            <span class="hero-logo-caption">LET'S PLAY!</span>
-                        </div>
-                        <div class="hero-text">
-                            <h1>欢迎来到 GameHub</h1>
-                            <p>与好友一起享受游戏的乐趣</p>
-                        </div>
+                <!-- Hero 轮播 -->
+                <div class="hero-card hero-slider" data-slider>
+                    <button class="slider-nav prev" type="button" aria-label="上一张" data-slider-prev>‹</button>
+                    <button class="slider-nav next" type="button" aria-label="下一张" data-slider-next>›</button>
+                    <div class="slider-track" data-slider-track>
+                        <article class="slider-slide is-active" data-slide-index="0">
+                            <div class="slide-content">
+                                <p class="slide-eyebrow">限时活动</p>
+                                <h2>巷道狂奔 · 城市夜跑挑战</h2>
+                                <p>加入极速跑酷测试，体验霓虹都市中的闪避与冲刺。</p>
+                            </div>
+                            <div class="slide-visual">
+                                <img src="/game-service/images/games/alley-runner.png" alt="巷道狂奔宣传图">
+                            </div>
+                        </article>
+                        <article class="slider-slide" data-slide-index="1">
+                            <div class="slide-content">
+                                <p class="slide-eyebrow">热门推荐</p>
+                                <h2>五子棋 · 全球同服排位赛</h2>
+                                <p>实时匹配，智能复盘，挑战更高段位。</p>
+                            </div>
+                            <div class="slide-visual">
+                                <img src="/game-service/images/games/gomoku-banner.png" alt="五子棋宣传图">
+                            </div>
+                        </article>
+                        <article class="slider-slide is-empty" data-slide-index="2">
+                            <div class="slide-content">
+                                <p class="slide-eyebrow">更多内容</p>
+                                <h2>下一波活动准备中</h2>
+                                <p>这里可以放置新的活动或宣传图，敬请期待。</p>
+                            </div>
+                            <div class="slide-visual placeholder" aria-hidden="true"></div>
+                        </article>
                     </div>
-                    <div class="hero-right">
-                        <button class="cta" id="btnQuickStart">一键开始</button>
-                        <div class="hero-dots">
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                        </div>
+                    <div class="slider-dots" data-slider-dots>
+                        <button class="slider-dot is-active" type="button" aria-label="切换到第 1 张" data-slider-dot="0"></button>
+                        <button class="slider-dot" type="button" aria-label="切换到第 2 张" data-slider-dot="1"></button>
+                        <button class="slider-dot" type="button" aria-label="切换到第 3 张" data-slider-dot="2"></button>
                     </div>
                 </div>
                 
@@ -236,19 +255,65 @@
         'use strict';
         
         document.addEventListener('DOMContentLoaded', async () => {
-            // 一键开始按钮
-            const btnQuickStart = document.getElementById('btnQuickStart');
-            if (btnQuickStart) {
-                btnQuickStart.addEventListener('click', () => {
-                    window.location.href = '/game-service/lobby.html';
+            // Hero 轮播
+            const slider = document.querySelector('[data-slider]');
+            if (slider) {
+                const track = slider.querySelector('[data-slider-track]');
+                const slides = Array.from(track.querySelectorAll('.slider-slide'));
+                const prevBtn = slider.querySelector('[data-slider-prev]');
+                const nextBtn = slider.querySelector('[data-slider-next]');
+                const dots = Array.from(slider.querySelectorAll('[data-slider-dot]'));
+                let activeIndex = 0;
+                let autoTimer;
+
+                const goToSlide = (index) => {
+                    if (!slides.length) {
+                        return;
+                    }
+                    activeIndex = (index + slides.length) % slides.length;
+                    track.style.transform = `translateX(-${activeIndex * 100}%)`;
+                    slides.forEach((slide, idx) => slide.classList.toggle('is-active', idx === activeIndex));
+                    dots.forEach((dot, idx) => dot.classList.toggle('is-active', idx === activeIndex));
+                };
+
+                const nextSlide = () => goToSlide(activeIndex + 1);
+                const prevSlide = () => goToSlide(activeIndex - 1);
+
+                const startAutoPlay = () => {
+                    stopAutoPlay();
+                    autoTimer = setInterval(nextSlide, 6000);
+                };
+
+                const stopAutoPlay = () => {
+                    if (autoTimer) {
+                        clearInterval(autoTimer);
+                        autoTimer = null;
+                    }
+                };
+
+                if (prevBtn) prevBtn.addEventListener('click', prevSlide);
+                if (nextBtn) nextBtn.addEventListener('click', nextSlide);
+                dots.forEach((dot) => {
+                    dot.addEventListener('click', () => {
+                        const target = Number(dot.dataset.sliderDot);
+                        if (!Number.isNaN(target)) {
+                            goToSlide(target);
+                        }
+                    });
                 });
+
+                slider.addEventListener('mouseenter', stopAutoPlay);
+                slider.addEventListener('mouseleave', startAutoPlay);
+
+                goToSlide(0);
+                startAutoPlay();
             }
             
             // 创建房间按钮（五子棋卡片）
             const btnCreateRoom = document.getElementById('btnCreateRoom');
             if (btnCreateRoom) {
                 btnCreateRoom.addEventListener('click', () => {
-                    window.location.href = '/game-service/lobby.html';
+        window.location.href = '/game-service/lobby.html';
                 });
             }
             
