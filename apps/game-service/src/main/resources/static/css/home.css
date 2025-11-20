@@ -245,35 +245,30 @@ body.home::after {
     z-index: 2;
 }
 
-.board-icon {
-    width: 180px;
-    height: 150px;
-    border-radius: var(--radius-small);
-    background: rgba(255, 255, 255, 0.25);
-    backdrop-filter: blur(10px);
-    border: 2px solid rgba(255, 255, 255, 0.4);
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    padding: 18px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+.hero-logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
 }
 
-.board-icon .stone {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+.hero-logo img {
+    width: 152px;
+    height: 152px;
+    border-radius: 36px;
+    border: 6px solid rgba(16, 24, 40, 0.8);
+    background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 50%, #F472B6 100%);
+    box-shadow: 0 30px 60px rgba(255, 107, 107, 0.35), 0 12px 20px rgba(17, 24, 39, 0.25);
+    object-fit: cover;
 }
 
-.stone.black { 
-    background: #1a1a1a;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-}
-
-.stone.white { 
-    background: #fff;
-    border: 2px solid rgba(0, 0, 0, 0.1);
+.hero-logo-caption {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 1.2px;
+    color: #fff;
+    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
 }
 
 .hero-text {
