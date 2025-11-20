@@ -45,6 +45,30 @@
     padding: 0;
 }
 
+/* ============================================
+   【重要】首页样式隔离 - 避免顶部空白和滚动条问题
+   ============================================
+   问题原因：
+   1. common.css 的 body 样式（padding: 120px）会影响首页
+   2. html/body 的 height: 100% 会限制高度导致滚动条
+   3. header 容器可能有默认 margin/padding
+   
+   解决方案：
+   - 使用 :not(.home) 排除首页，避免样式冲突
+   - 首页使用 height: auto 而不是固定高度
+   - 强制重置 header 容器的 margin/padding
+   ============================================ */
+html.home,
+html.home body {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+html.home body > [data-component="global-header"] {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
 html, body {
     height: 100%;
     margin: 0;
@@ -52,20 +76,44 @@ html, body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 }
 
-body {
+/* 【重要】首页的 html 不需要固定高度，避免滚动条
+   原因：height: 100% 会限制高度，导致内容超出时出现滚动条
+   解决：使用 height: auto 让内容自然撑开，overflow-y: auto 只在需要时显示滚动条 */
+html.home {
+    height: auto !important;
+    min-height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+html.home body {
+    height: auto !important;
+    min-height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* 普通页面的 body 样式 - 使用 :not(.home) 排除首页，避免影响首页布局 */
+body:not(.home) {
     background: linear-gradient(135deg, var(--gh-bg-start) 0%, var(--gh-bg-end) 50%, #FFF8F0 100%);
     color: var(--gh-text);
     display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 32px 16px;
+    flex-direction: column;
+    align-items: center;
+    padding: 120px 16px 32px;
     position: relative;
     overflow-x: hidden;
     min-height: 100vh;
 }
 
-/* 温暖的背景装饰 - 浮动气泡 - 与 Keycloak 主题完全一致 */
-body::before {
+/* 首页不使用 common.css 的背景装饰 */
+body.home::before,
+body.home::after {
+    display: none !important;
+}
+
+/* 温暖的背景装饰 - 浮动气泡 - 与 Keycloak 主题完全一致 - 排除首页 */
+body:not(.home)::before {
     content: '';
     position: fixed;
     top: -50%;
@@ -88,8 +136,8 @@ body::before {
     66% { transform: translate(-30px, 30px) rotate(240deg); }
 }
 
-/* 网格背景 - 与 Keycloak 主题完全一致 */
-body::after {
+/* 网格背景 - 与 Keycloak 主题完全一致 - 排除首页 */
+body:not(.home)::after {
     content: '';
     position: fixed;
     top: 0;

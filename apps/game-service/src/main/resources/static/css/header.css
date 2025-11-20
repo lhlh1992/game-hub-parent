@@ -1,0 +1,253 @@
+/* ============================================
+   统一设计变量 - 与登录页风格统一
+   ============================================ */
+:root {
+    --gh-primary: #FF6B6B;
+    --gh-primary-light: #FF8E53;
+    --gh-primary-dark: #FF5252;
+    --gh-secondary: #A78BFA;
+    --gh-secondary-light: #C4B5FD;
+    --gh-accent: #F472B6;
+    --gh-text: #2D3748;
+    --gh-text-muted: #718096;
+    --gh-bg-white: #ffffff;
+    --gh-card-border: rgba(255, 107, 107, 0.2);
+    --radius-button: 16px;
+    --radius-small: 12px;
+    --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-normal: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    --shadow-card: 0 25px 80px rgba(255, 107, 107, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.8) inset, 0 8px 32px rgba(255, 107, 107, 0.1);
+    --shadow-button: 0 6px 20px rgba(255, 107, 107, 0.4), 0 0 0 0 rgba(255, 107, 107, 0.5);
+}
+
+/* ============================================
+   顶部导航栏 - 游戏平台风格
+   ============================================ */
+.gh-header {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(18px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    padding: 6px 0;
+}
+
+.gh-header-inner {
+    width: 100%;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 320px) 1fr minmax(0, 320px);
+    align-items: center;
+    padding: 16px 32px;
+    box-sizing: border-box;
+    gap: 24px;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 20px;
+    color: var(--gh-text);
+    letter-spacing: -0.4px;
+    padding: 4px 8px;
+    border-radius: 10px;
+    transition: all var(--transition-normal);
+    justify-self: start;
+}
+
+.logo:hover {
+    background: rgba(255, 107, 107, 0.08);
+    transform: scale(1.02);
+    text-shadow: 0 0 12px rgba(230, 0, 18, 0.6), 0 0 18px rgba(230, 0, 18, 0.4);
+}
+
+.logo-square {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-small);
+    background: linear-gradient(135deg, var(--gh-primary), var(--gh-primary-light), var(--gh-accent));
+    background-size: 200% 200%;
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+    animation: buttonGradient 4s ease infinite;
+}
+
+@keyframes buttonGradient {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+.gh-nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    justify-self: center;
+}
+
+.gh-nav a {
+    padding: 10px 28px;
+    text-decoration: none;
+    color: var(--gh-text-muted);
+    font-weight: 600;
+    font-size: 16px;
+    border-radius: 999px;
+    transition: all var(--transition-fast);
+    position: relative;
+}
+
+.gh-nav a:hover {
+    color: var(--gh-primary);
+    background: rgba(255, 107, 107, 0.08);
+}
+
+.gh-nav a.active {
+    color: #fff;
+    background: linear-gradient(135deg, var(--gh-primary), var(--gh-primary-light));
+    box-shadow: 0 10px 24px rgba(255, 107, 107, 0.25);
+    animation: buttonGradient 4s ease infinite;
+}
+
+.header-tools {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 16px;
+    justify-self: end;
+}
+
+.bell {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    background-color: var(--bg-white);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.bell img {
+    width: 18px;
+    height: 18px;
+}
+
+.bell:hover {
+    transform: scale(1.08);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    border-color: rgba(0, 0, 0, 0.15);
+}
+
+.bell:active {
+    transform: scale(0.95);
+}
+
+.avatar-pill {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 8px 16px;
+    border-radius: 28px;
+    border: 2px solid var(--gh-card-border);
+    box-shadow: 0 2px 8px rgba(255, 107, 107, 0.08);
+    transition: all var(--transition-normal);
+    position: relative;
+    cursor: pointer;
+}
+
+.avatar-pill:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.12);
+    border-color: rgba(255, 107, 107, 0.3);
+    background: rgba(255, 255, 255, 1);
+}
+
+/* Hover 时显示更多信息 */
+.avatar-pill:hover::after {
+    content: '👤';
+    position: absolute;
+    right: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    background: var(--primary-red);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    box-shadow: 0 2px 8px rgba(230, 0, 18, 0.3);
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: translateY(-50%) scale(1); }
+    50% { transform: translateY(-50%) scale(1.1); }
+}
+
+.avatar-pill .avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background-color: var(--gh-secondary);
+    background-size: cover;
+    background-position: center;
+    background-image: url('/game-service/images/avatar-default.png');
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 2px 8px rgba(167, 139, 250, 0.2);
+}
+
+.link-btn {
+    border: none;
+    background: none;
+    color: var(--gh-text-muted);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all var(--transition-normal);
+}
+
+.link-btn:hover {
+    color: var(--gh-primary);
+    background: rgba(255, 107, 107, 0.1);
+}
+
+/* 【重要】header 容器样式 - 确保无多余间距
+   原因：避免容器本身的 margin/padding 导致顶部空白 */
+[data-component="global-header"] {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    display: block;
+}
+
+@media (max-width: 960px) {
+    .gh-header-inner {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .gh-nav {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .gh-nav a {
+        font-size: 14px;
+        padding: 8px 16px;
+    }
+}

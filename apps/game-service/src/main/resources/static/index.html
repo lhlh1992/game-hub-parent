@@ -1,16 +1,272 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="home">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>五子棋游戏</title>
-    <meta http-equiv="refresh" content="0;url=/game-service/lobby.html">
+    <title>GameHub - 游戏大厅</title>
+    <link rel="stylesheet" href="/game-service/css/common.css">
+    <link rel="stylesheet" href="/game-service/css/header.css">
+    <link rel="stylesheet" href="/game-service/css/home.css">
 </head>
-<body>
-    <p>正在跳转到游戏大厅...</p>
+<body class="home">
+    <div data-component="global-header" data-active="home"></div>
+    
+    <main class="gh-main-inner">
+                    <div class="home-layout">
+                        <div class="hero-column">
+                <!-- Hero 卡片 -->
+                <div class="hero-card">
+                    <div class="hero-left">
+                        <div class="board-icon">
+                            <div class="stone black"></div>
+                            <div class="stone white"></div>
+                            <div class="stone black"></div>
+                            <div class="stone white"></div>
+                            <div class="stone white"></div>
+                            <div class="stone black"></div>
+                            <div class="stone white"></div>
+                            <div class="stone black"></div>
+                            <div class="stone black"></div>
+                            <div class="stone white"></div>
+                            <div class="stone black"></div>
+                            <div class="stone white"></div>
+                            <div class="stone white"></div>
+                            <div class="stone black"></div>
+                            <div class="stone white"></div>
+                            <div class="stone black"></div>
+                        </div>
+                        <div class="hero-text">
+                            <h1>欢迎来到 GameHub</h1>
+                            <p>与好友一起享受游戏的乐趣</p>
+                        </div>
+                    </div>
+                    <div class="hero-right">
+                        <button class="cta" id="btnQuickStart">一键开始</button>
+                        <div class="hero-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 游戏列表区域 -->
+                <section class="game-sections">
+                    <div class="game-section">
+                        <div class="section-header">
+                            <div>
+                                <p class="section-eyebrow">Top Games</p>
+                                <h3>热门游戏</h3>
+                            </div>
+                            <button class="section-link">查看全部</button>
+                        </div>
+                        <div class="game-row">
+                            <article class="game-card card-gomoku is-hot">
+                                <div class="game-thumb">
+                                    <span class="badge hot">HOT</span>
+                                    <img src="/game-service/images/games/gomoku-logo.png" alt="五子棋 Logo">
+                                </div>
+                                <div class="game-details">
+                                    <div class="game-text">
+                                        <h4>五子棋</h4>
+                                        <p>支持 PVP / PVE、AI 复盘</p>
+                                    </div>
+                                    <div class="game-actions">
+                                        <button class="play-btn" id="btnCreateRoom">开始</button>
+                                        <button class="icon-btn" aria-label="收藏">♡</button>
+                                    </div>
+                                </div>
+                            </article>
+                            <article class="game-card card-hoppers">
+                                <div class="game-thumb gradient-pink">
+                                    <span class="badge weekly">WEEKLY</span>
+                                    <span class="thumb-text">跳棋</span>
+                                </div>
+                                <div class="game-details">
+                                    <div class="game-text">
+                                        <h4>跳棋</h4>
+                                        <p>经典策略，休闲对战</p>
+                                    </div>
+                                    <div class="game-actions">
+                                        <button class="play-outline">敬请期待</button>
+                                    </div>
+                                </div>
+                            </article>
+                            <article class="game-card card-mines">
+                                <div class="game-thumb gradient-lilac">
+                                    <span class="badge new">NEW</span>
+                                    <span class="thumb-text">扫雷</span>
+                                </div>
+                                <div class="game-details">
+                                    <div class="game-text">
+                                        <h4>扫雷</h4>
+                                        <p>益智解谜，挑战极限</p>
+                                    </div>
+                                    <div class="game-actions">
+                                        <button class="play-outline">敬请期待</button>
+                                    </div>
+                                </div>
+                            </article>
+                            <article class="game-card card-uno">
+                                <div class="game-thumb gradient-orange">
+                                    <span class="badge club">CLUB</span>
+                                    <span class="thumb-text">UNO</span>
+                                </div>
+                                <div class="game-details">
+                                    <div class="game-text">
+                                        <h4>UNO</h4>
+                                        <p>多人卡牌，欢乐无限</p>
+                                    </div>
+                                    <div class="game-actions">
+                                        <button class="play-outline">敬请期待</button>
+                                    </div>
+                                </div>
+                            </article>
+                        </div>
+                    </div>
+
+                    <div class="game-section">
+                        <div class="section-header">
+                            <div>
+                                <p class="section-eyebrow">New Games</p>
+                                <h3>新游戏</h3>
+                            </div>
+                            <button class="section-link">查看全部</button>
+                        </div>
+                        <div class="game-row">
+                            <article class="game-card card-merge">
+                                <div class="game-thumb gradient-green">
+                                    <span class="badge daily">DAILY</span>
+                                    <span class="thumb-text">合成猫猫</span>
+                                </div>
+                                <div class="game-details">
+                                    <div class="game-text">
+                                        <h4>合成猫猫</h4>
+                                        <p>三消 + 养成，放松治愈</p>
+                                    </div>
+                                    <div class="game-actions">
+                                        <button class="play-btn">试玩</button>
+                                        <button class="icon-btn" aria-label="收藏">♡</button>
+                                    </div>
+                                </div>
+                            </article>
+                            <article class="game-card card-garden">
+                                <div class="game-thumb gradient-emerald">
+                                    <span class="badge hot">HOT</span>
+                                    <span class="thumb-text">花园消除</span>
+                                </div>
+                                <div class="game-details">
+                                    <div class="game-text">
+                                        <h4>花园消除</h4>
+                                        <p>连线拼图，打造梦想花园</p>
+                                    </div>
+                                    <div class="game-actions">
+                                        <button class="play-btn">试玩</button>
+                                        <button class="icon-btn" aria-label="收藏">♡</button>
+                                    </div>
+                                </div>
+                            </article>
+                            <article class="game-card card-bingo">
+                                <div class="game-thumb gradient-candy">
+                                    <span class="badge monthly">本月精选</span>
+                                    <span class="thumb-text">幸运宾果</span>
+                                </div>
+                                <div class="game-details">
+                                    <div class="game-text">
+                                        <h4>幸运宾果</h4>
+                                        <p>多人竞速，刺激加倍</p>
+                                    </div>
+                                    <div class="game-actions">
+                                        <button class="play-outline">敬请期待</button>
+                                    </div>
+                                </div>
+                            </article>
+                        </div>
+                    </div>
+
+                    <div class="game-section">
+                        <div class="section-header">
+                            <div>
+                                <p class="section-eyebrow">Strategy & Board</p>
+                                <h3>策略 / 棋牌</h3>
+                            </div>
+                            <button class="section-link">更多分类</button>
+                        </div>
+                        <div class="game-row">
+                            <article class="game-card card-chess">
+                                <div class="game-thumb gradient-sunset">
+                                    <span class="thumb-text">中国象棋</span>
+                                </div>
+                                <div class="game-details">
+                                    <div class="game-text">
+                                        <h4>中国象棋</h4>
+                                        <p>残局闯关，在线对战</p>
+                                    </div>
+                                    <div class="game-actions">
+                                        <button class="play-btn">开始</button>
+                                        <button class="icon-btn" aria-label="收藏">♡</button>
+                                    </div>
+                                </div>
+                            </article>
+                            <article class="game-card card-go">
+                                <div class="game-thumb gradient-deep">
+                                    <span class="thumb-text">围棋</span>
+                                </div>
+                                <div class="game-details">
+                                    <div class="game-text">
+                                        <h4>围棋</h4>
+                                        <p>段位挑战，真人匹配</p>
+                                    </div>
+                                    <div class="game-actions">
+                                        <button class="play-outline">敬请期待</button>
+                                    </div>
+                                </div>
+                            </article>
+                            <article class="game-card card-poker">
+                                <div class="game-thumb gradient-berry">
+                                    <span class="thumb-text">德州扑克</span>
+                                </div>
+                                <div class="game-details">
+                                    <div class="game-text">
+                                        <h4>德州扑克</h4>
+                                        <p>好友房、自建桌局</p>
+                                    </div>
+                                    <div class="game-actions">
+                                        <button class="play-outline">敬请期待</button>
+                                    </div>
+                                </div>
+                            </article>
+                        </div>
+                    </div>
+                </section>
+                        </div>
+        </div>
+    </main>
+    
+    <script src="/game-service/js/auth.js"></script>
+    <script src="/game-service/js/header.js"></script>
+    <script src="/game-service/js/api.js"></script>
     <script>
-        window.location.href = '/game-service/lobby.html';
+        'use strict';
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 一键开始按钮
+            const btnQuickStart = document.getElementById('btnQuickStart');
+            if (btnQuickStart) {
+                btnQuickStart.addEventListener('click', () => {
+                    window.location.href = '/game-service/lobby.html';
+                });
+            }
+            
+            // 创建房间按钮（五子棋卡片）
+            const btnCreateRoom = document.getElementById('btnCreateRoom');
+            if (btnCreateRoom) {
+                btnCreateRoom.addEventListener('click', () => {
+                    window.location.href = '/game-service/lobby.html';
+                });
+            }
+            
+        });
     </script>
 </body>
 </html>
-
