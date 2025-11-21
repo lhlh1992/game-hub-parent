@@ -32,29 +32,36 @@
                             </div>
                             <div class="slide-visual" aria-hidden="true"></div>
                         </article>
-                        <article class="slider-slide" data-slide-index="1">
+                        <article class="slider-slide slide-gomoku" data-slide-index="1">
                             <div class="slide-content">
                                 <p class="slide-eyebrow">热门推荐</p>
                                 <h2>五子棋 · 全球同服排位赛</h2>
                                 <p>实时匹配，智能复盘，挑战更高段位。</p>
                             </div>
-                            <div class="slide-visual">
-                                <img src="/game-service/images/games/gomoku-banner.png" alt="五子棋宣传图">
-                            </div>
+                            <div class="slide-visual" aria-hidden="true"></div>
                         </article>
-                        <article class="slider-slide is-empty" data-slide-index="2">
+                        <article class="slider-slide slide-chinese-checker" data-slide-index="2">
                             <div class="slide-content">
-                                <p class="slide-eyebrow">更多内容</p>
-                                <h2>下一波活动准备中</h2>
-                                <p>这里可以放置新的活动或宣传图，敬请期待。</p>
+                                <p class="slide-eyebrow">本周精选</p>
+                                <h2>中国跳棋 · 六角星对战</h2>
+                                <p>经典棋盘、多人实时匹配，体验音乐与灯光的节奏感。</p>
                             </div>
-                            <div class="slide-visual placeholder" aria-hidden="true"></div>
+                            <div class="slide-visual" aria-hidden="true"></div>
+                        </article>
+                        <article class="slider-slide slide-alley-runner" data-slide-index="3">
+                            <div class="slide-content">
+                                <p class="slide-eyebrow">街区热度</p>
+                                <h2>巷道狂奔 · 夜色竞速</h2>
+                                <p>沉浸式霓虹街道，极速奔跑 + 技能冲刺，挑战排行榜。</p>
+                            </div>
+                            <div class="slide-visual" aria-hidden="true"></div>
                         </article>
                     </div>
                     <div class="slider-dots" data-slider-dots>
                         <button class="slider-dot is-active" type="button" aria-label="切换到第 1 张" data-slider-dot="0"></button>
                         <button class="slider-dot" type="button" aria-label="切换到第 2 张" data-slider-dot="1"></button>
                         <button class="slider-dot" type="button" aria-label="切换到第 3 张" data-slider-dot="2"></button>
+                        <button class="slider-dot" type="button" aria-label="切换到第 4 张" data-slider-dot="3"></button>
                     </div>
                 </div>
                 
@@ -266,6 +273,7 @@
                 const prevBtn = slider.querySelector('[data-slider-prev]');
                 const nextBtn = slider.querySelector('[data-slider-next]');
                 const dots = Array.from(slider.querySelectorAll('[data-slider-dot]'));
+                const heroCard = slider.closest('.hero-card') || slider;
                 let activeIndex = 0;
                 let autoTimer;
 
@@ -277,6 +285,17 @@
                     track.style.transform = `translateX(-${activeIndex * 100}%)`;
                     slides.forEach((slide, idx) => slide.classList.toggle('is-active', idx === activeIndex));
                     dots.forEach((dot, idx) => dot.classList.toggle('is-active', idx === activeIndex));
+
+                    if (heroCard) {
+                        heroCard.classList.remove('has-gomoku-bg', 'has-chinese-checker-bg', 'has-alley-runner-bg');
+                        if (activeIndex === 1) {
+                            heroCard.classList.add('has-gomoku-bg');
+                        } else if (activeIndex === 2) {
+                            heroCard.classList.add('has-chinese-checker-bg');
+                        } else if (activeIndex === 3) {
+                            heroCard.classList.add('has-alley-runner-bg');
+                        }
+                    }
                 };
 
                 const nextSlide = () => goToSlide(activeIndex + 1);
