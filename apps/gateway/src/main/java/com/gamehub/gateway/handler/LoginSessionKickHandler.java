@@ -63,8 +63,8 @@ public class LoginSessionKickHandler implements ServerAuthenticationSuccessHandl
         this.blacklistService = blacklistService;
         this.sessionEventPublisher = sessionEventPublisher;
         this.keycloakSsoLogoutService = keycloakSsoLogoutService;
-        // 使用默认的成功处理器（用于重定向到 index 页面）
-        this.defaultSuccessHandler = new org.springframework.security.web.server.authentication.RedirectServerAuthenticationSuccessHandler("/game-service/index.html");
+        // 使用默认的成功处理器（用于重定向）
+        this.defaultSuccessHandler = new org.springframework.security.web.server.authentication.RedirectServerAuthenticationSuccessHandler("/");
     }
 
     @Override

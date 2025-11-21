@@ -17,10 +17,8 @@
                     <button class="bell" aria-label="通知">
                         <img src="${BELL_ICON}" alt="通知">
                     </button>
-                    <div class="avatar-pill">
+                    <div class="avatar-pill is-compact">
                         <div class="avatar" data-role="avatar"></div>
-                        <span data-role="username">玩家</span>
-                        <button class="link-btn" data-role="logout">退出</button>
                     </div>
                 </div>
             </div>
