@@ -162,11 +162,11 @@ body.home::after {
    Hero Banner - 多色渐变 + 纹理 + 浮起感
    ============================================ */
 .hero-card {
-    background: linear-gradient(130deg, #1e3a8a 0%, #2563eb 45%, #0ea5e9 100%);
+    background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 45%, #F472B6 100%);
     border-radius: 0;
     padding: 72px 96px 80px;
     min-height: 360px;
-    color: #f8fafc;
+    color: #fff;
     box-shadow: var(--shadow-card);
     position: relative;
     overflow: hidden;
@@ -187,7 +187,7 @@ body.home::after {
 
 .hero-card::before,
 .hero-card::after {
-    opacity: 0.75;
+    opacity: 0.85;
 }
 
 .hero-slider {
@@ -208,18 +208,32 @@ body.home::after {
     align-items: center;
     gap: 48px;
     padding-right: 32px;
-    opacity: 0.5;
-    transform: scale(0.97);
-    transition: opacity 0.4s ease, transform 0.4s ease;
+    transition: transform 0.4s ease;
 }
 
-.slider-slide.is-active {
-    opacity: 1;
-    transform: scale(1);
+.slider-slide:not(.is-active) {
+    visibility: hidden;
+    pointer-events: none;
 }
 
 .slide-content {
     max-width: 560px;
+}
+
+.hero-slider .slide-content,
+.hero-slider .slide-content * {
+    color: #fff !important;
+    mix-blend-mode: normal !important;
+    filter: none !important;
+    opacity: 1 !important;
+    text-shadow: 0 3px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+.hero-slider .slide-content h2 {
+    background: none !important;
+    -webkit-background-clip: initial !important;
+    background-clip: initial !important;
+    -webkit-text-fill-color: #fff !important;
 }
 
 .slide-eyebrow {
@@ -227,7 +241,7 @@ body.home::after {
     font-size: 15px;
     letter-spacing: 2px;
     text-transform: uppercase;
-    color: rgba(248, 250, 252, 0.85);
+    color: #fff;
 }
 
 .slider-slide h2 {
@@ -235,12 +249,13 @@ body.home::after {
     font-size: clamp(32px, 4vw, 44px);
     line-height: 1.2;
     font-weight: 800;
+    color: #fff;
 }
 
 .slider-slide p {
     margin: 0;
     font-size: 17px;
-    color: rgba(248, 250, 252, 0.94);
+    color: #fff;
 }
 
 .slide-visual {
@@ -248,7 +263,7 @@ body.home::after {
     height: 280px;
     border-radius: 28px;
     overflow: hidden;
-    background: rgba(15, 23, 42, 0.25);
+    background: rgba(255, 255, 255, 0.12);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -272,8 +287,8 @@ body.home::after {
     height: 44px;
     border-radius: 50%;
     border: none;
-    background: rgba(15, 23, 42, 0.35);
-    color: #fff;
+    background: rgba(255, 255, 255, 0.35);
+    color: #D946EF;
     font-size: 24px;
     cursor: pointer;
     transition: background var(--transition-fast), transform var(--transition-fast);
@@ -281,7 +296,7 @@ body.home::after {
 }
 
 .slider-nav:hover {
-    background: rgba(15, 23, 42, 0.65);
+    background: rgba(255, 255, 255, 0.55);
     transform: translateY(-50%) scale(1.08);
 }
 
@@ -308,18 +323,69 @@ body.home::after {
     height: 12px;
     border-radius: 999px;
     border: none;
-    background: rgba(248, 250, 252, 0.45);
+    background: rgba(255, 235, 230, 0.5);
     cursor: pointer;
     transition: width 0.3s ease, background 0.3s ease;
 }
 
 .slider-dot.is-active {
     width: 34px;
-    background: #f8fafc;
+    background: #fff;
 }
 
 .slider-slide.is-empty .slide-visual {
     background: rgba(248, 250, 252, 0.08);
+}
+
+.hero-welcome .slide-content {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+}
+
+.hero-welcome .welcome-logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.hero-welcome .welcome-logo img {
+    width: 152px;
+    height: 152px;
+    border-radius: 36px;
+    border: 6px solid rgba(255, 255, 255, 0.65);
+    background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 50%, #F472B6 100%);
+    box-shadow: 0 30px 60px rgba(255, 112, 93, 0.35), 0 12px 24px rgba(255, 112, 93, 0.35);
+    object-fit: cover;
+}
+
+.hero-welcome .hero-logo-caption {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 1.2px;
+    color: #fff;
+    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+}
+
+.hero-welcome .welcome-text h1 {
+    margin: 0 0 10px;
+    font-size: clamp(34px, 4vw, 48px);
+    font-weight: 800;
+    letter-spacing: -1px;
+    color: #fff;
+}
+
+.hero-welcome .welcome-text p {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 500;
+    color: #fff;
+}
+
+.hero-welcome .slide-visual {
+    display: none;
 }
 
 /* ============================================
@@ -610,6 +676,9 @@ body.home::after {
         min-height: 160px;
     }
     
+    .hero-text h1 {
+        font-size: 32px;
+    }
 }
 
 @media (max-width: 640px) {
