@@ -481,7 +481,7 @@ label {
     transform: translateY(0) !important;
 }
 
-/* 棋盘 - 标准五子棋棋盘样式（15x15，米黄色背景，黑色网格线） */
+/* 棋盘 - 自然木质风格（浅木色，深色边框和网格） */
 #board {
     display: grid;
     grid-template-columns: repeat(var(--n), var(--cell));
@@ -489,18 +489,27 @@ label {
     gap: 0;
     margin-top: 20px;
     user-select: none;
-    /* 标准五子棋棋盘背景色 - 米黄色/浅棕色 */
-    background: #DEB887;
+    /* 自然木质风格：浅米色/淡黄棕色，像真实木质棋盘 */
+    background: #F5E5D0;
     padding: 20px;
-    border-radius: 4px;
-    border: 2px solid #8B6F47;
+    border-radius: 12px; /* 适度圆润，不要太圆 */
+    /* 深色边框，像真实棋盘 */
+    border: 4px solid #2C2C2C;
     box-shadow: 
-        inset 0 0 0 1px rgba(139, 111, 71, 0.3),
-        0 4px 16px rgba(0, 0, 0, 0.2);
+        /* 内阴影 - 轻微凹陷 */
+        inset 0 2px 8px rgba(0, 0, 0, 0.1),
+        inset 0 -1px 4px rgba(255, 255, 255, 0.3),
+        /* 外阴影 - 适度浮起 */
+        0 8px 24px rgba(0, 0, 0, 0.3),
+        0 4px 12px rgba(0, 0, 0, 0.2);
     position: relative;
     /* 为坐标标记预留空间 */
     padding-left: 40px; /* 左侧20px padding + 20px坐标区域 */
     padding-bottom: 40px; /* 下方20px padding + 20px坐标区域 */
+    /* 添加微妙的木纹纹理 */
+    background-image: 
+        repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(0, 0, 0, 0.01) 8px, rgba(0, 0, 0, 0.01) 9px),
+        repeating-linear-gradient(90deg, transparent, transparent 6px, rgba(0, 0, 0, 0.008) 6px, rgba(0, 0, 0, 0.008) 7px);
 }
 
 /* 棋盘坐标标记样式 */
@@ -529,7 +538,7 @@ label {
     line-height: 1;
 }
 
-/* 棋盘网格线 - 黑色细线，确保15条横线和15条竖线都显示 */
+/* 棋盘网格线 - 自然木质风格：深色清晰网格线 */
 #board::before {
     content: '';
     position: absolute;
@@ -539,30 +548,33 @@ label {
     /* 15x15棋盘：15条线，从位置0到位置14*cell，总宽度需要包含第15条线 */
     width: calc(var(--cell) * 14 + 1px); /* 14个间隔 + 最后一条线 */
     height: calc(var(--cell) * 14 + 1px);
-    /* 15条竖线：每条线在索引位置（0, cell, 2*cell, ..., 14*cell） */
+    /* 自然木质风格：深色清晰的网格线 */
     background-image: 
         repeating-linear-gradient(to right, 
             #1A1A1A 0, 
-            #1A1A1A 1px, 
-            transparent 1px, 
+            #1A1A1A 1.5px, 
+            transparent 1.5px, 
             transparent var(--cell)
         ),
-        /* 15条横线：每条线在索引位置（0, cell, 2*cell, ..., 14*cell） */
         repeating-linear-gradient(to bottom, 
             #1A1A1A 0, 
-            #1A1A1A 1px, 
-            transparent 1px, 
+            #1A1A1A 1.5px, 
+            transparent 1.5px, 
             transparent var(--cell)
         );
     background-size: 
         calc(var(--cell) * 14 + 1px) 100%,
         100% calc(var(--cell) * 14 + 1px);
     background-position: 0 0;
+    /* 轻微凹陷效果，像真实棋盘 */
+    box-shadow: 
+        inset 0 1px 2px rgba(0, 0, 0, 0.15),
+        inset 0 -1px 1px rgba(255, 255, 255, 0.2);
     pointer-events: none;
     z-index: 1;
 }
 
-/* 星位标记 - 标准五子棋棋盘有5个星位点：4个角 + 1个中心 */
+/* 星位标记 - 自然木质风格：黑色圆点 */
 #board::after {
     content: '';
     position: absolute;
@@ -571,9 +583,7 @@ label {
     left: 40px; /* padding-left + 坐标区域 */
     width: calc(var(--cell) * 14 + 1px);
     height: calc(var(--cell) * 14 + 1px);
-    /* 标准五子棋星位：4个角星位点（第4行/列和第12行/列的交点）+ 1个中心点 */
-    /* 15x15棋盘，索引0-14，星位在索引3、7、11的位置 */
-    /* 星位点在网格线交点上，所以位置是：索引 * cell */
+    /* 自然木质风格：黑色星位点，像真实棋盘 */
     background-image: 
         /* 四个角星位：索引(3,3), (3,11), (11,3), (11,11) */
         radial-gradient(circle, #1A1A1A 4px, transparent 4px),
@@ -583,11 +593,11 @@ label {
         /* 中心点：索引(7,7) */
         radial-gradient(circle, #1A1A1A 4px, transparent 4px);
     background-size: 
-        4px 4px,
-        4px 4px,
-        4px 4px,
-        4px 4px,
-        4px 4px;
+        8px 8px,
+        8px 8px,
+        8px 8px,
+        8px 8px,
+        8px 8px;
     background-position: 
         /* 四个角：索引3,3; 11,3; 3,11; 11,11 - 在网格线交点上 */
         calc(var(--cell) * 3) calc(var(--cell) * 3),
@@ -615,12 +625,14 @@ label {
     transition: all 0.15s ease;
 }
 
-/* 空位悬停效果 - 显示半透明圆圈提示 */
+/* 空位悬停效果 - Q萌风格：更可爱的提示 */
 .cell:hover:not(.X):not(.O) {
-    background: radial-gradient(circle, rgba(0, 0, 0, 0.08) 40%, transparent 40%);
+    background: radial-gradient(circle, rgba(255, 184, 77, 0.15) 45%, rgba(255, 184, 77, 0.05) 60%, transparent 70%);
+    transform: scale(1.1);
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* 立体感黑棋 */
+/* Q萌风格立体感黑棋 - 缩小尺寸，增强立体感 */
 .cell.X {
     color: transparent;
     position: relative;
@@ -629,31 +641,45 @@ label {
 .cell.X::before {
     content: '';
     position: absolute;
-    width: calc(var(--cell) * 0.85);
-    height: calc(var(--cell) * 0.85);
+    width: calc(var(--cell) * 0.82); /* 缩小棋子 */
+    height: calc(var(--cell) * 0.82);
     border-radius: 50%;
-    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.15), rgba(0, 0, 0, 0.8) 60%, #1A1A1A);
+    background: radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.35), rgba(100, 100, 100, 0.5) 45%, #3A3A3A 70%, #2A2A2A 85%, #1F1F1F);
     box-shadow: 
-        0 4px 8px rgba(0, 0, 0, 0.4),
-        0 2px 4px rgba(0, 0, 0, 0.3) inset,
-        0 -2px 4px rgba(255, 255, 255, 0.1) inset;
+        0 5px 14px rgba(0, 0, 0, 0.5),
+        0 3px 7px rgba(0, 0, 0, 0.4) inset,
+        0 -3px 7px rgba(255, 255, 255, 0.25) inset,
+        0 0 0 1.5px rgba(255, 255, 255, 0.15),
+        0 2px 5px rgba(0, 0, 0, 0.3);
     z-index: 1;
+    transition: all 0.2s ease;
+}
+
+.cell.X:hover::before {
+    transform: scale(1.08);
+    box-shadow: 
+        0 7px 18px rgba(0, 0, 0, 0.6),
+        0 3px 7px rgba(0, 0, 0, 0.4) inset,
+        0 -3px 7px rgba(255, 255, 255, 0.3) inset,
+        0 0 0 2px rgba(255, 255, 255, 0.2),
+        0 3px 7px rgba(0, 0, 0, 0.35);
 }
 
 .cell.X::after {
     content: '';
     position: absolute;
-    width: calc(var(--cell) * 0.3);
-    height: calc(var(--cell) * 0.3);
+    width: calc(var(--cell) * 0.32); /* 缩小高光 */
+    height: calc(var(--cell) * 0.32);
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.3), transparent);
-    top: 25%;
-    left: 25%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0.25) 50%, transparent 70%);
+    top: 20%;
+    left: 20%;
     z-index: 2;
     pointer-events: none;
+    filter: blur(1px);
 }
 
-/* 立体感白棋 */
+/* Q萌风格立体感白棋 - 缩小尺寸，增强立体感 */
 .cell.O {
     color: transparent;
     position: relative;
@@ -662,28 +688,42 @@ label {
 .cell.O::before {
     content: '';
     position: absolute;
-    width: calc(var(--cell) * 0.85);
-    height: calc(var(--cell) * 0.85);
+    width: calc(var(--cell) * 0.82); /* 缩小棋子 */
+    height: calc(var(--cell) * 0.82);
     border-radius: 50%;
-    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.95), rgba(240, 240, 240, 0.9) 60%, #E8E8E8);
+    background: radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.98) 40%, rgba(250, 250, 250, 0.95) 65%, #F5F5F5 85%, #EEEEEE);
     box-shadow: 
-        0 4px 8px rgba(0, 0, 0, 0.3),
-        0 2px 4px rgba(255, 255, 255, 0.6) inset,
-        0 -2px 4px rgba(0, 0, 0, 0.1) inset;
+        0 5px 14px rgba(0, 0, 0, 0.4),
+        0 3px 7px rgba(255, 255, 255, 0.95) inset,
+        0 -3px 7px rgba(0, 0, 0, 0.15) inset,
+        0 0 0 1.5px rgba(255, 255, 255, 0.5),
+        0 2px 5px rgba(0, 0, 0, 0.2);
     z-index: 1;
+    transition: all 0.2s ease;
+}
+
+.cell.O:hover::before {
+    transform: scale(1.08);
+    box-shadow: 
+        0 7px 18px rgba(0, 0, 0, 0.5),
+        0 3px 7px rgba(255, 255, 255, 0.98) inset,
+        0 -3px 7px rgba(0, 0, 0, 0.18) inset,
+        0 0 0 2px rgba(255, 255, 255, 0.6),
+        0 3px 7px rgba(0, 0, 0, 0.25);
 }
 
 .cell.O::after {
     content: '';
     position: absolute;
-    width: calc(var(--cell) * 0.35);
+    width: calc(var(--cell) * 0.35); /* 缩小高光 */
     height: calc(var(--cell) * 0.35);
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.8), rgba(240, 240, 240, 0.3));
-    top: 22%;
-    left: 22%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.85) 45%, rgba(255, 255, 255, 0.35) 75%, transparent);
+    top: 18%;
+    left: 18%;
     z-index: 2;
     pointer-events: none;
+    filter: blur(1px);
 }
 
 /* 最后一步高亮 */
