@@ -64,10 +64,17 @@
                         </div>
                         <!-- 执子文字在棋子下方 -->
                         <div class="player-side-text" id="selfSideText">Black</div>
+                        <!-- 倒计时在棋子下方，卡片右下角 -->
+                        <div class="player-countdown" id="selfCountdown">
+                            <span class="countdown-text" id="selfCountdownText">--</span>
+                        </div>
                     </div>
                 </div>
-                <div class="player-status-label" id="selfStatusLabel" style="display:none;">Your Turn</div>
-                <div class="player-winner-label" id="selfWinner" style="display:none;">Winner</div>
+                <!-- 共享状态区域：Your Turn、Winner 共享同一块区域 -->
+                <div class="player-status-area">
+                    <div class="player-status-label" id="selfStatusLabel">Your Turn</div>
+                    <div class="player-winner-label" id="selfWinner">Winner</div>
+                </div>
             </div>
             
             <!-- 聊天区域（左侧，玩家1卡片下方） -->
@@ -131,10 +138,17 @@
                         </div>
                         <!-- 执子文字在棋子下方 -->
                         <div class="player-side-text" id="opponentSideText">White</div>
+                        <!-- 倒计时在棋子下方，卡片右下角 -->
+                        <div class="player-countdown" id="opponentCountdown">
+                            <span class="countdown-text" id="opponentCountdownText">--</span>
+                        </div>
                     </div>
                 </div>
-                <div class="player-status-label" id="opponentStatusLabel" style="display:none;">Your Turn</div>
-                <div class="player-winner-label" id="opponentWinner" style="display:none;">Winner</div>
+                <!-- 共享状态区域：Your Turn、Winner 共享同一块区域 -->
+                <div class="player-status-area">
+                    <div class="player-status-label" id="opponentStatusLabel">Your Turn</div>
+                    <div class="player-winner-label" id="opponentWinner">Winner</div>
+                </div>
             </div>
             
             <!-- 系统信息区域（右侧，玩家2卡片下方） -->

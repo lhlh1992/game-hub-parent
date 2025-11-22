@@ -412,35 +412,79 @@ function updateGameInfo(state, series, currentSide = null, mode = null) {
         }
     }
     
-    // 更新状态标签（Your Turn / Winner）
+    // 获取自己的执子方
+    let mySide = typeof window !== 'undefined' ? (window.mySide || window._mySide) : null;
+    if (!mySide) {
+        // 如果不知道自己的执子方，尝试从DOM获取
+        const selfSideText = document.getElementById('selfSideText');
+        if (selfSideText) {
+            const selfSide = selfSideText.textContent.trim().toLowerCase();
+            if (selfSide === 'black') {
+                mySide = 'X';
+                if (typeof window !== 'undefined') window._mySide = 'X';
+            } else if (selfSide === 'white') {
+                mySide = 'O';
+                if (typeof window !== 'undefined') window._mySide = 'O';
+            }
+        }
+    }
+    
+    // 更新状态标签（Your Turn / Winner，使用opacity避免布局跳动）
     const selfStatusLabel = document.getElementById('selfStatusLabel');
     const opponentStatusLabel = document.getElementById('opponentStatusLabel');
     const selfWinnerEl = document.getElementById('selfWinner');
     const opponentWinnerEl = document.getElementById('opponentWinner');
     
-    // 先隐藏所有状态标签
-    if (selfStatusLabel) selfStatusLabel.style.display = 'none';
-    if (opponentStatusLabel) opponentStatusLabel.style.display = 'none';
-    if (selfWinnerEl) selfWinnerEl.style.display = 'none';
-    if (opponentWinnerEl) opponentWinnerEl.style.display = 'none';
+    // 先隐藏所有状态标签（但保持布局空间）
+    if (selfStatusLabel) {
+        selfStatusLabel.style.opacity = '0';
+        selfStatusLabel.classList.remove('show');
+    }
+    if (opponentStatusLabel) {
+        opponentStatusLabel.style.opacity = '0';
+        opponentStatusLabel.classList.remove('show');
+    }
+    if (selfWinnerEl) {
+        selfWinnerEl.style.opacity = '0';
+        selfWinnerEl.classList.remove('show');
+    }
+    if (opponentWinnerEl) {
+        opponentWinnerEl.style.opacity = '0';
+        opponentWinnerEl.classList.remove('show');
+    }
     
     if (state?.over && state?.winner) {
         // 游戏结束，显示Winner标签
-        const isSelfWinner = (state.winner === 'X' && mySide === 'X') || (state.winner === 'O' && mySide === 'O');
+        const isSelfWinner = mySide && ((state.winner === 'X' && mySide === 'X') || (state.winner === 'O' && mySide === 'O'));
         if (isSelfWinner) {
-            if (selfWinnerEl) selfWinnerEl.style.display = 'block';
+            if (selfWinnerEl) {
+                selfWinnerEl.style.opacity = '1';
+                selfWinnerEl.classList.add('show');
+            }
         } else {
-            if (opponentWinnerEl) opponentWinnerEl.style.display = 'block';
+            if (opponentWinnerEl) {
+                opponentWinnerEl.style.opacity = '1';
+                opponentWinnerEl.classList.add('show');
+            }
         }
     } else if (!state?.over && state?.current) {
         // 游戏进行中，显示Your Turn标签
-        const isMyTurn = (state.current === 'X' && mySide === 'X') || (state.current === 'O' && mySide === 'O');
+        const isMyTurn = mySide && ((state.current === 'X' && mySide === 'X') || (state.current === 'O' && mySide === 'O'));
         if (isMyTurn) {
-            if (selfStatusLabel) selfStatusLabel.style.display = 'block';
+            if (selfStatusLabel) {
+                selfStatusLabel.style.opacity = '1';
+                selfStatusLabel.classList.add('show');
+            }
         } else {
-            if (opponentStatusLabel) opponentStatusLabel.style.display = 'block';
+            if (opponentStatusLabel) {
+                opponentStatusLabel.style.opacity = '1';
+                opponentStatusLabel.classList.add('show');
+            }
         }
     }
+    
+    // 更新倒计时显示（根据当前执子方）
+    updateTimerDisplay();
 }
 
 /**
@@ -524,9 +568,85 @@ function updateCountdownFromDeadline() {
  * 更新计时器显示
  */
 function updateTimerDisplay() {
+    // 更新顶部状态栏的倒计时（保留兼容性）
     const timerEl = document.getElementById('timer');
     if (timerEl) {
         timerEl.textContent = currentCountdown > 0 ? currentCountdown : '--';
+    }
+    
+    // 更新玩家卡片中的倒计时
+    // 获取当前执子方
+    const currentSide = state?.current;
+    if (!currentSide) {
+        // 如果没有当前执子方，隐藏所有倒计时（但保持布局空间）
+        const selfCountdown = document.getElementById('selfCountdown');
+        const opponentCountdown = document.getElementById('opponentCountdown');
+        if (selfCountdown) {
+            selfCountdown.style.opacity = '0';
+            selfCountdown.classList.remove('show');
+        }
+        if (opponentCountdown) {
+            opponentCountdown.style.opacity = '0';
+            opponentCountdown.classList.remove('show');
+        }
+        return;
+    }
+    
+    // 获取自己的执子方
+    const mySide = typeof window !== 'undefined' ? (window.mySide || window._mySide) : null;
+    if (!mySide) {
+        // 如果不知道自己的执子方，尝试从DOM获取
+        const selfSideText = document.getElementById('selfSideText');
+        if (selfSideText) {
+            const selfSide = selfSideText.textContent.trim().toLowerCase();
+            if (selfSide === 'black') {
+                window._mySide = 'X';
+            } else if (selfSide === 'white') {
+                window._mySide = 'O';
+            }
+        }
+    }
+    
+    const actualMySide = typeof window !== 'undefined' ? (window.mySide || window._mySide) : null;
+    
+    // 判断当前执子的是自己还是对手
+    const isMyTurn = actualMySide && (currentSide === actualMySide);
+    
+    // 获取倒计时元素
+    const selfCountdown = document.getElementById('selfCountdown');
+    const opponentCountdown = document.getElementById('opponentCountdown');
+    const selfCountdownText = document.getElementById('selfCountdownText');
+    const opponentCountdownText = document.getElementById('opponentCountdownText');
+    
+    // 更新倒计时显示（使用opacity避免布局跳动，元素始终占据空间）
+    if (isMyTurn) {
+        // 当前是自己的回合，显示自己的倒计时
+        if (selfCountdown) {
+            selfCountdown.style.opacity = '1';
+            selfCountdown.classList.add('show');
+        }
+        if (opponentCountdown) {
+            opponentCountdown.style.opacity = '0';
+            opponentCountdown.classList.remove('show');
+        }
+        if (selfCountdownText) {
+            // 显示英文格式：Countdown: 30s
+            selfCountdownText.textContent = currentCountdown > 0 ? `Countdown: ${currentCountdown}s` : 'Countdown: --';
+        }
+    } else {
+        // 当前是对手的回合，显示对手的倒计时
+        if (selfCountdown) {
+            selfCountdown.style.opacity = '0';
+            selfCountdown.classList.remove('show');
+        }
+        if (opponentCountdown) {
+            opponentCountdown.style.opacity = '1';
+            opponentCountdown.classList.add('show');
+        }
+        if (opponentCountdownText) {
+            // 显示英文格式：Countdown: 30s
+            opponentCountdownText.textContent = currentCountdown > 0 ? `Countdown: ${currentCountdown}s` : 'Countdown: --';
+        }
     }
 }
 
@@ -541,6 +661,18 @@ function stopCountdown() {
     currentCountdown = 0;
     countdownDeadline = 0;
     updateTimerDisplay();
+    
+    // 隐藏所有倒计时显示（但保持布局空间）
+    const selfCountdown = document.getElementById('selfCountdown');
+    const opponentCountdown = document.getElementById('opponentCountdown');
+    if (selfCountdown) {
+        selfCountdown.style.opacity = '0';
+        selfCountdown.classList.remove('show');
+    }
+    if (opponentCountdown) {
+        opponentCountdown.style.opacity = '0';
+        opponentCountdown.classList.remove('show');
+    }
 }
 
 /**

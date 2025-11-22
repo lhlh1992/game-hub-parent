@@ -245,6 +245,54 @@ body::after {
     gap: 8px;
     flex-shrink: 0;
     padding-top: 0; /* 垂直居中，不需要顶部对齐 */
+    position: relative; /* 为倒计时绝对定位提供参考 */
+}
+
+/* 共享状态区域（倒计时、Your Turn、Winner 共享同一块区域） */
+.player-status-area {
+    width: 100%;
+    height: 32px; /* 固定高度，确保无论显示哪个提示都占据相同空间 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    flex-shrink: 0;
+    margin-top: 0;
+}
+
+/* 玩家倒计时（在棋子下方，卡片右下角，往下移动） */
+.player-countdown {
+    position: absolute;
+    bottom: -40px; /* 更往下移动，让倒计时在棋子包装器更下方 */
+    right: 0; /* 靠右对齐 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 12px;
+    min-width: 100px; /* 增加宽度以容纳 "Countdown: 30s" */
+    height: 28px;
+    box-sizing: border-box;
+    opacity: 0; /* 默认透明 */
+    transition: opacity 0.2s ease;
+    z-index: 5; /* 确保在卡片内容之上 */
+}
+
+/* 倒计时显示时 */
+.player-countdown.show {
+    opacity: 1;
+}
+
+.countdown-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: #3B82F6;
+    font-variant-numeric: tabular-nums; /* 等宽数字，避免跳动 */
+    text-align: center;
+    line-height: 1; /* 固定行高，避免高度变化 */
+    white-space: nowrap; /* 不换行 */
 }
 
 /* 玩家头像（大圆形，柔光外圈，保持现有大小） */
@@ -376,16 +424,33 @@ body::after {
     white-space: nowrap;
 }
 
-/* 状态标签（Your Turn / Winner，同步放大35%） */
+/* 状态标签（Your Turn / Winner，在共享状态区域中，绝对定位重叠显示） */
 .player-status-label,
 .player-winner-label {
-    font-size: 13.5px; /* 10px * 1.35 = 13.5px */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 13.5px;
     font-weight: 600;
-    padding: 5.4px 13.5px; /* 4px * 1.35 = 5.4px, 10px * 1.35 = 13.5px */
-    border-radius: 16.2px; /* 12px * 1.35 = 16.2px */
+    padding: 5.4px 13.5px;
+    border-radius: 16.2px;
     text-transform: uppercase;
-    letter-spacing: 0.54px; /* 0.4px * 1.35 = 0.54px */
-    margin-top: 5.4px; /* 4px * 1.35 = 5.4px */
+    letter-spacing: 0.54px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    opacity: 0; /* 默认透明 */
+    transition: opacity 0.2s ease;
+    pointer-events: none; /* 不阻挡其他元素 */
+}
+
+/* 状态标签显示时 */
+.player-status-label.show,
+.player-winner-label.show {
+    opacity: 1;
 }
 
 .player-status-label {
