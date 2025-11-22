@@ -77,6 +77,7 @@ function renderBoard(grid, lastMove) {
             cell.dataset.y = String(y);
             cell.title = `(${letters[x]}${y + 1})`;
             
+            // 只有空位时才添加点击事件（游戏结束检查在onCellClick中）
             if (v === '.') {
                 cell.addEventListener('click', onCellClick);
             }
@@ -156,10 +157,27 @@ function renderBoard(grid, lastMove) {
 }
 
 /**
+ * 检查游戏是否已结束
+ * @returns {boolean}
+ */
+function isGameOver() {
+    // 检查 state.over 或 state.outcome
+    if (state?.over) return true;
+    if (state?.outcome) return true;
+    return false;
+}
+
+/**
  * 处理棋盘点击事件
  * @param {Event} e - 点击事件
  */
 function onCellClick(e) {
+    // 如果游戏已结束，不允许下棋
+    if (isGameOver()) {
+        console.warn('游戏已结束，无法继续下棋');
+        return;
+    }
+    
     const currentRoomId = typeof window !== 'undefined' ? window._currentRoomId : null;
     if (!currentRoomId) {
         console.warn('未选择房间');
@@ -252,6 +270,29 @@ function handleGameEvent(evt) {
 function renderFullSync(snap) {
     if (!snap || !snap.board) return;
     
+    // 先更新全局state，确保能正确检测游戏结束状态
+    if (!state) state = {};
+    
+    // 处理游戏结束状态 - 必须在renderBoard之前更新
+    if (snap.outcome) {
+        state.over = true;
+        state.outcome = snap.outcome;
+        state.winner = snap.outcome === 'X_WIN' ? 'X' : 
+                      snap.outcome === 'O_WIN' ? 'O' : null;
+        stopCountdown();
+        if (window.gameCallbacks && window.gameCallbacks.onGameOver) {
+            window.gameCallbacks.onGameOver(state.winner);
+        }
+    } else {
+        // 如果没有outcome，游戏未结束
+        state.over = false;
+        state.outcome = null;
+        state.winner = null;
+    }
+    
+    // 更新其他状态信息
+    state.current = snap.sideToMove || state.current;
+    
     grid = snap.board.cells;
     renderBoard(grid, snap.lastMove);
     
@@ -266,16 +307,6 @@ function renderFullSync(snap) {
     // 更新玩家执子方（如果快照中包含）
     if (snap.mySide && typeof window.updatePlayerSide === 'function') {
         window.updatePlayerSide(snap.mySide, snap.mode);
-    }
-    
-    // 处理游戏结束
-    if (snap.outcome) {
-        stopCountdown();
-        if (window.gameCallbacks && window.gameCallbacks.onGameOver) {
-            const winner = snap.outcome === 'X_WIN' ? 'X' : 
-                          snap.outcome === 'O_WIN' ? 'O' : null;
-            window.gameCallbacks.onGameOver(winner);
-        }
     }
     
     // 同步倒计时
