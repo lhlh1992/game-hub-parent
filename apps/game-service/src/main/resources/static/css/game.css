@@ -1,0 +1,323 @@
+/**
+ * 五子棋游戏页面专用样式
+ */
+
+/* 游戏布局：左右玩家，中间棋盘 */
+.game-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr 240px;
+    gap: 24px;
+    width: min(1400px, 100%);
+    margin: 0 auto;
+    padding: 20px;
+    min-height: calc(100vh - 80px);
+}
+
+/* 玩家面板（左右两侧） */
+.player-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 20px;
+}
+
+/* 玩家卡片 - 统一设计 */
+.player-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+    max-width: 220px;
+    padding: 28px 24px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 24px;
+    border: 2px solid rgba(255, 107, 107, 0.15);
+    box-shadow: 
+        0 8px 24px rgba(255, 107, 107, 0.1),
+        0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+}
+
+.player-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 
+        0 12px 32px rgba(255, 107, 107, 0.15),
+        0 0 0 1px rgba(255, 255, 255, 0.9) inset;
+    border-color: rgba(255, 107, 107, 0.3);
+}
+
+/* 玩家头像 - 统一设计 */
+.player-avatar {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 4px solid rgba(255, 107, 107, 0.2);
+    box-shadow: 
+        0 6px 20px rgba(255, 107, 107, 0.25),
+        0 0 0 2px rgba(255, 255, 255, 0.8) inset;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, var(--gh-primary-light), var(--gh-accent));
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.player-avatar::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gh-primary), var(--gh-primary-light), var(--gh-accent));
+    background-size: 200% 200%;
+    animation: buttonGradient 4s ease infinite;
+    z-index: -1;
+}
+
+.player-card:hover .player-avatar {
+    transform: scale(1.05);
+    box-shadow: 
+        0 8px 24px rgba(255, 107, 107, 0.35),
+        0 0 0 2px rgba(255, 255, 255, 0.9) inset;
+}
+
+.player-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* 玩家信息 - 统一居中布局 */
+.player-info {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+    align-items: center;
+    text-align: center;
+}
+
+.player-name {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--gh-text);
+    letter-spacing: -0.3px;
+    text-align: center;
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 执子方标识 - 统一居中 */
+.player-side {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
+.side-badge {
+    display: inline-block;
+    padding: 8px 20px;
+    border-radius: 24px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transition: all 0.3s ease;
+}
+
+.side-black {
+    background: linear-gradient(135deg, #1A202C, #2D3748);
+    color: #fff;
+    border: 2px solid rgba(26, 32, 44, 0.3);
+}
+
+.side-white {
+    background: linear-gradient(135deg, #F7FAFC, #EDF2F7);
+    color: #1A202C;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* 玩家类型标识（AI） - 统一居中 */
+.player-type {
+    margin-top: 4px;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+.type-badge {
+    display: inline-block;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    background: linear-gradient(135deg, rgba(100, 116, 139, 0.15), rgba(148, 163, 184, 0.15));
+    color: #64748B;
+    border: 1.5px solid rgba(100, 116, 139, 0.3);
+    box-shadow: 0 2px 8px rgba(100, 116, 139, 0.1);
+}
+
+.ai-badge {
+    background: linear-gradient(135deg, rgba(100, 116, 139, 0.15), rgba(148, 163, 184, 0.15));
+    color: #64748B;
+    border-color: rgba(100, 116, 139, 0.3);
+}
+
+/* 中间游戏面板 */
+.game-center-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    min-width: 0;
+}
+
+/* 游戏头部 */
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 8px;
+}
+
+.game-header h2 {
+    margin: 0;
+    font-size: 32px;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--gh-primary), var(--gh-primary-light));
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: titleGradient 4s ease infinite;
+}
+
+/* 游戏信息区域 */
+.game-info {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 20px;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 16px;
+    border: 2px solid rgba(255, 107, 107, 0.1);
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+/* 棋盘容器 */
+.board-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 20px;
+    border: 2px solid rgba(255, 107, 107, 0.1);
+    box-shadow: 0 8px 24px rgba(255, 107, 107, 0.08);
+    position: relative;
+}
+
+/* 游戏操作按钮 */
+.game-actions {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    padding: 0 8px;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+    .game-layout {
+        grid-template-columns: 180px 1fr 180px;
+        gap: 16px;
+    }
+    
+    .player-card {
+        padding: 16px;
+    }
+    
+    .player-avatar {
+        width: 64px;
+        height: 64px;
+    }
+}
+
+@media (max-width: 768px) {
+    .game-layout {
+        grid-template-columns: 1fr;
+        gap: 20px;
+        padding: 16px;
+    }
+    
+    .player-panel {
+        order: 2;
+    }
+    
+    .player-left {
+        order: 1;
+    }
+    
+    .player-right {
+        order: 3;
+    }
+    
+    .game-center-panel {
+        order: 2;
+    }
+    
+    .player-card {
+        flex-direction: row;
+        max-width: 100%;
+        padding: 20px;
+        gap: 20px;
+    }
+    
+    .player-info {
+        flex: 1;
+        align-items: flex-start;
+        text-align: left;
+    }
+    
+    .player-name {
+        text-align: left;
+    }
+    
+    .player-side {
+        justify-content: flex-start;
+    }
+    
+    .player-type {
+        justify-content: flex-start;
+    }
+    
+    .player-avatar {
+        width: 64px;
+        height: 64px;
+    }
+    
+    .game-header {
+        flex-direction: column;
+        gap: 12px;
+        align-items: flex-start;
+    }
+    
+    .board-container {
+        padding: 12px;
+    }
+}
