@@ -429,21 +429,15 @@ function updateGameInfo(state, series, currentSide = null, mode = null) {
         }
     }
     
-    // 更新状态标签（Your Turn / Winner，使用opacity避免布局跳动）
+    // 更新状态标签（回合提示始终存在，通过颜色区分）
     const selfStatusLabel = document.getElementById('selfStatusLabel');
     const opponentStatusLabel = document.getElementById('opponentStatusLabel');
     const selfWinnerEl = document.getElementById('selfWinner');
     const opponentWinnerEl = document.getElementById('opponentWinner');
+    const selfCard = document.querySelector('.player-panel.player-left .player-card');
+    const opponentCard = document.querySelector('.player-panel.player-right .player-card');
     
-    // 先隐藏所有状态标签（但保持布局空间）
-    if (selfStatusLabel) {
-        selfStatusLabel.style.opacity = '0';
-        selfStatusLabel.classList.remove('show');
-    }
-    if (opponentStatusLabel) {
-        opponentStatusLabel.style.opacity = '0';
-        opponentStatusLabel.classList.remove('show');
-    }
+    // 先隐藏Winner标签
     if (selfWinnerEl) {
         selfWinnerEl.style.opacity = '0';
         selfWinnerEl.classList.remove('show');
@@ -461,25 +455,61 @@ function updateGameInfo(state, series, currentSide = null, mode = null) {
                 selfWinnerEl.style.opacity = '1';
                 selfWinnerEl.classList.add('show');
             }
+            // 隐藏回合提示
+            if (selfStatusLabel) {
+                selfStatusLabel.style.opacity = '0';
+            }
         } else {
             if (opponentWinnerEl) {
                 opponentWinnerEl.style.opacity = '1';
                 opponentWinnerEl.classList.add('show');
             }
-        }
-    } else if (!state?.over && state?.current) {
-        // 游戏进行中，显示Your Turn标签
-        const isMyTurn = mySide && ((state.current === 'X' && mySide === 'X') || (state.current === 'O' && mySide === 'O'));
-        if (isMyTurn) {
-            if (selfStatusLabel) {
-                selfStatusLabel.style.opacity = '1';
-                selfStatusLabel.classList.add('show');
-            }
-        } else {
+            // 隐藏回合提示
             if (opponentStatusLabel) {
-                opponentStatusLabel.style.opacity = '1';
-                opponentStatusLabel.classList.add('show');
+                opponentStatusLabel.style.opacity = '0';
             }
+        }
+        // 移除卡片高亮
+        if (selfCard) selfCard.classList.remove('active-turn');
+        if (opponentCard) opponentCard.classList.remove('active-turn');
+    } else if (!state?.over && state?.current) {
+        // 游戏进行中，更新回合提示（始终显示，通过颜色区分）
+        const isMyTurn = mySide && ((state.current === 'X' && mySide === 'X') || (state.current === 'O' && mySide === 'O'));
+        
+        if (isMyTurn) {
+            // 自己的回合
+            if (selfStatusLabel) {
+                selfStatusLabel.textContent = "Your turn";
+                selfStatusLabel.classList.remove('opponent-turn');
+                selfStatusLabel.classList.add('my-turn');
+                selfStatusLabel.style.opacity = '1';
+            }
+            if (opponentStatusLabel) {
+                opponentStatusLabel.textContent = "Opponent's turn";
+                opponentStatusLabel.classList.remove('my-turn');
+                opponentStatusLabel.classList.add('opponent-turn');
+                opponentStatusLabel.style.opacity = '1';
+            }
+            // 卡片高亮
+            if (selfCard) selfCard.classList.add('active-turn');
+            if (opponentCard) opponentCard.classList.remove('active-turn');
+        } else {
+            // 对手的回合
+            if (selfStatusLabel) {
+                selfStatusLabel.textContent = "Opponent's turn";
+                selfStatusLabel.classList.remove('my-turn');
+                selfStatusLabel.classList.add('opponent-turn');
+                selfStatusLabel.style.opacity = '1';
+            }
+            if (opponentStatusLabel) {
+                opponentStatusLabel.textContent = "Your turn";
+                opponentStatusLabel.classList.remove('opponent-turn');
+                opponentStatusLabel.classList.add('my-turn');
+                opponentStatusLabel.style.opacity = '1';
+            }
+            // 卡片高亮
+            if (selfCard) selfCard.classList.remove('active-turn');
+            if (opponentCard) opponentCard.classList.add('active-turn');
         }
     }
     
@@ -578,17 +608,8 @@ function updateTimerDisplay() {
     // 获取当前执子方
     const currentSide = state?.current;
     if (!currentSide) {
-        // 如果没有当前执子方，隐藏所有倒计时（但保持布局空间）
-        const selfCountdown = document.getElementById('selfCountdown');
-        const opponentCountdown = document.getElementById('opponentCountdown');
-        if (selfCountdown) {
-            selfCountdown.style.opacity = '0';
-            selfCountdown.classList.remove('show');
-        }
-        if (opponentCountdown) {
-            opponentCountdown.style.opacity = '0';
-            opponentCountdown.classList.remove('show');
-        }
+        // 如果没有当前执子方，隐藏所有倒计时
+        hideAllCountdowns();
         return;
     }
     
@@ -617,37 +638,91 @@ function updateTimerDisplay() {
     const opponentCountdown = document.getElementById('opponentCountdown');
     const selfCountdownText = document.getElementById('selfCountdownText');
     const opponentCountdownText = document.getElementById('opponentCountdownText');
+    const selfCountdownProgress = document.getElementById('selfCountdownProgress');
+    const opponentCountdownProgress = document.getElementById('opponentCountdownProgress');
     
-    // 更新倒计时显示（使用opacity避免布局跳动，元素始终占据空间）
+    // 更新倒计时显示和样式
     if (isMyTurn) {
         // 当前是自己的回合，显示自己的倒计时
-        if (selfCountdown) {
-            selfCountdown.style.opacity = '1';
-            selfCountdown.classList.add('show');
-        }
-        if (opponentCountdown) {
-            opponentCountdown.style.opacity = '0';
-            opponentCountdown.classList.remove('show');
-        }
-        if (selfCountdownText) {
-            // 显示英文格式：Countdown: 30s
-            selfCountdownText.textContent = currentCountdown > 0 ? `Countdown: ${currentCountdown}s` : 'Countdown: --';
-        }
+        updateCountdownDisplay(selfCountdown, selfCountdownText, selfCountdownProgress, currentCountdown);
+        hideCountdown(opponentCountdown);
     } else {
         // 当前是对手的回合，显示对手的倒计时
-        if (selfCountdown) {
-            selfCountdown.style.opacity = '0';
-            selfCountdown.classList.remove('show');
+        updateCountdownDisplay(opponentCountdown, opponentCountdownText, opponentCountdownProgress, currentCountdown);
+        hideCountdown(selfCountdown);
+    }
+}
+
+/**
+ * 更新倒计时显示和样式
+ */
+function updateCountdownDisplay(countdownEl, textEl, progressEl, seconds) {
+    if (!countdownEl || !textEl) return;
+    
+    // 显示倒计时
+    countdownEl.style.opacity = '1';
+    countdownEl.classList.add('show');
+    
+    // 更新文本（只显示数字，如 "30s"）
+    textEl.textContent = seconds > 0 ? `${seconds}s` : '';
+    
+    // 根据剩余时间更新样式
+    textEl.classList.remove('normal', 'warning', 'danger');
+    if (progressEl) {
+        progressEl.classList.remove('warning', 'danger');
+    }
+    
+    if (seconds > 10) {
+        // 正常状态：> 10秒
+        textEl.classList.add('normal');
+        if (progressEl) {
+            progressEl.style.stroke = '#3B82F6';
         }
-        if (opponentCountdown) {
-            opponentCountdown.style.opacity = '1';
-            opponentCountdown.classList.add('show');
+    } else if (seconds > 5) {
+        // 警告状态：≤ 10秒
+        textEl.classList.add('warning');
+        if (progressEl) {
+            progressEl.classList.add('warning');
+            progressEl.style.stroke = '#F59E0B';
         }
-        if (opponentCountdownText) {
-            // 显示英文格式：Countdown: 30s
-            opponentCountdownText.textContent = currentCountdown > 0 ? `Countdown: ${currentCountdown}s` : 'Countdown: --';
+    } else if (seconds > 0) {
+        // 危险状态：≤ 5秒
+        textEl.classList.add('danger');
+        if (progressEl) {
+            progressEl.classList.add('danger');
+            progressEl.style.stroke = '#EF4444';
         }
     }
+    
+    // 更新进度条（假设总时间是30秒，可以根据实际情况调整）
+    const totalTime = 30; // 总时间（秒）
+    const progress = seconds > 0 ? (seconds / totalTime) : 0;
+    const circumference = 2 * Math.PI * 45; // 半径45的圆周长
+    const offset = circumference * (1 - progress);
+    
+    if (progressEl) {
+        progressEl.style.strokeDashoffset = offset;
+    }
+}
+
+/**
+ * 隐藏倒计时
+ */
+function hideCountdown(countdownEl) {
+    if (countdownEl) {
+        countdownEl.style.opacity = '0';
+        countdownEl.classList.remove('show');
+    }
+}
+
+/**
+ * 隐藏所有倒计时
+ */
+function hideAllCountdowns() {
+    const selfCountdown = document.getElementById('selfCountdown');
+    const opponentCountdown = document.getElementById('opponentCountdown');
+    hideCountdown(selfCountdown);
+    hideCountdown(opponentCountdown);
 }
 
 /**
@@ -660,19 +735,7 @@ function stopCountdown() {
     }
     currentCountdown = 0;
     countdownDeadline = 0;
-    updateTimerDisplay();
-    
-    // 隐藏所有倒计时显示（但保持布局空间）
-    const selfCountdown = document.getElementById('selfCountdown');
-    const opponentCountdown = document.getElementById('opponentCountdown');
-    if (selfCountdown) {
-        selfCountdown.style.opacity = '0';
-        selfCountdown.classList.remove('show');
-    }
-    if (opponentCountdown) {
-        opponentCountdown.style.opacity = '0';
-        opponentCountdown.classList.remove('show');
-    }
+    hideAllCountdowns();
 }
 
 /**

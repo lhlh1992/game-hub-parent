@@ -189,8 +189,18 @@ body::after {
         0 2px 8px rgba(0, 0, 0, 0.04),
         inset 0 1px 0 rgba(255, 255, 255, 0.95);
     position: relative;
-    transition: all 0.3s ease;
+    transition: all 0.3s ease, box-shadow 0.15s ease; /* 添加阴影过渡动画 */
     flex-shrink: 0;
+}
+
+/* 玩家卡片高亮外圈（当前回合时显示） */
+.player-card.active-turn {
+    box-shadow: 
+        0 4px 20px rgba(0, 0, 0, 0.06),
+        0 2px 8px rgba(0, 0, 0, 0.04),
+        0 0 0 3px rgba(59, 130, 246, 0.2), /* 高亮外圈 */
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    transition: box-shadow 0.18s ease; /* 150-200ms 淡入/淡出动画 */
 }
 
 .player-card:hover {
@@ -260,39 +270,82 @@ body::after {
     margin-top: 0;
 }
 
-/* 玩家倒计时（在棋子下方，卡片右下角，往下移动） */
-.player-countdown {
+/* 倒计时进度条（圆形，在棋子外圈） */
+.countdown-progress-ring {
     position: absolute;
-    bottom: -40px; /* 更往下移动，让倒计时在棋子包装器更下方 */
-    right: 0; /* 靠右对齐 */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 70px; /* 比棋子稍大，形成外圈 */
+    height: 70px;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.countdown-progress-bg {
+    opacity: 0.2;
+}
+
+.countdown-progress-bar {
+    transition: stroke-dashoffset 0.1s linear, stroke 0.3s ease; /* 平滑动画 */
+}
+
+/* 倒计时数字（在棋子下方，字号略小，颜色柔和） */
+.player-countdown-number {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 4px 10px;
-    background: rgba(59, 130, 246, 0.1);
-    border: 1px solid rgba(59, 130, 246, 0.2);
-    border-radius: 12px;
-    min-width: 100px; /* 增加宽度以容纳 "Countdown: 30s" */
-    height: 28px;
-    box-sizing: border-box;
-    opacity: 0; /* 默认透明 */
+    margin-top: 4px;
+    opacity: 0; /* 默认透明，有倒计时时显示 */
     transition: opacity 0.2s ease;
-    z-index: 5; /* 确保在卡片内容之上 */
 }
 
-/* 倒计时显示时 */
-.player-countdown.show {
+.player-countdown-number.show {
     opacity: 1;
 }
 
 .countdown-text {
-    font-size: 12px;
-    font-weight: 600;
-    color: #3B82F6;
+    font-size: 11px; /* 字号略小 */
+    font-weight: 400; /* 正常字重，时间不足时加粗 */
+    color: #6B7280; /* 柔和灰色 */
     font-variant-numeric: tabular-nums; /* 等宽数字，避免跳动 */
     text-align: center;
-    line-height: 1; /* 固定行高，避免高度变化 */
-    white-space: nowrap; /* 不换行 */
+    line-height: 1;
+    white-space: nowrap;
+    transition: color 0.3s ease, font-weight 0.3s ease, transform 0.3s ease;
+}
+
+/* 倒计时状态：正常（> 10秒） */
+.countdown-text.normal {
+    color: #6B7280;
+    font-weight: 400;
+}
+
+/* 倒计时状态：警告（≤ 10秒） */
+.countdown-text.warning {
+    color: #F59E0B; /* 橙色 */
+    font-weight: 600; /* 适度加粗 */
+}
+
+/* 倒计时状态：危险（≤ 5秒） */
+.countdown-text.danger {
+    color: #EF4444; /* 红色 */
+    font-weight: 700; /* 更粗 */
+    animation: countdownPulse 1s ease-in-out infinite; /* 呼吸动效 */
+}
+
+@keyframes countdownPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+/* 进度条颜色变化 */
+.countdown-progress-bar.warning {
+    stroke: #F59E0B; /* 橙色 */
+}
+
+.countdown-progress-bar.danger {
+    stroke: #EF4444; /* 红色 */
 }
 
 /* 玩家头像（大圆形，柔光外圈，保持现有大小） */
@@ -363,6 +416,7 @@ body::after {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    position: relative; /* 为进度条提供定位参考 */
 }
 
 /* 棋子图标（立体样式，大小为头像的32%，约54px，精致低干扰的辅助视觉元素） */
@@ -424,8 +478,43 @@ body::after {
     white-space: nowrap;
 }
 
-/* 状态标签（Your Turn / Winner，在共享状态区域中，绝对定位重叠显示） */
-.player-status-label,
+/* 状态标签（回合提示始终存在，通过颜色区分状态） */
+.player-status-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 5.4px 13.5px;
+    border-radius: 16.2px;
+    text-transform: uppercase;
+    letter-spacing: 0.54px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    opacity: 1; /* 始终显示 */
+    transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, opacity 0.18s ease; /* 透明度淡入/淡出 */
+    pointer-events: none;
+}
+
+/* 回合提示：当前玩家回合（高亮蓝色） */
+.player-status-label.my-turn {
+    color: #3B82F6; /* 高亮蓝色 */
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* 回合提示：对手回合（浅灰色） */
+.player-status-label.opponent-turn {
+    color: #9CA3AF; /* 浅灰色 */
+    background: rgba(156, 163, 175, 0.08);
+    border: 1px solid rgba(156, 163, 175, 0.15);
+}
+
+/* Winner 标签（在共享状态区域中，绝对定位重叠显示） */
 .player-winner-label {
     position: absolute;
     top: 50%;
@@ -443,20 +532,13 @@ body::after {
     justify-content: center;
     white-space: nowrap;
     opacity: 0; /* 默认透明 */
-    transition: opacity 0.2s ease;
-    pointer-events: none; /* 不阻挡其他元素 */
+    transition: opacity 0.18s ease;
+    pointer-events: none;
 }
 
-/* 状态标签显示时 */
-.player-status-label.show,
+/* Winner 标签显示时 */
 .player-winner-label.show {
     opacity: 1;
-}
-
-.player-status-label {
-    color: #3B82F6;
-    background: rgba(59, 130, 246, 0.1);
-    border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 .player-winner-label {
