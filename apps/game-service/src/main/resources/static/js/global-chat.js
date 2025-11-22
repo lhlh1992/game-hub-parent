@@ -46,7 +46,7 @@
                     detail: { collapsed } 
                 }));
             } catch (e) {
-                console.warn('Failed to save chat state:', e);
+                // Failed to save chat state
             }
         },
         

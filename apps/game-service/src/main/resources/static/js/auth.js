@@ -146,7 +146,6 @@ function performSessionLogout(reason = '') {
         return;
     }
     sessionLoggingOut = true;
-    console.warn('检测到会话失效，自动登出', reason);
 
     try {
         clearToken();
@@ -161,7 +160,6 @@ function handleAuthExpiredResponse(res, context) {
     if (res && typeof res.headers?.get === 'function') {
         const redirect = res.headers.get(AUTH_REDIRECT_HEADER);
         if (redirect) {
-            console.warn(context, '检测到需要跳转登录页:', redirect);
             showAuthModal('登录状态已过期，请重新登录。');
             return;
         }
@@ -170,7 +168,6 @@ function handleAuthExpiredResponse(res, context) {
 }
 
 function handleFetchFailure(error, context) {
-    console.warn(context || 'fetch error', error);
     performSessionLogout(context || 'fetch error');
 }
 
@@ -219,13 +216,11 @@ async function initAndLogin() {
     let token = await getTokenFromGateway();
 
     if (token) {
-        console.log('从 Gateway 获取 token 成功');
         sessionLoggingOut = false;
         return token;
     }
 
     // 如果没有 token，跳转到 Gateway 的 OAuth2 登录
-    console.log('未登录，跳转到 Gateway OAuth2 登录...');
     const currentUrl = window.location.href;
     window.location.href =
         GATEWAY_LOGIN_URL + '?redirect_uri=' + encodeURIComponent(currentUrl);
@@ -354,7 +349,6 @@ async function fetchSystemUserProfile(token) {
         }
 
         if (!res.ok) {
-            console.warn('获取系统用户信息失败: HTTP', res.status);
             return null;
         }
 
@@ -367,7 +361,7 @@ async function fetchSystemUserProfile(token) {
             return data;
         }
     } catch (error) {
-        console.warn('获取系统用户信息异常:', error);
+        // 获取系统用户信息异常
     }
     return null;
 }
@@ -386,7 +380,6 @@ async function fetchGatewayUserProfile(token) {
         }
 
         if (!res.ok) {
-            console.warn('获取基础用户信息失败: HTTP', res.status);
             return null;
         }
 
@@ -396,7 +389,6 @@ async function fetchGatewayUserProfile(token) {
         }
         return profile;
     } catch (error) {
-        console.warn('获取基础用户信息异常:', error);
         return null;
     }
 }

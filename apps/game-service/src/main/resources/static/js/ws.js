@@ -35,7 +35,6 @@ function isUnauthorizedWebSocketError(error) {
  */
 function connectWebSocket(token, callbacks = {}) {
     if (stomp && stomp.connected) {
-        console.warn('WebSocket 已连接');
         if (callbacks.onConnect) {
             callbacks.onConnect();
         }
@@ -51,7 +50,6 @@ function connectWebSocket(token, callbacks = {}) {
         }
     }
 
-    console.log('创建 SockJS 连接: /game-service/ws');
     // 通过 URL 参数传递 token（SockJS 握手请求无法在请求头中传递自定义 header）
     // WebSocketTokenFilter 会将 URL 参数中的 token 提取到请求头中
     const wsUrl = token ? `/game-service/ws?access_token=${encodeURIComponent(token)}` : '/game-service/ws';
@@ -60,16 +58,14 @@ function connectWebSocket(token, callbacks = {}) {
 
     // 设置调试模式（可选，生产环境可关闭）
     stomp.debug = function (str) {
-        console.log('STOMP:', str);
+        // STOMP debug disabled
     };
 
     const headers = token ? { Authorization: 'Bearer ' + token } : {};
-    console.log('WebSocket 连接 headers:', headers);
 
     // 设置连接超时（10秒）
     const connectTimeout = setTimeout(() => {
         if (!stomp.connected) {
-            console.error('WebSocket 连接超时');
             if (callbacks.onError) {
                 callbacks.onError(new Error('连接超时'));
             }
@@ -79,15 +75,12 @@ function connectWebSocket(token, callbacks = {}) {
     try {
         stomp.connect(headers, (frame) => {
             clearTimeout(connectTimeout);
-            console.log('WebSocket 连接成功，frame:', frame);
 
             if (callbacks.onConnect) {
                 callbacks.onConnect();
             }
         }, (error) => {
             clearTimeout(connectTimeout);
-            console.error('WebSocket 连接失败:', error);
-            console.error('错误详情:', error.headers, error.body);
 
             // 如果是 401 / 未授权，直接自动登出（和手工“退出”一致）
             if (typeof performSessionLogout === 'function' && isUnauthorizedWebSocketError(error)) {
@@ -101,7 +94,6 @@ function connectWebSocket(token, callbacks = {}) {
         });
     } catch (error) {
         clearTimeout(connectTimeout);
-        console.error('WebSocket 连接异常:', error);
         if (callbacks.onError) {
             callbacks.onError(error);
         }
@@ -115,7 +107,6 @@ function connectWebSocket(token, callbacks = {}) {
  */
 function subscribeRoom(roomId, onEvent) {
     if (!stomp || !stomp.connected) {
-        console.warn('WebSocket 未连接');
         return;
     }
 
@@ -129,7 +120,7 @@ function subscribeRoom(roomId, onEvent) {
             const evt = JSON.parse(frame.body);
             onEvent(evt);
         } catch (e) {
-            console.error('解析事件失败:', e);
+            // 解析事件失败
         }
     });
 
@@ -142,7 +133,6 @@ function subscribeRoom(roomId, onEvent) {
  */
 function subscribeSeatKey(onSeatKey) {
     if (!stomp || !stomp.connected) {
-        console.warn('WebSocket 未连接');
         return;
     }
 
@@ -158,7 +148,7 @@ function subscribeSeatKey(onSeatKey) {
             const side = payload.side || 'X';
             onSeatKey(seatKey, side);
         } catch (e) {
-            console.error('解析 seatKey 失败:', e);
+            // 解析 seatKey 失败
         }
     });
 
@@ -171,7 +161,6 @@ function subscribeSeatKey(onSeatKey) {
  */
 function subscribeFullSync(onFullSync) {
     if (!stomp || !stomp.connected) {
-        console.warn('WebSocket 未连接');
         return;
     }
 
@@ -185,7 +174,7 @@ function subscribeFullSync(onFullSync) {
             const snap = JSON.parse(frame.body);
             onFullSync(snap);
         } catch (e) {
-            console.error('解析完整同步失败:', e);
+            // 解析完整同步失败
         }
     });
 
@@ -199,7 +188,6 @@ function subscribeFullSync(onFullSync) {
  */
 function sendResume(roomId, seatKey = null) {
     if (!stomp || !stomp.connected) {
-        console.warn('WebSocket 未连接');
         return;
     }
 
@@ -216,7 +204,6 @@ function sendResume(roomId, seatKey = null) {
  */
 function sendPlace(roomId, x, y, side, seatKey = null) {
     if (!stomp || !stomp.connected) {
-        console.warn('WebSocket 未连接');
         return;
     }
 
@@ -231,7 +218,6 @@ function sendPlace(roomId, x, y, side, seatKey = null) {
  */
 function sendResign(roomId, seatKey = null) {
     if (!stomp || !stomp.connected) {
-        console.warn('WebSocket 未连接');
         return;
     }
 
@@ -245,7 +231,6 @@ function sendResign(roomId, seatKey = null) {
  */
 function sendRestart(roomId, seatKey = null) {
     if (!stomp || !stomp.connected) {
-        console.warn('WebSocket 未连接');
         return;
     }
 

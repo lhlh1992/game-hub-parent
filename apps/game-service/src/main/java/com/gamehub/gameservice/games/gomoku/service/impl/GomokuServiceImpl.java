@@ -225,6 +225,11 @@ public class GomokuServiceImpl implements GomokuService {
         if (!GomokuJudge.isLegal(s.board(), x, y)) {
             throw new IllegalArgumentException("落点非法或已占用");
         }
+        // 【关键修复】严格边界检查：不允许在最后一列（x=14）或最后一行（y=14）落子
+        // 15x15棋盘的有效范围是 0-13，排除边界位置
+        if (x >= Board.SIZE - 1 || y >= Board.SIZE - 1) {
+            throw new IllegalArgumentException("不允许在棋盘边界位置落子（有效范围：0-" + (Board.SIZE - 2) + "）");
+        }
         // 黑方禁手（仅在 RENJU 模式判断）
         if (r.getRule() == Rule.RENJU && piece == Board.BLACK
                 && GomokuJudgeRenju.isForbiddenMove(s.board(), x, y)) {

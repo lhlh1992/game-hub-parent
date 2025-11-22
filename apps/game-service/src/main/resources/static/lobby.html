@@ -194,14 +194,11 @@
         document.addEventListener('DOMContentLoaded', async () => {
             try {
                 // 确保用户已登录
-                console.log('开始登录流程...');
                 currentToken = await ensureAuthenticated();
-                console.log('登录成功，token:', currentToken ? '已获取' : '未获取');
                 
                 // 绑定事件
                 bindEvents();
             } catch (error) {
-                console.error('初始化失败:', error);
                 handleFetchFailure(error, '大厅初始化失败');
             }
         });
@@ -365,7 +362,7 @@
             } catch (error) {
                 $('pveStatus').textContent = `创建失败: ${error.message}`;
                 $('pveStatus').className = 'status-message error';
-                console.error('创建人机对战房间失败:', error);
+                // 创建人机对战房间失败
                 $('confirmPVE').disabled = false;
             }
         }
@@ -394,7 +391,7 @@
             } catch (error) {
                 $('createStatus').textContent = `创建失败: ${error.message}`;
                 $('createStatus').className = 'status-message error';
-                console.error('创建房间失败:', error);
+                // 创建房间失败
             } finally {
                 $('confirmCreate').disabled = false;
             }
@@ -424,12 +421,12 @@
             
             // TODO: 实现实际的匹配逻辑
             // 这里先模拟匹配过程
-            console.log('开始匹配...');
+            // 开始匹配
             
             // 模拟匹配（实际应该调用后端API）
             matchmakingInterval = setInterval(() => {
                 // 这里应该轮询匹配状态或使用WebSocket
-                console.log('匹配中...');
+                // 匹配中
             }, 2000);
 
             // 模拟匹配成功（5秒后）
@@ -456,7 +453,7 @@
             
             $('btnMatchmaking').style.display = 'block';
             $('matchStatus').style.display = 'none';
-            console.log('取消匹配');
+            // 取消匹配
         }
     </script>
 </body>

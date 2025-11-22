@@ -76,7 +76,7 @@
                 drawerId.textContent = profile?.username || '';
             }
         } catch (err) {
-            console.warn('获取用户信息失败（header）', err);
+            // 获取用户信息失败（header）
         }
     }
 

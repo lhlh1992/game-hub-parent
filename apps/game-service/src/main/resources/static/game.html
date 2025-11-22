@@ -116,9 +116,9 @@
                 <div id="board" aria-label="Board"></div>
                 <div class="board-reflection-left"></div>
                 <div class="board-reflection-right"></div>
-            </div>
-            
-            <!-- 操作按钮 -->
+        </div>
+        
+        <!-- 操作按钮 -->
             <div class="game-actions">
                 <button class="btn-action btn-resign" id="btnResign">Resign</button>
                 <button class="btn-action btn-restart" id="btnRestart">New Game</button>
@@ -214,11 +214,9 @@
                 sendPlace(currentRoomId, x, y, side, currentSeatKey);
             },
             onError: (error) => {
-                console.error('游戏错误:', error);
                 updateStatus('错误: ' + error, false);
             },
             onGameOver: (winner) => {
-                console.log('游戏结束，胜者:', winner);
             }
         };
         
@@ -235,15 +233,11 @@
                     return;
                 }
                 
-                console.log('房间ID:', currentRoomId);
-                
                 // 同步到 window 对象，供 game.js 使用
                 window._currentRoomId = currentRoomId;
                 
                 // 确保用户已登录
-                console.log('开始登录验证...');
                 currentToken = await ensureAuthenticated();
-                console.log('Token 获取成功:', currentToken ? currentToken.substring(0, 20) + '...' : 'null');
                 
                 if (!currentToken) {
                     throw new Error('无法获取 token，请重新登录');
@@ -253,19 +247,15 @@
                 userInfo = await getUserInfo();
                 if (userInfo) {
                     displayUserInfo(userInfo);
-                    console.log('用户信息:', userInfo);
                 }
                 
                 // 初始化游戏
-                console.log('初始化游戏...');
                 initGame(currentRoomId);
                 
                 // 获取 seatKey
                 currentSeatKey = getSeatKey(currentRoomId);
-                console.log('SeatKey:', currentSeatKey || 'null');
                 
                 // 连接 WebSocket
-                console.log('开始连接 WebSocket...');
                 connectWebSocket(currentToken, {
                     onConnect: () => {
                         updateStatus('已连接', true);
@@ -295,14 +285,12 @@
                     },
                     onError: (error) => {
                         updateStatus('连接失败', false);
-                        console.error('WebSocket 连接失败:', error);
                     }
                 });
                 
                 // 绑定事件
                 bindEvents();
             } catch (error) {
-                console.error('初始化失败:', error);
                 handleFetchFailure(error, '游戏页面初始化失败');
             }
         });

@@ -29,7 +29,11 @@ public class GomokuAI {
 
     /** 计算对 me 的最佳一步（威胁优先 + 搜索；RENJU 时自动避开黑方禁手） */
     public Move bestMove(Board board, char me) {
-        if (isEmptyBoard(board)) return new Move(Board.SIZE / 2, Board.SIZE / 2, me);
+        // 【关键修复】空棋盘时，中心位置是 (7, 7)，在有效范围 0-13 内
+        if (isEmptyBoard(board)) {
+            int center = Board.SIZE / 2; // 15/2 = 7，在有效范围内
+            return new Move(center, center, me);
+        }
 
         // 1) 我方一步即胜
         Move winNow = findImmediateWinLegal(board, me);
@@ -47,7 +51,11 @@ public class GomokuAI {
 
         // 3) 候选点（战场外扩 pad=2，按潜力排序；RENJU+黑方过滤禁手）
         List<int[]> cands = candidates(board, me, opp);
-        if (cands.isEmpty()) return new Move(Board.SIZE/2, Board.SIZE/2, me);
+        if (cands.isEmpty()) {
+            // 【关键修复】兜底位置使用中心点 (7, 7)，在有效范围 0-13 内
+            int center = Board.SIZE / 2; // 15/2 = 7
+            return new Move(center, center, me);
+        }
 
         // 4) α-β搜索
         int bestScore = Integer.MIN_VALUE;
@@ -70,7 +78,11 @@ public class GomokuAI {
                     best = new Move(p[0], p[1], me); break;
                 }
             }
-            if (best == null) best = new Move(Board.SIZE/2, Board.SIZE/2, me);
+            if (best == null) {
+                // 【关键修复】兜底位置使用中心点 (7, 7)，在有效范围 0-13 内
+                int center = Board.SIZE / 2; // 15/2 = 7
+                best = new Move(center, center, me);
+            }
         }
         return best;
     }
@@ -97,10 +109,11 @@ public class GomokuAI {
 
     // ================== 威胁优先 & 合法性 ==================
 
-    /** 仅考虑“合法”的一步即胜（RENJU + 黑方禁手会被过滤） */
+    /** 仅考虑"合法"的一步即胜（RENJU + 黑方禁手会被过滤） */
     private Move findImmediateWinLegal(Board b, char side) {
-        for (int x = 0; x < Board.SIZE; x++) {
-            for (int y = 0; y < Board.SIZE; y++) {
+        // 【关键修复】排除最后一列和最后一行（x=14 或 y=14），有效范围是 0-13
+        for (int x = 0; x < Board.SIZE - 1; x++) {
+            for (int y = 0; y < Board.SIZE - 1; y++) {
                 if (!b.isEmpty(x, y)) continue;
                 if (isForbiddenPoint(b, x, y, side)) continue;
                 b.place(x, y, side);
@@ -114,8 +127,9 @@ public class GomokuAI {
 
     /** 对方一步会形成【活四】或【双活三】 → 返回该威胁点（提前卡位） */
     private int[] findOpponentThreat(Board b, char opp) {
-        for (int x = 0; x < Board.SIZE; x++) {
-            for (int y = 0; y < Board.SIZE; y++) {
+        // 【关键修复】排除最后一列和最后一行（x=14 或 y=14），有效范围是 0-13
+        for (int x = 0; x < Board.SIZE - 1; x++) {
+            for (int y = 0; y < Board.SIZE - 1; y++) {
                 if (!b.isEmpty(x, y)) continue;
                 // 这里判断对方的威胁，不需要套我方禁手
                 b.place(x, y, opp);
@@ -222,14 +236,22 @@ public class GomokuAI {
         }
 
         List<int[]> list = new ArrayList<>();
-        if (!hasStone) { list.add(new int[]{Board.SIZE/2, Board.SIZE/2}); return list; }
+        if (!hasStone) {
+            // 【关键修复】空棋盘时，中心位置是 (7, 7)，在有效范围 0-13 内
+            int center = Board.SIZE / 2; // 15/2 = 7
+            list.add(new int[]{center, center});
+            return list;
+        }
 
         int pad = 2;
-        int sx = Math.max(0, minX - pad), ex = Math.min(Board.SIZE - 1, maxX + pad);
-        int sy = Math.max(0, minY - pad), ey = Math.min(Board.SIZE - 1, maxY + pad);
+        // 【关键修复】排除最后一列和最后一行（x=14 或 y=14），有效范围是 0-13
+        int sx = Math.max(0, minX - pad), ex = Math.min(Board.SIZE - 2, maxX + pad);
+        int sy = Math.max(0, minY - pad), ey = Math.min(Board.SIZE - 2, maxY + pad);
 
         for (int x = sx; x <= ex; x++) {
             for (int y = sy; y <= ey; y++) {
+                // 【额外保护】双重检查，确保不在边界位置
+                if (x >= Board.SIZE - 1 || y >= Board.SIZE - 1) continue;
                 if (!b.isEmpty(x, y)) continue;
                 if (!hasNeighbor(b, x, y)) continue;
                 list.add(new int[]{x, y});

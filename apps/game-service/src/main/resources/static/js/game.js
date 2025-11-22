@@ -70,8 +70,20 @@ function renderBoard(grid, lastMove) {
     const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O'];
     
     // 渲染棋盘格子
+    // 【关键修复】严格确保只创建 n x n 个cell，不多不少
+    console.log(`[DEBUG] ========== 开始渲染棋盘 ==========`);
+    console.log(`[DEBUG] n=${n}, 应该创建 ${n * n} 个cell`);
+    console.log(`[DEBUG] grid数组大小: ${grid.length}x${grid[0]?.length || 0}`);
+    
+    let cellCount = 0;
     for (let y = 0; y < n; y++) {
         for (let x = 0; x < n; x++) {
+            // 【关键】双重检查：确保坐标在有效范围内
+            if (x < 0 || x >= n || y < 0 || y >= n) {
+                console.error(`[DEBUG] ❌ 创建cell时坐标超出范围: x=${x}, y=${y}, n=${n}`);
+                continue; // 跳过超出范围的cell
+            }
+            
             const v = grid[x][y];
             const isLast = lastMove && lastMove.x === x && lastMove.y === y;
             
@@ -80,17 +92,48 @@ function renderBoard(grid, lastMove) {
                 (v === 'X' ? ' X' : (v === 'O' ? ' O' : '')) + 
                 (isLast ? ' last' : '');
             cell.textContent = v === '.' ? '' : v;
+            // 【重要】严格设置坐标，确保坐标范围是 0 到 n-1
             cell.dataset.x = String(x);
             cell.dataset.y = String(y);
             cell.title = `(${letters[x]}${y + 1})`;
             
-            // 只有空位时才添加点击事件（游戏结束检查在onCellClick中）
-            if (v === '.') {
+            // 【重要】只有空位时才添加点击事件，并且确保坐标有效
+            if (v === '.' && x >= 0 && x < n && y >= 0 && y < n) {
                 cell.addEventListener('click', onCellClick);
             }
             
             boardEl.appendChild(cell);
+            cellCount++;
         }
+    }
+    
+    // 【重要】验证创建的cell数量，确保只有 n x n 个
+    const createdCells = boardEl.querySelectorAll('.cell');
+    console.log(`[DEBUG] 创建的cell数量: 循环计数=${cellCount}, DOM查询=${createdCells.length}, 期望=${n * n}`);
+    
+    if (createdCells.length !== n * n) {
+        console.error(`[DEBUG] ❌ 棋盘cell数量错误: 期望 ${n * n} 个，实际 ${createdCells.length} 个`);
+        // 输出所有cell的坐标
+        createdCells.forEach((cell, idx) => {
+            const x = parseInt(cell.dataset.x, 10);
+            const y = parseInt(cell.dataset.y, 10);
+            console.log(`[DEBUG] Cell ${idx}: x=${x}, y=${y}, 是否超出范围: ${x >= n || y >= n || x < 0 || y < 0}`);
+        });
+    }
+    
+    // 检查是否有坐标超出范围的cell
+    let foundOutOfRange = false;
+    createdCells.forEach((cell) => {
+        const x = parseInt(cell.dataset.x, 10);
+        const y = parseInt(cell.dataset.y, 10);
+        if (x >= n || y >= n || x < 0 || y < 0) {
+            console.error(`[DEBUG] ❌ 发现超出范围的cell: x=${x}, y=${y}, n=${n}`);
+            foundOutOfRange = true;
+        }
+    });
+    
+    if (!foundOutOfRange && createdCells.length === n * n) {
+        console.log(`[DEBUG] ✅ 棋盘渲染成功: ${n}x${n}=${n * n}个cell，所有坐标都在有效范围内`);
     }
     
     // ====================================================================
@@ -215,27 +258,108 @@ function isGameOver() {
  * @param {Event} e - 点击事件
  */
 function onCellClick(e) {
+    console.log('[DEBUG] ========== onCellClick 被调用 ==========');
+    console.log('[DEBUG] e.currentTarget:', e.currentTarget);
+    console.log('[DEBUG] e.target:', e.target);
+    console.log('[DEBUG] e.target.tagName:', e.target?.tagName);
+    console.log('[DEBUG] e.target.className:', e.target?.className);
+    console.log('[DEBUG] e.target.dataset:', e.target?.dataset);
+    
     // 如果游戏已结束，不允许下棋
     if (isGameOver()) {
-        console.warn('游戏已结束，无法继续下棋');
+        console.log('[DEBUG] 游戏已结束，不允许下棋');
         return;
     }
     
     const currentRoomId = typeof window !== 'undefined' ? window._currentRoomId : null;
     if (!currentRoomId) {
-        console.warn('未选择房间');
+        console.log('[DEBUG] 未选择房间');
+        return;
+    }
+    
+    // 【重要】确保点击的是真正的cell元素
+    if (!e.currentTarget || !e.currentTarget.classList.contains('cell')) {
+        console.error('[DEBUG] ❌ 点击的不是棋盘单元格!');
+        console.error('[DEBUG] currentTarget:', e.currentTarget);
+        console.error('[DEBUG] target:', e.target);
+        console.error('[DEBUG] classList:', e.currentTarget?.classList);
+        console.error('[DEBUG] 点击位置可能超出棋盘边界！');
+        e.preventDefault();
+        e.stopPropagation();
         return;
     }
     
     const x = parseInt(e.currentTarget.dataset.x, 10);
     const y = parseInt(e.currentTarget.dataset.y, 10);
+    console.log(`[DEBUG] 点击坐标: x=${x}, y=${y}`);
+    
+    // 【重要】严格验证坐标是否在有效范围内
+    const n = grid ? grid.length : DEFAULT_N;
+    console.log(`[DEBUG] 棋盘大小: n=${n}, grid.length=${grid?.length}, DEFAULT_N=${DEFAULT_N}`);
+    
+    // 双重检查：确保坐标是有效数字
+    if (isNaN(x) || isNaN(y)) {
+        console.error(`[DEBUG] ❌ 坐标无效: x=${x}, y=${y}`);
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+    }
+    
+    // 【关键修复】严格边界检查：坐标必须在 0 到 n-1 之间（15x15棋盘就是0-14）
+    // 使用严格的小于号，确保绝对不会超出边界
+    if (x < 0 || x >= n || y < 0 || y >= n) {
+        console.error(`[DEBUG] ❌❌❌ 坐标超出范围: x=${x}, y=${y}, 有效范围: 0-${n-1}, 棋盘大小: ${n}x${n}`);
+        console.error('[DEBUG] 这不应该发生！请检查cell的dataset设置！');
+        // 【额外检查】检查点击位置是否在padding区域
+        const boardEl = document.getElementById('board');
+        if (boardEl) {
+            const boardRect = boardEl.getBoundingClientRect();
+            const clickX = e.clientX;
+            const clickY = e.clientY;
+            console.error(`[DEBUG] 点击位置: clientX=${clickX}, clientY=${clickY}`);
+            console.error(`[DEBUG] 棋盘位置: left=${boardRect.left}, top=${boardRect.top}, right=${boardRect.right}, bottom=${boardRect.bottom}`);
+            console.error(`[DEBUG] 点击是否在棋盘内: ${clickX >= boardRect.left && clickX <= boardRect.right && clickY >= boardRect.top && clickY <= boardRect.bottom}`);
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+    }
+    
+    // 【额外保护】如果点击的是最后一列（x=14）或最后一行（y=14），也拒绝
+    // 这样可以确保绝对不会在边界外落子
+    if (x === n - 1 || y === n - 1) {
+        console.error(`[DEBUG] ❌❌❌ 拒绝在边界位置落子: x=${x}, y=${y}, 这是最后一列或最后一行`);
+        console.error(`[DEBUG] 15x15棋盘的有效范围是 0-13，不允许在边界（14）落子`);
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+    }
+    
+    // 额外验证：确保grid数组存在且坐标有效
+    if (!grid || !grid[x] || typeof grid[x][y] === 'undefined') {
+        console.error(`[DEBUG] ❌ 坐标对应的grid位置不存在: x=${x}, y=${y}, grid存在=${!!grid}, grid[x]存在=${!!grid?.[x]}`);
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+    }
+    
+    // 验证该位置是否为空
+    if (grid && grid[x] && grid[x][y] !== '.') {
+        console.log(`[DEBUG] 位置 (${x}, ${y}) 已有棋子: ${grid[x][y]}`);
+        return;
+    }
+    
+    console.log(`[DEBUG] ✅ 坐标验证通过，准备落子: x=${x}, y=${y}`);
     
     // 获取当前执子方（从 state 或使用默认值）
     const side = state?.current || 'X';
     
     // 触发外部回调
     if (window.gameCallbacks && window.gameCallbacks.onPlace) {
+        console.log(`[DEBUG] 调用 onPlace: x=${x}, y=${y}, side=${side}`);
         window.gameCallbacks.onPlace(x, y, side);
+    } else {
+        console.warn('[DEBUG] window.gameCallbacks.onPlace 不存在');
     }
 }
 
@@ -259,12 +383,10 @@ function handleGameEvent(evt) {
     }
     
     if (evt.type === 'TIMEOUT') {
-        console.log(`超时：${evt.payload?.side ?? '-'}`);
         return;
     }
     
     if (evt.type === 'ERROR') {
-        console.error('游戏错误:', evt.payload);
         if (window.gameCallbacks && window.gameCallbacks.onError) {
             window.gameCallbacks.onError(evt.payload);
         }

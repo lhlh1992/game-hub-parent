@@ -486,6 +486,9 @@ label {
     display: grid;
     grid-template-columns: repeat(var(--n), var(--cell));
     grid-template-rows: repeat(var(--n), var(--cell));
+    /* 【关键修复】禁用grid自动创建隐式行/列，确保只有15x15个cell */
+    grid-auto-columns: 0;
+    grid-auto-rows: 0;
     gap: 0;
     margin-top: 20px;
     user-select: none;
@@ -507,6 +510,9 @@ label {
     /* 为坐标标记预留空间 */
     padding-left: 40px; /* 左侧20px padding + 20px坐标区域 */
     padding-bottom: 40px; /* 下方20px padding + 20px坐标区域 */
+    /* 【关键修复】确保padding区域不可点击，只有.cell元素可以点击 */
+    pointer-events: none;
+    overflow: hidden;
     /* 添加精致的轻木纹纹理 */
     background-image: 
         repeating-linear-gradient(0deg, transparent, transparent 10px, rgba(0, 0, 0, 0.008) 10px, rgba(0, 0, 0, 0.008) 11px),
@@ -593,6 +599,10 @@ label {
     position: relative;
     z-index: 2;
     transition: all 0.15s ease;
+    /* 【关键修复】确保cell可以响应点击，覆盖父元素的pointer-events: none */
+    pointer-events: auto;
+    /* 【关键修复】确保棋子不会超出cell边界 */
+    overflow: hidden;
 }
 
 /* 空位悬停效果 - Q萌风格：更可爱的提示 */
@@ -611,6 +621,9 @@ label {
 .cell.X::before {
     content: '';
     position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     width: calc(var(--cell) * 0.85);
     height: calc(var(--cell) * 0.85);
     border-radius: 50%;
@@ -630,7 +643,7 @@ label {
 }
 
 .cell.X:hover::before {
-    transform: scale(1.05);
+    transform: translate(-50%, -50%) scale(1.05);
     box-shadow: 
         0 8px 20px rgba(0, 0, 0, 0.6),
         0 4px 8px rgba(0, 0, 0, 0.4) inset,
@@ -641,6 +654,9 @@ label {
 .cell.X::after {
     content: '';
     position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     width: calc(var(--cell) * 0.35);
     height: calc(var(--cell) * 0.35);
     border-radius: 50%;
@@ -648,8 +664,6 @@ label {
         rgba(255, 255, 255, 0.7) 0%,
         rgba(255, 255, 255, 0.3) 40%,
         transparent 70%);
-    top: 22%;
-    left: 22%;
     z-index: 2;
     pointer-events: none;
     filter: blur(1.5px);
@@ -664,6 +678,9 @@ label {
 .cell.O::before {
     content: '';
     position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     width: calc(var(--cell) * 0.85);
     height: calc(var(--cell) * 0.85);
     border-radius: 50%;
@@ -683,7 +700,7 @@ label {
 }
 
 .cell.O:hover::before {
-    transform: scale(1.05);
+    transform: translate(-50%, -50%) scale(1.05);
     box-shadow: 
         0 8px 20px rgba(0, 0, 0, 0.5),
         0 4px 8px rgba(255, 255, 255, 1) inset,
@@ -694,6 +711,9 @@ label {
 .cell.O::after {
     content: '';
     position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     width: calc(var(--cell) * 0.38);
     height: calc(var(--cell) * 0.38);
     border-radius: 50%;
@@ -702,8 +722,6 @@ label {
         rgba(255, 255, 255, 0.9) 35%,
         rgba(255, 255, 255, 0.4) 65%,
         transparent 85%);
-    top: 20%;
-    left: 20%;
     z-index: 2;
     pointer-events: none;
     filter: blur(1.5px);
