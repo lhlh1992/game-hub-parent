@@ -275,8 +275,31 @@ public class GomokuServiceImpl implements GomokuService {
     public GomokuState restart(String roomId) {
         Room r = room(roomId);
         String gameId = UUID.randomUUID().toString();
+        
+        // 更新内存中的Room
         rooms.put(r.getId(), new Room(r.getId(),r.getMode(), r.getRule(), r.getAiPiece(),
                 new GomokuAI(3, r.getRule() == Rule.RENJU),gameId));
+        
+        // 更新Redis中的RoomMeta.gameId
+        RoomMeta meta = roomRepo.getRoomMeta(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("ROOM_NOT_FOUND: " + roomId));
+        meta.setGameId(gameId);
+        meta.setCurrentIndex(1); // 重开时重置为第1盘
+        roomRepo.saveRoomMeta(roomId, meta, Duration.ofHours(48));
+        
+        // 在Redis中创建新的GameStateRecord（空盘）
+        String emptyBoard = String.valueOf(Board.EMPTY).repeat(Board.SIZE * Board.SIZE);
+        GameStateRecord rec = new GameStateRecord();
+        rec.setRoomId(roomId);
+        rec.setGameId(gameId);
+        rec.setIndex(1);
+        rec.setBoard(emptyBoard);
+        rec.setCurrent(String.valueOf(Board.BLACK)); // 新盘默认黑先
+        rec.setLastMove(null);
+        rec.setWinner(null);
+        rec.setOver(false);
+        rec.setStep(0);
+        gameRepo.save(roomId, gameId, rec, Duration.ofHours(48));
         
         // TurnAnchor的创建交给TurnClockManager处理
         
@@ -468,10 +491,31 @@ public class GomokuServiceImpl implements GomokuService {
 
         // 2) 创建新盘
         Integer index = r.getSeries().getNextIndex();
-        index = index++;
         String gameId = UUID.randomUUID().toString();
-        Game g = new Game(index,gameId);
+        Game g = new Game(index, gameId);
         r.getSeries().setCurrent(g);
+        
+        // 3) 更新Redis中的RoomMeta.gameId和currentIndex
+        RoomMeta meta = roomRepo.getRoomMeta(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("ROOM_NOT_FOUND: " + roomId));
+        meta.setGameId(gameId);
+        meta.setCurrentIndex(index);
+        roomRepo.saveRoomMeta(roomId, meta, Duration.ofHours(48));
+        
+        // 4) 在Redis中创建新的GameStateRecord（空盘）
+        String emptyBoard = String.valueOf(Board.EMPTY).repeat(Board.SIZE * Board.SIZE);
+        GameStateRecord rec = new GameStateRecord();
+        rec.setRoomId(roomId);
+        rec.setGameId(gameId);
+        rec.setIndex(index);
+        rec.setBoard(emptyBoard);
+        rec.setCurrent(String.valueOf(Board.BLACK)); // 新盘默认黑先
+        rec.setLastMove(null);
+        rec.setWinner(null);
+        rec.setOver(false);
+        rec.setStep(0);
+        gameRepo.save(roomId, gameId, rec, Duration.ofHours(48));
+        
         return g.getState();
     }
 

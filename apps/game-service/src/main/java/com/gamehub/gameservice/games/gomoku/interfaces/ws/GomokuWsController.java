@@ -143,8 +143,21 @@ public class GomokuWsController {
             }
             // 权限校验：必须是房间内的玩家才能认输
             char side = gomokuService.resolveAndBindSide(roomId, userId, null);
+            
+            // 获取认输前的状态，用于CAS保存
+            GomokuState before = gomokuService.getState(roomId);
+            final String gameId = gomokuService.getGameId(roomId);
+            int expectedStep = computeExpectedStep(before.board());
+            char expectedTurn = before.current();
+            
+            // 执行认输
             GomokuState s = gomokuService.resign(roomId, side);
             cancelAi(roomId);
+            
+            // 保存认输后的状态到Redis
+            GameStateRecord rec = buildRecord(s, roomId, gameId, expectedStep + 1);
+            persistStateAtomically(roomId, gameId, expectedStep, expectedTurn, rec, 0L);
+            
             sendState(roomId, s); // ★ sendState 会再发 SNAPSHOT
         } catch (IllegalStateException e) {
             // 房间已满或不是玩家，拒绝操作

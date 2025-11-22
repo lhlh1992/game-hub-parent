@@ -1,9 +1,12 @@
 package com.gamehub.gameservice.games.gomoku.application;
 
 import com.gamehub.gameservice.clock.scheduler.CountdownScheduler;
+import com.gamehub.gameservice.games.gomoku.domain.dto.GameStateRecord;
 import com.gamehub.gameservice.games.gomoku.domain.enums.Mode;
+import com.gamehub.gameservice.games.gomoku.domain.model.Board;
 import com.gamehub.gameservice.games.gomoku.domain.model.GomokuState;
 import com.gamehub.gameservice.games.gomoku.domain.model.SeriesView;
+import com.gamehub.gameservice.games.gomoku.domain.repository.GameStateRepository;
 import com.gamehub.gameservice.games.gomoku.interfaces.ws.dto.GomokuMessages.BroadcastEvent;
 import com.gamehub.gameservice.games.gomoku.service.GomokuService;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +53,8 @@ public class TurnClockCoordinator {
     private final GomokuService gomokuService;
     // WebSocket 消息模板（推送到房间）
     private final SimpMessagingTemplate messaging;
+    // 游戏状态仓储（用于保存状态到Redis）
+    private final GameStateRepository gameStateRepository;
 
     @Value("${gomoku.turn.seconds:30}")
     // 单回合时长（秒）
@@ -139,8 +144,23 @@ public class TurnClockCoordinator {
         String roomId = extractRoomId(key);
         // 所属棋色
         char side = (owner == null || owner.isEmpty()) ? 0 : owner.charAt(0);
+        
+        // 获取超时前的状态，用于CAS保存
+        GomokuState before = gomokuService.getState(roomId);
+        final String gameId = gomokuService.getGameId(roomId);
+        int expectedStep = computeExpectedStep(before.board());
+        char expectedTurn = before.current();
+        
         // 权威判负
         GomokuState after = gomokuService.resign(roomId, side);
+        
+        // 保存超时后的状态到Redis
+        GameStateRecord rec = buildRecord(after, roomId, gameId, expectedStep + 1);
+        try {
+            gameStateRepository.updateAtomically(roomId, gameId, expectedStep, expectedTurn, rec, 0L);
+        } catch (Exception e) {
+            log.warn("保存超时状态到Redis失败: {}", e.getMessage());
+        }
 
         // 广播 TIMEOUT
         BroadcastEvent timeout = new BroadcastEvent();
@@ -165,6 +185,49 @@ public class TurnClockCoordinator {
         snapEvt.setType("SNAPSHOT");
         snapEvt.setPayload(snap);
         messaging.convertAndSend(topic(roomId), snapEvt);
+    }
+    
+    /**
+     * 计算当前棋盘上的棋子数量，作为CAS操作的期望值
+     */
+    private int computeExpectedStep(Board b) {
+        int cnt = 0;
+        for (int x = 0; x < Board.SIZE; x++) {
+            for (int y = 0; y < Board.SIZE; y++) {
+                char p = b.get(x, y);
+                if (p == 'X' || p == 'O') cnt++;
+            }
+        }
+        return cnt;
+    }
+    
+    /**
+     * 从状态中构建一个GameStateRecord快照，以实现持久化
+     */
+    private GameStateRecord buildRecord(GomokuState s, String roomId, String gameId, int step) {
+        GameStateRecord rec = new GameStateRecord();
+        rec.setRoomId(roomId);
+        rec.setGameId(gameId);
+        rec.setOver(s.over());
+        rec.setCurrent(String.valueOf(s.current()));
+        if (s.over()) {
+            rec.setWinner(s.winner() == null ? "DRAW" : String.valueOf(s.winner()));
+        }
+        rec.setStep(step);
+        if (s.lastMove() != null) {
+            rec.setLastMove(s.lastMove().x() + "," + s.lastMove().y());
+        }
+        // 构建棋盘字符串表示（'.'表示空位，'X'/'O'表示棋子）
+        StringBuilder sb = new StringBuilder(225);
+        Board b = s.board();
+        for (int x = 0; x < Board.SIZE; x++) {
+            for (int y = 0; y < Board.SIZE; y++) {
+                char p = b.get(x, y);
+                sb.append((p == 'X' || p == 'O') ? p : '.');
+            }
+        }
+        rec.setBoard(sb.toString());
+        return rec;
     }
 
     // key 生成：通用前缀 + roomId

@@ -297,12 +297,18 @@ function renderFullSync(snap) {
     renderBoard(grid, snap.lastMove);
     
     const seriesView = snap.seriesView || {};
-    updateGameInfo(null, {
-        index: snap.round || seriesView.round || 1,
-        blackWins: seriesView.scoreX || 0,
-        whiteWins: seriesView.scoreO || 0,
+    const round = snap.round || seriesView.round || 1;
+    const blackWins = seriesView.scoreX || 0;
+    const whiteWins = seriesView.scoreO || 0;
+    const currentSide = snap.sideToMove || '-';
+    
+    // 更新游戏信息显示（传递正确的state对象）
+    updateGameInfo(state, {
+        index: round,
+        blackWins: blackWins,
+        whiteWins: whiteWins,
         draws: 0
-    }, snap.sideToMove, snap.mode);
+    }, currentSide, snap.mode);
     
     // 更新玩家执子方（如果快照中包含）
     if (snap.mySide && typeof window.updatePlayerSide === 'function') {
