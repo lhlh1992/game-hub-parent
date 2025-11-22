@@ -52,13 +52,15 @@
                     <img id="selfAvatar" src="/game-service/images/avatar-default.png" alt="Avatar">
                     <div class="avatar-glow-ring"></div>
                 </div>
-                <div class="player-info">
-                    <div class="player-name" id="selfName">-</div>
+                <div class="player-name" id="selfName">-</div>
+                <div class="player-side-info">
                     <div class="player-side-icon" id="selfSide">
-                        <span class="side-icon" id="selfSideBadge">-</span>
+                        <span class="side-icon" id="selfSideBadge"></span>
                     </div>
-                    <div class="player-badge" id="selfWinner" style="display:none;">Winner</div>
+                    <div class="player-side-text" id="selfSideText">Black</div>
                 </div>
+                <div class="player-status-label" id="selfStatusLabel" style="display:none;">Your Turn</div>
+                <div class="player-winner-label" id="selfWinner" style="display:none;">Winner</div>
             </div>
         </div>
         
@@ -78,7 +80,7 @@
             </div>
         </div>
         
-        <!-- 右侧：对手玩家 -->
+        <!-- 右侧：对手玩家和聊天区域 -->
         <div class="player-panel player-right">
             <div class="player-card">
                 <div class="player-status-dot" id="opponentStatusDot"></div>
@@ -86,12 +88,38 @@
                     <img id="opponentAvatar" src="/game-service/images/avatar-default.png" alt="Avatar">
                     <div class="avatar-glow-ring"></div>
                 </div>
-                <div class="player-info">
-                    <div class="player-name" id="opponentName">Waiting...</div>
+                <div class="player-name" id="opponentName">Waiting...</div>
+                <div class="player-side-info">
                     <div class="player-side-icon" id="opponentSide">
-                        <span class="side-icon" id="opponentSideBadge">-</span>
+                        <span class="side-icon" id="opponentSideBadge"></span>
                     </div>
-                    <div class="player-badge" id="opponentWinner" style="display:none;">Winner</div>
+                    <div class="player-side-text" id="opponentSideText">White</div>
+                </div>
+                <div class="player-status-label" id="opponentStatusLabel" style="display:none;">Your Turn</div>
+                <div class="player-winner-label" id="opponentWinner" style="display:none;">Winner</div>
+            </div>
+            
+            <!-- 对局聊天区域（Player2下方，列表式文本风格） -->
+            <div class="game-chat-panel">
+                <div class="game-chat-header">
+                    <span class="game-chat-title">GAME CHAT</span>
+                </div>
+                <div class="game-chat-messages" id="gameChatMessages">
+                    <!-- 示例聊天消息（列表式文本） -->
+                    <div class="game-chat-message player1">Player1: Good luck!</div>
+                    <div class="game-chat-message player2">Player2: Thanks, you too!</div>
+                    <div class="game-chat-message player1">Player1: Nice move!</div>
+                    <div class="game-chat-message player2">Player2: Let's see what happens</div>
+                    <div class="game-chat-message system">System: Game started</div>
+                    <div class="game-chat-message player1">Player1: Interesting strategy</div>
+                    <div class="game-chat-message player2">Player2: We'll see who wins</div>
+                    <div class="game-chat-message player1">Player1: This is getting intense</div>
+                    <div class="game-chat-message player2">Player2: Good game so far</div>
+                    <div class="game-chat-message system">System: Turn timeout warning</div>
+                </div>
+                <div class="game-chat-input-area">
+                    <input type="text" class="game-chat-input" id="gameChatInput" placeholder="Type a message...">
+                    <button class="game-chat-send" id="gameChatSend">Send</button>
                 </div>
             </div>
         </div>
@@ -251,34 +279,42 @@
             
             const selfSideBadge = $('selfSideBadge');
             const opponentSideBadge = $('opponentSideBadge');
+            const selfSideText = $('selfSideText');
+            const opponentSideText = $('opponentSideText');
             const opponentName = $('opponentName');
             const opponentAvatar = $('opponentAvatar');
             
-            // 更新自己的执子方 - 使用X/O显示
+            // 更新自己的执子方 - 使用CSS背景显示棋子图标
             if (side === 'X' || side === 'x') {
-                selfSideBadge.textContent = 'X';
+                selfSideBadge.textContent = '';
                 selfSideBadge.className = 'side-icon side-black';
-                opponentSideBadge.textContent = 'O';
+                selfSideText.textContent = 'Black';
+                opponentSideBadge.textContent = '';
                 opponentSideBadge.className = 'side-icon side-white';
+                opponentSideText.textContent = 'White';
             } else if (side === 'O' || side === 'o') {
-                selfSideBadge.textContent = 'O';
+                selfSideBadge.textContent = '';
                 selfSideBadge.className = 'side-icon side-white';
-                opponentSideBadge.textContent = 'X';
+                selfSideText.textContent = 'White';
+                opponentSideBadge.textContent = '';
                 opponentSideBadge.className = 'side-icon side-black';
+                opponentSideText.textContent = 'Black';
             } else {
-                selfSideBadge.textContent = '-';
+                selfSideBadge.textContent = '';
                 selfSideBadge.className = 'side-icon';
-                opponentSideBadge.textContent = '-';
+                selfSideText.textContent = '-';
+                opponentSideBadge.textContent = '';
                 opponentSideBadge.className = 'side-icon';
+                opponentSideText.textContent = '-';
             }
             
             // 根据模式设置对手信息 - PVE模式默认显示AI
             if (mode === 'PVE') {
-                opponentName.textContent = 'AI 对手';
+                opponentName.textContent = 'AI Opponent';
                 opponentAvatar.src = '/game-service/images/avatar-default.png';
             } else {
                 // PVP模式才显示等待对手
-                opponentName.textContent = '等待对手...';
+                opponentName.textContent = 'Waiting...';
                 opponentAvatar.src = '/game-service/images/avatar-default.png';
             }
         };
@@ -292,7 +328,7 @@
             
             // 如果是PVE模式，立即显示AI对手
             if (mode === 'PVE') {
-                opponentName.textContent = 'AI 对手';
+                opponentName.textContent = 'AI Opponent';
             }
         };
         
@@ -302,6 +338,27 @@
         function updateStatus(text, ok) {
             // 连接状态现在通过顶部信息栏显示，这里可以添加其他状态更新逻辑
             // 如果需要显示连接状态，可以在顶部信息栏添加连接状态胶囊
+        }
+        
+        /**
+         * 添加对局聊天消息（列表式文本风格）
+         * @param {string} playerName - 玩家名称
+         * @param {string} text - 消息内容
+         * @param {string} type - 消息类型：'player1', 'player2', 'system'
+         */
+        function addGameChatMessage(playerName, text, type = 'player1') {
+            const chatMessages = $('gameChatMessages');
+            if (!chatMessages) return;
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `game-chat-message ${type}`;
+            
+            // 格式：PlayerName: message
+            const messageText = type === 'system' ? text : `${playerName}: ${text}`;
+            messageDiv.textContent = messageText;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         }
         
         /**
@@ -324,7 +381,36 @@
                 sendRestart(currentRoomId, currentSeatKey);
             });
             
-            // 聊天功能已由全局聊天组件处理
+            // 对局聊天发送
+            const chatSend = $('gameChatSend');
+            const chatInput = $('gameChatInput');
+            if (chatSend && chatInput) {
+                const sendMessage = () => {
+                    const text = chatInput.value.trim();
+                    if (!text) return;
+                    
+                    // 获取当前玩家名称
+                    const selfNameEl = $('selfName');
+                    const playerName = selfNameEl ? selfNameEl.textContent : 'Player1';
+                    
+                    // 判断当前玩家是Player1还是Player2（根据执子方）
+                    const messageType = mySide === 'X' ? 'player1' : 'player2';
+                    
+                    // 添加消息到界面
+                    addGameChatMessage(playerName, text, messageType);
+                    chatInput.value = '';
+                    
+                    // TODO: 发送消息到服务器
+                    // sendGameChatMessage(currentRoomId, text);
+                };
+                
+                chatSend.addEventListener('click', sendMessage);
+                chatInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        sendMessage();
+                    }
+                });
+            }
         }
         
         // 页面卸载时断开连接

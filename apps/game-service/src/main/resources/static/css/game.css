@@ -158,28 +158,36 @@ body::after {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     padding: 0;
+    align-self: start;
+    padding-top: 40px; /* 与棋盘上沿对齐，留出顶部间距 */
+}
+
+/* Player1 卡片（左侧）与棋盘垂直中心对齐 */
+.player-panel.player-left {
+    justify-content: center;
+    padding-top: 0;
+    align-self: center;
 }
 
 .player-card {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 20px;
+    gap: 16px;
     width: 100%;
-    max-width: 180px;
-    padding: 36px 24px;
-    background: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(16px);
-    border-radius: 24px;
-    border: 1px solid rgba(255, 255, 255, 0.7);
+    max-width: 200px;
+    padding: 32px 24px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 22px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
     box-shadow: 
-        0 8px 32px rgba(0, 0, 0, 0.08),
-        0 4px 16px rgba(0, 0, 0, 0.04),
-        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        0 4px 20px rgba(0, 0, 0, 0.06),
+        0 2px 8px rgba(0, 0, 0, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
     position: relative;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: all 0.3s ease;
 }
 
 .player-card:hover {
@@ -190,31 +198,27 @@ body::after {
         inset 0 1px 0 rgba(255, 255, 255, 1);
 }
 
-/* 在线状态点 */
+/* 在线状态点（右上角） */
 .player-status-dot {
     position: absolute;
-    top: 20px;
-    right: 20px;
+    top: 16px;
+    right: 16px;
     width: 10px;
     height: 10px;
     border-radius: 50%;
     background: #10B981;
-    box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
-    opacity: 0.8;
-    transition: opacity 0.3s ease;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+    z-index: 10;
 }
 
-.player-card:hover .player-status-dot {
-    opacity: 1;
-}
-
-/* 玩家头像 */
+/* 玩家头像（大圆形，柔光外圈） */
 .player-avatar {
-    width: 128px;
-    height: 128px;
+    width: 120px;
+    height: 120px;
     border-radius: 50%;
     position: relative;
     flex-shrink: 0;
+    margin-top: 8px;
 }
 
 .player-avatar img {
@@ -222,26 +226,26 @@ body::after {
     height: 100%;
     object-fit: cover;
     border-radius: 50%;
-    border: 4px solid rgba(255, 255, 255, 0.95);
+    border: 3px solid rgba(255, 255, 255, 0.95);
     box-shadow: 
-        0 8px 24px rgba(0, 0, 0, 0.15),
-        0 0 0 1px rgba(0, 0, 0, 0.05);
+        0 4px 16px rgba(0, 0, 0, 0.1),
+        0 0 0 1px rgba(0, 0, 0, 0.04);
     position: relative;
     z-index: 2;
 }
 
-/* 头像柔光外圈 */
+/* 头像柔光外圈（淡粉或淡橙） */
 .avatar-glow-ring {
     position: absolute;
-    top: -12px;
-    left: -12px;
-    right: -12px;
-    bottom: -12px;
+    top: -10px;
+    left: -10px;
+    right: -10px;
+    bottom: -10px;
     border-radius: 50%;
     background: radial-gradient(
         circle,
-        rgba(255, 107, 107, 0.25) 0%,
-        rgba(255, 107, 107, 0.15) 40%,
+        rgba(255, 182, 193, 0.3) 0%,
+        rgba(255, 182, 193, 0.15) 40%,
         transparent 70%
     );
     z-index: 1;
@@ -249,80 +253,319 @@ body::after {
 }
 
 @keyframes pulseRing {
-    0%, 100% { opacity: 0.6; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.05); }
+    0%, 100% { opacity: 0.5; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.03); }
 }
 
-/* 玩家信息 */
-.player-info {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    width: 100%;
-    align-items: center;
-    text-align: center;
-}
-
+/* 玩家昵称（头像下方） */
 .player-name {
-    font-size: 18px;
-    font-weight: 700;
+    font-size: 16px;
+    font-weight: 600;
     color: #1F2937;
-    letter-spacing: -0.2px;
+    letter-spacing: -0.1px;
+    text-align: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     width: 100%;
+    margin-top: 4px;
 }
 
-/* 执子颜色图标 */
+/* 执子信息区域 */
+.player-side-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+/* 执子图标（小型圆形棋子） */
 .player-side-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 100%;
 }
 
 .side-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 52px;
-    height: 52px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    font-size: 22px;
-    font-weight: 700;
+    font-size: 0; /* 隐藏文本，使用CSS背景显示棋子 */
+    line-height: 1;
     box-shadow: 
-        0 4px 12px rgba(0, 0, 0, 0.15),
-        inset 0 1px 0 rgba(255, 255, 255, 0.3);
-    transition: all 0.3s ease;
+        0 2px 6px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    position: relative;
 }
 
 .side-icon.side-black {
-    background: linear-gradient(135deg, #1F2937, #111827);
-    color: #fff;
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    background: radial-gradient(circle at 30% 30%, 
+        rgba(255, 255, 255, 0.3) 0%,
+        #2A2A2A 50%,
+        #1A1A1A 100%);
+    border: 1px solid rgba(0, 0, 0, 0.2);
 }
 
 .side-icon.side-white {
-    background: linear-gradient(135deg, #F9FAFB, #F3F4F6);
-    color: #1F2937;
-    border: 2px solid rgba(0, 0, 0, 0.1);
+    background: radial-gradient(circle at 30% 30%,
+        rgba(255, 255, 255, 1) 0%,
+        #F0F0F0 50%,
+        #E0E0E0 100%);
+    border: 1px solid rgba(0, 0, 0, 0.1);
     box-shadow: 
-        0 4px 12px rgba(0, 0, 0, 0.2),
+        0 2px 6px rgba(0, 0, 0, 0.12),
         inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
-/* Winner标识 */
-.player-badge {
+/* 执子文本（Black/White） */
+.player-side-text {
     font-size: 11px;
-    font-weight: 700;
-    color: #F59E0B;
+    font-weight: 500;
+    color: #6B7280;
     text-transform: uppercase;
-    letter-spacing: 1.2px;
-    padding: 6px 14px;
+    letter-spacing: 0.5px;
+    text-align: center;
+}
+
+/* 状态标签（Your Turn / Winner） */
+.player-status-label,
+.player-winner-label {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-top: 4px;
+}
+
+.player-status-label {
+    color: #3B82F6;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.player-winner-label {
+    color: #F59E0B;
     background: rgba(245, 158, 11, 0.12);
-    border-radius: 14px;
-    border: 1px solid rgba(245, 158, 11, 0.3);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+/* ========== 右侧栏（Right Sidebar Chat Panel，一体化） ========== */
+.player-panel.player-right {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    align-self: stretch;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(24px);
+    border-radius: 32px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 
+        0 8px 40px rgba(0, 0, 0, 0.1),
+        0 4px 20px rgba(0, 0, 0, 0.06),
+        0 2px 8px rgba(0, 0, 0, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    min-height: calc(100vh - 200px);
+    overflow: hidden;
+    position: relative;
+}
+
+/* Player2 卡片在右侧栏顶部居中 */
+.player-panel.player-right .player-card {
+    align-self: center;
+    max-width: 200px;
+    width: auto;
+    margin: 32px auto 28px auto; /* 顶部间距，底部间距 */
+    flex-shrink: 0;
+}
+
+/* ========== 对局聊天区域（右侧栏内部区域，占据整个宽度） ========== */
+.game-chat-panel {
+    width: 100%;
+    flex: 1; /* 占据右侧栏剩余空间（大部分高度） */
+    min-height: 520px;
+    display: flex;
+    flex-direction: column;
+    background: transparent; /* 与右侧栏背景融为一体 */
+    border-radius: 0; /* 不单独圆角，与右侧栏一体化 */
+    border: none; /* 无独立边框 */
+    box-shadow: none; /* 无独立阴影 */
+    overflow: hidden;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0 28px 28px 28px; /* 左右内边距，底部内边距，与右侧栏内边距一致 */
+}
+
+/* 聊天区域头部（迷你标题栏，极简风格） */
+.game-chat-header {
+    padding: 16px 0 12px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    background: transparent;
+    flex-shrink: 0;
+    margin-bottom: 12px;
+}
+
+.game-chat-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: #9CA3AF;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    text-align: left;
+    opacity: 0.8;
+}
+
+/* 聊天消息列表区域（列表式文本风格，类似Chess.com/Lichess） */
+.game-chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px; /* 行距紧凑，但不过于紧密 */
+    min-height: 0;
+    background: transparent; /* 与右侧栏背景融为一体 */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.game-chat-messages::-webkit-scrollbar {
+    width: 4px;
+}
+
+.game-chat-messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.game-chat-messages::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 2px;
+}
+
+.game-chat-messages::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.15);
+}
+
+/* 聊天消息（列表式文本，无气泡） */
+.game-chat-message {
+    font-size: 12px;
+    line-height: 1.7;
+    color: #1F2937;
+    text-align: left;
+    word-wrap: break-word;
+    word-break: break-word;
+    padding: 3px 0;
+    animation: fadeInMessage 0.2s ease;
+}
+
+@keyframes fadeInMessage {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* 玩家1消息（浅橙色，柔和） */
+.game-chat-message.player1 {
+    color: #FB923C; /* 浅橙色，更柔和 */
+    font-weight: 500;
+}
+
+/* 玩家2消息（浅蓝色，柔和） */
+.game-chat-message.player2 {
+    color: #60A5FA; /* 浅蓝色，更柔和 */
+    font-weight: 500;
+}
+
+/* 系统消息（淡灰色） */
+.game-chat-message.system {
+    color: #9CA3AF; /* 淡灰色 */
+    font-weight: 400;
+    font-style: italic;
+    opacity: 0.8;
+}
+
+/* 输入区域（固定在聊天区域底部，是右侧栏的一部分） */
+.game-chat-input-area {
+    display: flex;
+    gap: 10px;
+    padding: 20px 0 0 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    background: transparent; /* 与右侧栏背景融为一体 */
+    flex-shrink: 0;
+    margin-top: 12px;
+}
+
+.game-chat-input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 24px; /* 大圆角 */
+    background: rgba(255, 255, 255, 0.9);
+    font-size: 12px;
+    color: #1F2937;
+    outline: none;
+    transition: all 0.3s ease;
+    box-shadow: 
+        0 1px 3px rgba(0, 0, 0, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.game-chat-input:focus {
+    border-color: rgba(59, 130, 246, 0.25);
+    box-shadow: 
+        0 2px 4px rgba(59, 130, 246, 0.1),
+        0 1px 2px rgba(0, 0, 0, 0.03),
+        inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+.game-chat-input::placeholder {
+    color: #D1D5DB;
+}
+
+.game-chat-send {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 24px; /* 大圆角，与输入框一致 */
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(59, 130, 246, 0.8));
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 
+        0 2px 6px rgba(59, 130, 246, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.game-chat-send:hover {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(59, 130, 246, 0.85));
+    transform: translateY(-1px);
+    box-shadow: 
+        0 3px 8px rgba(59, 130, 246, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.game-chat-send:active {
+    transform: translateY(0);
+}
+
+.game-chat-send:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
 }
 
 /* ========== 中间棋盘区域 ========== */

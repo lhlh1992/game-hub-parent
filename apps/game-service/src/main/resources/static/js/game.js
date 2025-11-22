@@ -412,20 +412,34 @@ function updateGameInfo(state, series, currentSide = null, mode = null) {
         }
     }
     
-    // 更新Winner标识
+    // 更新状态标签（Your Turn / Winner）
+    const selfStatusLabel = document.getElementById('selfStatusLabel');
+    const opponentStatusLabel = document.getElementById('opponentStatusLabel');
     const selfWinnerEl = document.getElementById('selfWinner');
     const opponentWinnerEl = document.getElementById('opponentWinner');
+    
+    // 先隐藏所有状态标签
+    if (selfStatusLabel) selfStatusLabel.style.display = 'none';
+    if (opponentStatusLabel) opponentStatusLabel.style.display = 'none';
+    if (selfWinnerEl) selfWinnerEl.style.display = 'none';
+    if (opponentWinnerEl) opponentWinnerEl.style.display = 'none';
+    
     if (state?.over && state?.winner) {
+        // 游戏结束，显示Winner标签
         const isSelfWinner = (state.winner === 'X' && mySide === 'X') || (state.winner === 'O' && mySide === 'O');
-        if (selfWinnerEl) {
-            selfWinnerEl.style.display = isSelfWinner ? 'block' : 'none';
+        if (isSelfWinner) {
+            if (selfWinnerEl) selfWinnerEl.style.display = 'block';
+        } else {
+            if (opponentWinnerEl) opponentWinnerEl.style.display = 'block';
         }
-        if (opponentWinnerEl) {
-            opponentWinnerEl.style.display = !isSelfWinner ? 'block' : 'none';
+    } else if (!state?.over && state?.current) {
+        // 游戏进行中，显示Your Turn标签
+        const isMyTurn = (state.current === 'X' && mySide === 'X') || (state.current === 'O' && mySide === 'O');
+        if (isMyTurn) {
+            if (selfStatusLabel) selfStatusLabel.style.display = 'block';
+        } else {
+            if (opponentStatusLabel) opponentStatusLabel.style.display = 'block';
         }
-    } else {
-        if (selfWinnerEl) selfWinnerEl.style.display = 'none';
-        if (opponentWinnerEl) opponentWinnerEl.style.display = 'none';
     }
 }
 
