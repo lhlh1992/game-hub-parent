@@ -56,14 +56,14 @@ function renderBoard(grid, lastMove) {
     const boardEl = document.getElementById('board');
     if (!boardEl) return;
     
-    // 获取board-container，坐标标签将放在这里（避免被scale影响）
+    // 获取board-container，坐标轴刻度将放在这里（避免被scale影响）
     const boardContainer = boardEl.parentElement;
     if (!boardContainer || !boardContainer.classList.contains('board-container')) return;
     
     boardEl.innerHTML = '';
     boardEl.style.setProperty('--n', grid.length.toString());
     
-    // 清除旧的坐标标签
+    // 清除旧的坐标轴刻度
     boardContainer.querySelectorAll('.board-coord').forEach(el => el.remove());
     
     const n = grid.length;
@@ -93,7 +93,35 @@ function renderBoard(grid, lastMove) {
         }
     }
     
-    // 等待DOM完全渲染后，基于实际元素位置动态设置坐标标记
+    // ====================================================================
+    // 【重要】坐标轴刻度定位逻辑 - 必须考虑 board-container 的 transform scale
+    // ====================================================================
+    // 
+    // 【术语说明】：
+    // - 坐标轴刻度：棋盘左侧的数字（1-15）和底部的字母（A-O），用于标识网格位置
+    // - Y轴刻度：左侧数字，标识行号
+    // - X轴刻度：底部字母，标识列号
+    // 
+    // 【问题原因】：
+    // 1. board-container 有 CSS 属性：transform: scale(1.25)，用于放大棋盘
+    // 2. 坐标轴刻度作为 board-container 的子元素，也会被 scale(1.25) 影响
+    // 3. 如果直接使用 getBoundingClientRect() 获取的像素值设置刻度位置，
+    //    刻度会被额外放大 1.25 倍，导致位置偏移，无法对齐到网格线
+    // 
+    // 【修复方法】：
+    // 1. 获取 scale 值（当前是 1.25，如果修改 CSS 需要同步修改这里）
+    // 2. 计算刻度位置时，将所有像素值除以 scale，补偿缩放影响
+    // 3. 这样刻度的实际位置 = (计算位置 / scale) * scale = 计算位置，正好对齐
+    // 
+    // 【注意事项】：
+    // - 如果修改 game.css 中 .board-container 的 transform: scale() 值，
+    //   必须同步修改这里的 scale 常量
+    // - 所有坐标计算（left, top, offset）都必须除以 scale
+    // - 这是坐标轴刻度对齐的关键，不要遗漏或忘记除以 scale
+    // 
+    // ====================================================================
+    
+    // 等待DOM完全渲染后，基于实际元素位置动态设置坐标轴刻度
     // 使用双重 requestAnimationFrame 确保布局完成
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -103,13 +131,14 @@ function renderBoard(grid, lastMove) {
             
             if (cells.length !== n * n) return;
             
-            // 由于board-container有transform: scale(1.25)，坐标标签也会被缩放
-            // 所以我们需要将坐标值除以1.25来补偿缩放
+            // 【关键】board-container 的 transform scale 值
+            // 必须与 game.css 中 .board-container 的 transform: scale() 保持一致
+            // 如果修改 CSS 中的 scale 值，必须同步修改这里
             const scale = 1.25;
             
-            // 添加Y轴坐标（左侧）- 数字 1-15
+            // 添加Y轴刻度（左侧）- 数字 1-15
             // 1在最底下，15在最上面
-            // Y轴要对齐到每一条横线（水平线），即每个cell的top边界
+            // Y轴刻度要对齐到每一条横线（水平线），即每个cell的top边界
             for (let y = 0; y < n; y++) {
                 // 获取第y行第0列的cell（每行第一个）
                 const cellIndex = y * n;
@@ -118,14 +147,15 @@ function renderBoard(grid, lastMove) {
                 
                 const cellRect = cell.getBoundingClientRect();
                 // 网格横线在cell的top边界
-                // 坐标标签相对于board-container定位，需要除以scale补偿缩放
+                // 【关键】必须除以 scale：因为坐标轴刻度会被 scale 放大，所以位置值要缩小 scale 倍来补偿
                 const lineY = (cellRect.top - containerRect.top) / scale;
                 
                 const coordY = document.createElement('div');
                 coordY.className = 'board-coord coord-y';
                 coordY.textContent = String(n - y);
                 coordY.style.position = 'absolute';
-                // 左侧坐标区域：获取第一个cell的left位置，减去固定偏移，并除以scale
+                // 左侧坐标区域：获取第一个cell的left位置，减去固定偏移20px
+                // 【关键】必须除以 scale：补偿 board-container 的 scale 缩放
                 const firstCellRect = cells[0].getBoundingClientRect();
                 const coordXPos = (firstCellRect.left - containerRect.left - 20) / scale;
                 coordY.style.left = `${coordXPos}px`;
@@ -135,8 +165,8 @@ function renderBoard(grid, lastMove) {
                 boardContainer.appendChild(coordY);
             }
             
-            // 添加X轴坐标（下方）- 字母 A-O
-            // X轴要对齐到每一条竖线（垂直线），即每个cell的left边界
+            // 添加X轴刻度（下方）- 字母 A-O
+            // X轴刻度要对齐到每一条竖线（垂直线），即每个cell的left边界
             const lastRowIndex = n - 1;
             for (let x = 0; x < n; x++) {
                 // 获取最后一行第x列的cell
@@ -146,12 +176,14 @@ function renderBoard(grid, lastMove) {
                 
                 const cellRect = cell.getBoundingClientRect();
                 // 网格竖线在cell的left边界
-                // 坐标标签相对于board-container定位，需要除以scale补偿缩放
+                // 【关键】必须除以 scale：补偿 board-container 的 scale 缩放
                 const lineX = (cellRect.left - containerRect.left) / scale;
                 // 最后一条横线的位置（最后一行的top边界），这就是底线
+                // 【关键】必须除以 scale：补偿 board-container 的 scale 缩放
                 const lineY = (cellRect.top - containerRect.top) / scale;
-                // 稍微往下一点点，让坐标标记正好在底线下方
-                const offsetY = lineY + 12 / scale; // 往下12px（缩放后），正好贴着底线
+                // 稍微往下一点点，让刻度正好在底线下方
+                // 【关键】偏移量也要除以 scale：12px 是期望的最终偏移，但会被 scale 放大，所以除以 scale
+                const offsetY = lineY + 12 / scale;
                 
                 const coordX = document.createElement('div');
                 coordX.className = 'board-coord coord-x';
