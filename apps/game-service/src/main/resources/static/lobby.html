@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="/game-service/css/lobby.css">
 </head>
 <body>
-    <div data-component="global-header" data-active="game"></div>
+    <div data-component="global-header" data-active="lobby"></div>
     <div class="lobby-container">
         <div class="lobby-header">
             <h1 class="lobby-title">五子棋</h1>
@@ -75,6 +75,32 @@
                         <h4>游戏模式</h4>
                         <p><strong>人机对战：</strong>与AI对手对战，可选择AI执黑或执白。<strong>创建房间：</strong>创建私人房间，通过房间ID邀请好友加入。<strong>在线匹配：</strong>系统自动为你匹配实力相近的对手。</p>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 人机对战配置弹窗 -->
+        <div class="modal" id="pveModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>人机对战</h3>
+                    <button class="modal-close" id="closePVEModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>
+                            <span>规则：</span>
+                            <select id="pveRule">
+                                <option value="STANDARD">标准</option>
+                                <option value="RENJU">连珠（禁手）</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div id="pveStatus" class="status-message"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn secondary" id="cancelPVE">取消</button>
+                    <button class="btn primary" id="confirmPVE">开始游戏</button>
                 </div>
             </div>
         </div>
@@ -182,12 +208,12 @@
         function bindEvents() {
             // 人机模式
             $('btnPVE').addEventListener('click', () => {
-                showCreateRoomModal('PVE');
+                showPVEModal();
             });
 
             // 创建房间
             $('btnCreateRoom').addEventListener('click', () => {
-                showCreateRoomModal('PVP');
+                showCreateRoomModal();
             });
 
             // 在线匹配
@@ -198,6 +224,19 @@
             // 取消匹配
             $('btnCancelMatch').addEventListener('click', () => {
                 cancelMatchmaking();
+            });
+
+            // 人机对战弹窗
+            $('confirmPVE').addEventListener('click', async () => {
+                await handlePVE();
+            });
+
+            $('cancelPVE').addEventListener('click', () => {
+                hidePVEModal();
+            });
+
+            $('closePVEModal').addEventListener('click', () => {
+                hidePVEModal();
             });
 
             // 创建房间弹窗
@@ -237,17 +276,44 @@
             document.querySelectorAll('.modal').forEach(modal => {
                 modal.addEventListener('click', (e) => {
                     if (e.target === modal) {
-                        modal.style.display = 'none';
+                        if (modal.id === 'pveModal') {
+                            hidePVEModal();
+                        } else if (modal.id === 'createRoomModal') {
+                            hideCreateRoomModal();
+                        } else if (modal.id === 'enterRoomModal') {
+                            hideEnterRoomModal();
+                        } else {
+                            modal.style.display = 'none';
+                        }
                     }
                 });
             });
         }
 
         /**
+         * 显示人机对战弹窗
+         */
+        function showPVEModal() {
+            $('pveRule').value = 'STANDARD';
+            $('pveStatus').textContent = '';
+            $('pveStatus').className = 'status-message';
+            $('pveModal').style.display = 'flex';
+        }
+
+        /**
+         * 隐藏人机对战弹窗
+         */
+        function hidePVEModal() {
+            $('pveModal').style.display = 'none';
+        }
+
+        /**
          * 显示创建房间弹窗
          */
-        function showCreateRoomModal(defaultMode = 'PVE') {
-            $('mode').value = defaultMode;
+        function showCreateRoomModal() {
+            $('mode').value = 'PVP';
+            $('aiPiece').value = 'O';
+            $('rule').value = 'STANDARD';
             $('createStatus').textContent = '';
             $('createStatus').className = 'status-message';
             $('createRoomModal').style.display = 'flex';
@@ -273,6 +339,31 @@
          */
         function hideEnterRoomModal() {
             $('enterRoomModal').style.display = 'none';
+        }
+
+        /**
+         * 处理人机对战
+         */
+        async function handlePVE() {
+            // 写死：模式为PVE，AI执子为O（白）
+            const mode = 'PVE';
+            const aiPiece = 'O';
+            const rule = $('pveRule').value;
+            
+            $('confirmPVE').disabled = true;
+            $('pveStatus').textContent = '正在进入游戏...';
+            $('pveStatus').className = 'status-message';
+            
+            try {
+                const roomId = await createRoom(currentToken, mode, aiPiece, rule);
+                // 人机对战不显示房间号，直接跳转
+                window.location.href = `/game-service/game.html?roomId=${roomId}`;
+            } catch (error) {
+                $('pveStatus').textContent = `创建失败: ${error.message}`;
+                $('pveStatus').className = 'status-message error';
+                console.error('创建人机对战房间失败:', error);
+                $('confirmPVE').disabled = false;
+            }
         }
 
         /**
