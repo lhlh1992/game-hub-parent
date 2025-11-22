@@ -56,8 +56,15 @@ function renderBoard(grid, lastMove) {
     const boardEl = document.getElementById('board');
     if (!boardEl) return;
     
+    // 获取board-container，坐标标签将放在这里（避免被scale影响）
+    const boardContainer = boardEl.parentElement;
+    if (!boardContainer || !boardContainer.classList.contains('board-container')) return;
+    
     boardEl.innerHTML = '';
     boardEl.style.setProperty('--n', grid.length.toString());
+    
+    // 清除旧的坐标标签
+    boardContainer.querySelectorAll('.board-coord').forEach(el => el.remove());
     
     const n = grid.length;
     const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O'];
@@ -91,9 +98,14 @@ function renderBoard(grid, lastMove) {
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
             const boardRect = boardEl.getBoundingClientRect();
+            const containerRect = boardContainer.getBoundingClientRect();
             const cells = boardEl.querySelectorAll('.cell');
             
             if (cells.length !== n * n) return;
+            
+            // 由于board-container有transform: scale(1.25)，坐标标签也会被缩放
+            // 所以我们需要将坐标值除以1.25来补偿缩放
+            const scale = 1.25;
             
             // 添加Y轴坐标（左侧）- 数字 1-15
             // 1在最底下，15在最上面
@@ -105,22 +117,22 @@ function renderBoard(grid, lastMove) {
                 if (!cell) continue;
                 
                 const cellRect = cell.getBoundingClientRect();
-                // 网格横线在cell的top边界，不是中心！
-                // 直接使用实际DOM元素的top边界位置
-                const lineY = cellRect.top - boardRect.top;
+                // 网格横线在cell的top边界
+                // 坐标标签相对于board-container定位，需要除以scale补偿缩放
+                const lineY = (cellRect.top - containerRect.top) / scale;
                 
                 const coordY = document.createElement('div');
                 coordY.className = 'board-coord coord-y';
                 coordY.textContent = String(n - y);
                 coordY.style.position = 'absolute';
-                // 左侧坐标区域：获取第一个cell的left位置，减去一个cell宽度作为坐标区域
+                // 左侧坐标区域：获取第一个cell的left位置，减去固定偏移，并除以scale
                 const firstCellRect = cells[0].getBoundingClientRect();
-                const coordXPos = firstCellRect.left - boardRect.left - (firstCellRect.width / 2);
+                const coordXPos = (firstCellRect.left - containerRect.left - 20) / scale;
                 coordY.style.left = `${coordXPos}px`;
                 coordY.style.top = `${lineY}px`; // 对齐到横线（cell的top边界）
                 coordY.style.transform = 'translate(-50%, -50%)';
                 coordY.style.textAlign = 'center';
-                boardEl.appendChild(coordY);
+                boardContainer.appendChild(coordY);
             }
             
             // 添加X轴坐标（下方）- 字母 A-O
@@ -133,14 +145,13 @@ function renderBoard(grid, lastMove) {
                 if (!cell) continue;
                 
                 const cellRect = cell.getBoundingClientRect();
-                // 网格竖线在cell的left边界，不是中心！
-                // 直接使用实际DOM元素的left边界位置
-                const lineX = cellRect.left - boardRect.left;
+                // 网格竖线在cell的left边界
+                // 坐标标签相对于board-container定位，需要除以scale补偿缩放
+                const lineX = (cellRect.left - containerRect.left) / scale;
                 // 最后一条横线的位置（最后一行的top边界），这就是底线
-                // X轴坐标应该紧贴这条底线，稍微往下一点点
-                const lineY = cellRect.top - boardRect.top;
-                // 稍微往下一点点，让坐标标记正好在底线下方一点点（约半个字体大小）
-                const offsetY = lineY + 8; // 往下8px，正好贴着底线
+                const lineY = (cellRect.top - containerRect.top) / scale;
+                // 稍微往下一点点，让坐标标记正好在底线下方
+                const offsetY = lineY + 12 / scale; // 往下12px（缩放后），正好贴着底线
                 
                 const coordX = document.createElement('div');
                 coordX.className = 'board-coord coord-x';
@@ -150,7 +161,7 @@ function renderBoard(grid, lastMove) {
                 coordX.style.top = `${offsetY}px`; // 正好贴着底线，稍微往下一点点
                 coordX.style.transform = 'translate(-50%, -50%)';
                 coordX.style.textAlign = 'center';
-                boardEl.appendChild(coordX);
+                boardContainer.appendChild(coordX);
             }
         });
     });
@@ -331,30 +342,58 @@ function renderFullSync(snap) {
  * @param {string} mode - 游戏模式
  */
 function updateGameInfo(state, series, currentSide = null, mode = null) {
-    const metaEl = document.getElementById('meta');
-    const winnerEl = document.getElementById('winner');
-    const timerEl = document.getElementById('timer');
+    // 更新轮次信息
+    const roundEl = document.getElementById('roundInfo');
+    if (roundEl && series) {
+        roundEl.textContent = String(series.index || 1);
+    }
     
-    if (metaEl) {
+    // 更新当前执子方
+    const currentPlayerEl = document.getElementById('currentPlayer');
+    if (currentPlayerEl) {
         const current = currentSide || state?.current || '-';
-        const over = state?.over || false;
-        
-        if (series) {
-            metaEl.textContent = 
-                `第 ${series.index || 1} 盘 | 比分 黑:${series.blackWins || 0} 白:${series.whiteWins || 0}` +
-                ` | 当前执子: ${current} | 已结束: ${over ? '是' : '否'}`;
+        currentPlayerEl.textContent = current === 'X' ? 'Black' : current === 'O' ? 'White' : '-';
+    }
+    
+    // 更新比分
+    const scoreEl = document.getElementById('scoreInfo');
+    if (scoreEl && series) {
+        scoreEl.textContent = `${series.blackWins || 0}:${series.whiteWins || 0}`;
+    }
+    
+    // 更新游戏状态（已结束/进行中）
+    const gameStatusEl = document.getElementById('gameStatus');
+    const gameStatusCapsule = document.getElementById('gameStatusCapsule');
+    if (gameStatusEl) {
+        if (state?.over) {
+            gameStatusEl.textContent = 'Ended';
+            if (gameStatusCapsule) {
+                gameStatusCapsule.style.background = 'rgba(239, 68, 68, 0.1)';
+                gameStatusCapsule.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+            }
         } else {
-            metaEl.textContent = `当前执子: ${current} | 已结束: ${over ? '是' : '否'}`;
+            gameStatusEl.textContent = 'Playing';
+            if (gameStatusCapsule) {
+                gameStatusCapsule.style.background = 'rgba(255, 255, 255, 0.75)';
+                gameStatusCapsule.style.borderColor = 'rgba(255, 255, 255, 0.9)';
+            }
         }
     }
     
-    if (winnerEl) {
-        if (state?.over && state?.winner) {
-            winnerEl.textContent = `🎉 Winner: ${state.winner}`;
-            winnerEl.style.display = 'inline-block';
-        } else {
-            winnerEl.style.display = 'none';
+    // 更新Winner标识
+    const selfWinnerEl = document.getElementById('selfWinner');
+    const opponentWinnerEl = document.getElementById('opponentWinner');
+    if (state?.over && state?.winner) {
+        const isSelfWinner = (state.winner === 'X' && mySide === 'X') || (state.winner === 'O' && mySide === 'O');
+        if (selfWinnerEl) {
+            selfWinnerEl.style.display = isSelfWinner ? 'block' : 'none';
         }
+        if (opponentWinnerEl) {
+            opponentWinnerEl.style.display = !isSelfWinner ? 'block' : 'none';
+        }
+    } else {
+        if (selfWinnerEl) selfWinnerEl.style.display = 'none';
+        if (opponentWinnerEl) opponentWinnerEl.style.display = 'none';
     }
 }
 

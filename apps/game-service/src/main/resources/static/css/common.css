@@ -481,7 +481,7 @@ label {
     transform: translateY(0) !important;
 }
 
-/* 棋盘 - 自然木质风格（浅木色，深色边框和网格） */
+/* 棋盘 - 精致木质风格（浅木色，深色边框和网格） */
 #board {
     display: grid;
     grid-template-columns: repeat(var(--n), var(--cell));
@@ -489,53 +489,58 @@ label {
     gap: 0;
     margin-top: 20px;
     user-select: none;
-    /* 自然木质风格：浅米色/淡黄棕色，像真实木质棋盘 */
+    /* 精致木质风格：浅米色/淡黄棕色，轻纹理 */
     background: #F5E5D0;
     padding: 20px;
-    border-radius: 12px; /* 适度圆润，不要太圆 */
-    /* 深色边框，像真实棋盘 */
-    border: 4px solid #2C2C2C;
+    border-radius: 16px;
+    /* 深色边框，精致 */
+    border: 3px solid #2C2C2C;
     box-shadow: 
         /* 内阴影 - 轻微凹陷 */
-        inset 0 2px 8px rgba(0, 0, 0, 0.1),
-        inset 0 -1px 4px rgba(255, 255, 255, 0.3),
-        /* 外阴影 - 适度浮起 */
-        0 8px 24px rgba(0, 0, 0, 0.3),
-        0 4px 12px rgba(0, 0, 0, 0.2);
+        inset 0 2px 8px rgba(0, 0, 0, 0.08),
+        inset 0 -1px 4px rgba(255, 255, 255, 0.4),
+        /* 外阴影 - 柔光效果 */
+        0 12px 40px rgba(0, 0, 0, 0.15),
+        0 4px 16px rgba(0, 0, 0, 0.1),
+        0 0 0 1px rgba(0, 0, 0, 0.05);
     position: relative;
     /* 为坐标标记预留空间 */
     padding-left: 40px; /* 左侧20px padding + 20px坐标区域 */
     padding-bottom: 40px; /* 下方20px padding + 20px坐标区域 */
-    /* 添加微妙的木纹纹理 */
+    /* 添加精致的轻木纹纹理 */
     background-image: 
-        repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(0, 0, 0, 0.01) 8px, rgba(0, 0, 0, 0.01) 9px),
-        repeating-linear-gradient(90deg, transparent, transparent 6px, rgba(0, 0, 0, 0.008) 6px, rgba(0, 0, 0, 0.008) 7px);
+        repeating-linear-gradient(0deg, transparent, transparent 10px, rgba(0, 0, 0, 0.008) 10px, rgba(0, 0, 0, 0.008) 11px),
+        repeating-linear-gradient(90deg, transparent, transparent 8px, rgba(0, 0, 0, 0.006) 8px, rgba(0, 0, 0, 0.006) 9px);
 }
 
-/* 棋盘坐标标记样式 */
+/* 棋盘坐标标记样式 - 完全对齐，水平平直 */
 .board-coord {
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 700;
     color: #5a2d0c;
-    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+    text-shadow: 0 1px 3px rgba(255, 255, 255, 0.9);
     user-select: none;
     pointer-events: none;
     z-index: 10;
+    letter-spacing: 0.2px;
 }
 
 /* Y轴坐标（数字）- 在左侧，对齐到网格线交点 */
 .coord-y {
     position: absolute;
-    width: 20px;
+    width: 24px;
     text-align: center;
-    line-height: 1;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums; /* 等宽数字，确保对齐 */
 }
 
 /* X轴坐标（字母）- 在下方，对齐到网格线交点 */
 .coord-x {
     position: absolute;
     text-align: center;
-    line-height: 1;
+    line-height: 1.2;
+    width: 20px;
+    font-variant-numeric: tabular-nums;
 }
 
 
@@ -597,7 +602,7 @@ label {
     transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Q萌风格立体感黑棋 - 缩小尺寸，增强立体感 */
+/* 专业立体感黑棋 - 增强材质感 */
 .cell.X {
     color: transparent;
     position: relative;
@@ -606,45 +611,51 @@ label {
 .cell.X::before {
     content: '';
     position: absolute;
-    width: calc(var(--cell) * 0.82); /* 缩小棋子 */
-    height: calc(var(--cell) * 0.82);
+    width: calc(var(--cell) * 0.85);
+    height: calc(var(--cell) * 0.85);
     border-radius: 50%;
-    background: radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.35), rgba(100, 100, 100, 0.5) 45%, #3A3A3A 70%, #2A2A2A 85%, #1F1F1F);
+    background: radial-gradient(circle at 30% 30%, 
+        rgba(255, 255, 255, 0.4) 0%,
+        rgba(150, 150, 150, 0.3) 25%,
+        #2A2A2A 50%,
+        #1A1A1A 75%,
+        #0F0F0F 100%);
     box-shadow: 
-        0 5px 14px rgba(0, 0, 0, 0.5),
-        0 3px 7px rgba(0, 0, 0, 0.4) inset,
-        0 -3px 7px rgba(255, 255, 255, 0.25) inset,
-        0 0 0 1.5px rgba(255, 255, 255, 0.15),
-        0 2px 5px rgba(0, 0, 0, 0.3);
+        0 6px 16px rgba(0, 0, 0, 0.5),
+        0 4px 8px rgba(0, 0, 0, 0.4) inset,
+        0 -4px 8px rgba(255, 255, 255, 0.2) inset,
+        0 0 0 2px rgba(255, 255, 255, 0.1);
     z-index: 1;
     transition: all 0.2s ease;
 }
 
 .cell.X:hover::before {
-    transform: scale(1.08);
+    transform: scale(1.05);
     box-shadow: 
-        0 7px 18px rgba(0, 0, 0, 0.6),
-        0 3px 7px rgba(0, 0, 0, 0.4) inset,
-        0 -3px 7px rgba(255, 255, 255, 0.3) inset,
-        0 0 0 2px rgba(255, 255, 255, 0.2),
-        0 3px 7px rgba(0, 0, 0, 0.35);
+        0 8px 20px rgba(0, 0, 0, 0.6),
+        0 4px 8px rgba(0, 0, 0, 0.4) inset,
+        0 -4px 8px rgba(255, 255, 255, 0.25) inset,
+        0 0 0 2px rgba(255, 255, 255, 0.15);
 }
 
 .cell.X::after {
     content: '';
     position: absolute;
-    width: calc(var(--cell) * 0.32); /* 缩小高光 */
-    height: calc(var(--cell) * 0.32);
+    width: calc(var(--cell) * 0.35);
+    height: calc(var(--cell) * 0.35);
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0.25) 50%, transparent 70%);
-    top: 20%;
-    left: 20%;
+    background: radial-gradient(circle, 
+        rgba(255, 255, 255, 0.7) 0%,
+        rgba(255, 255, 255, 0.3) 40%,
+        transparent 70%);
+    top: 22%;
+    left: 22%;
     z-index: 2;
     pointer-events: none;
-    filter: blur(1px);
+    filter: blur(1.5px);
 }
 
-/* Q萌风格立体感白棋 - 缩小尺寸，增强立体感 */
+/* 专业立体感白棋 - 增强材质感 */
 .cell.O {
     color: transparent;
     position: relative;
@@ -653,42 +664,49 @@ label {
 .cell.O::before {
     content: '';
     position: absolute;
-    width: calc(var(--cell) * 0.82); /* 缩小棋子 */
-    height: calc(var(--cell) * 0.82);
+    width: calc(var(--cell) * 0.85);
+    height: calc(var(--cell) * 0.85);
     border-radius: 50%;
-    background: radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.98) 40%, rgba(250, 250, 250, 0.95) 65%, #F5F5F5 85%, #EEEEEE);
+    background: radial-gradient(circle at 30% 30%,
+        rgba(255, 255, 255, 1) 0%,
+        rgba(250, 250, 250, 0.95) 25%,
+        #F0F0F0 50%,
+        #E0E0E0 75%,
+        #D0D0D0 100%);
     box-shadow: 
-        0 5px 14px rgba(0, 0, 0, 0.4),
-        0 3px 7px rgba(255, 255, 255, 0.95) inset,
-        0 -3px 7px rgba(0, 0, 0, 0.15) inset,
-        0 0 0 1.5px rgba(255, 255, 255, 0.5),
-        0 2px 5px rgba(0, 0, 0, 0.2);
+        0 6px 16px rgba(0, 0, 0, 0.4),
+        0 4px 8px rgba(255, 255, 255, 1) inset,
+        0 -4px 8px rgba(0, 0, 0, 0.15) inset,
+        0 0 0 2px rgba(0, 0, 0, 0.05);
     z-index: 1;
     transition: all 0.2s ease;
 }
 
 .cell.O:hover::before {
-    transform: scale(1.08);
+    transform: scale(1.05);
     box-shadow: 
-        0 7px 18px rgba(0, 0, 0, 0.5),
-        0 3px 7px rgba(255, 255, 255, 0.98) inset,
-        0 -3px 7px rgba(0, 0, 0, 0.18) inset,
-        0 0 0 2px rgba(255, 255, 255, 0.6),
-        0 3px 7px rgba(0, 0, 0, 0.25);
+        0 8px 20px rgba(0, 0, 0, 0.5),
+        0 4px 8px rgba(255, 255, 255, 1) inset,
+        0 -4px 8px rgba(0, 0, 0, 0.2) inset,
+        0 0 0 2px rgba(0, 0, 0, 0.08);
 }
 
 .cell.O::after {
     content: '';
     position: absolute;
-    width: calc(var(--cell) * 0.35); /* 缩小高光 */
-    height: calc(var(--cell) * 0.35);
+    width: calc(var(--cell) * 0.38);
+    height: calc(var(--cell) * 0.38);
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.85) 45%, rgba(255, 255, 255, 0.35) 75%, transparent);
-    top: 18%;
-    left: 18%;
+    background: radial-gradient(circle,
+        rgba(255, 255, 255, 1) 0%,
+        rgba(255, 255, 255, 0.9) 35%,
+        rgba(255, 255, 255, 0.4) 65%,
+        transparent 85%);
+    top: 20%;
+    left: 20%;
     z-index: 2;
     pointer-events: none;
-    filter: blur(1px);
+    filter: blur(1.5px);
 }
 
 /* 最后一步高亮 */
@@ -860,4 +878,255 @@ label {
     :root {
         --cell: 28px;
     }
+}
+
+/* ========== 全局聊天窗口 ========== */
+.chat-widget {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 360px;
+    max-height: 480px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px);
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 
+        0 12px 40px rgba(0, 0, 0, 0.12),
+        0 6px 20px rgba(0, 0, 0, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.chat-widget.collapsed {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    overflow: hidden;
+}
+
+.chat-widget.collapsed .chat-body {
+    display: none;
+}
+
+.chat-widget.collapsed .chat-header {
+    justify-content: center;
+    padding: 0;
+}
+
+.chat-widget.collapsed .chat-title {
+    display: none;
+}
+
+.chat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.chat-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1F2937;
+    letter-spacing: 0.5px;
+}
+
+.chat-toggle {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 50%;
+    color: #6B7280;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chat-toggle:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #1F2937;
+}
+
+.chat-body {
+    display: flex;
+    flex-direction: column;
+    height: 400px;
+    overflow: hidden;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+/* 聊天气泡 */
+.chat-message {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-width: 75%;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.chat-message.self {
+    align-self: flex-end;
+}
+
+.chat-message.opponent {
+    align-self: flex-start;
+}
+
+.chat-message.system {
+    align-self: center;
+    max-width: 90%;
+}
+
+.chat-bubble {
+    padding: 12px 16px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+    line-height: 1.5;
+    color: #1F2937;
+}
+
+.chat-message.self .chat-bubble {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.1));
+    border-color: rgba(59, 130, 246, 0.2);
+    color: #1E40AF;
+}
+
+.chat-message.opponent .chat-bubble {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+.chat-message.system .chat-bubble {
+    background: rgba(107, 114, 128, 0.1);
+    border-color: rgba(107, 114, 128, 0.15);
+    color: #6B7280;
+    font-size: 12px;
+    text-align: center;
+    padding: 8px 12px;
+}
+
+.chat-timestamp {
+    font-size: 10px;
+    color: #9CA3AF;
+    padding: 0 4px;
+    align-self: flex-end;
+}
+
+.chat-message.system .chat-timestamp {
+    display: none;
+}
+
+/* 聊天输入区 */
+.chat-input-area {
+    display: flex;
+    gap: 8px;
+    padding: 16px;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.chat-input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(12px);
+    font-size: 14px;
+    color: #1F2937;
+    outline: none;
+    transition: all 0.3s ease;
+    box-shadow: 
+        0 1px 3px rgba(0, 0, 0, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.chat-input:focus {
+    border-color: rgba(59, 130, 246, 0.3);
+    box-shadow: 
+        0 2px 6px rgba(59, 130, 246, 0.15),
+        0 1px 3px rgba(0, 0, 0, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+.chat-input::placeholder {
+    color: #9CA3AF;
+}
+
+.chat-send {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(59, 130, 246, 0.8));
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 
+        0 2px 8px rgba(59, 130, 246, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.chat-send:hover {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 1), rgba(59, 130, 246, 0.9));
+    transform: translateY(-2px);
+    box-shadow: 
+        0 4px 12px rgba(59, 130, 246, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.chat-send:active {
+    transform: translateY(0);
 }

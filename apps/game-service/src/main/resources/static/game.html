@@ -12,67 +12,94 @@
     <div data-component="global-header" data-active="profile"></div>
     
     <div class="game-layout">
-        <!-- 左侧：当前玩家（自己） -->
+        <!-- 顶部对局信息栏 -->
+        <div class="game-status-bar">
+            <div class="status-capsule">
+                <span class="info-label">Round</span>
+                <span class="info-value" id="roundInfo">1</span>
+            </div>
+            <div class="status-capsule">
+                <span class="info-label">Current</span>
+                <span class="info-value" id="currentPlayer">-</span>
+            </div>
+            <div class="status-capsule">
+                <span class="info-label">Black</span>
+                <span class="info-value side-indicator side-black-indicator">●</span>
+            </div>
+            <div class="status-capsule">
+                <span class="info-label">White</span>
+                <span class="info-value side-indicator side-white-indicator">○</span>
+            </div>
+            <div class="status-capsule timer-capsule">
+                <span class="timer-icon">⏱</span>
+                <span class="info-value" id="timer">--</span>
+            </div>
+            <div class="status-capsule" id="gameStatusCapsule">
+                <span class="info-label">Status</span>
+                <span class="info-value" id="gameStatus">Playing</span>
+            </div>
+            <div class="status-capsule score-capsule">
+                <span class="info-label">Score</span>
+                <span class="info-value" id="scoreInfo">0:0</span>
+            </div>
+        </div>
+        
+        <!-- 左侧：当前玩家 -->
         <div class="player-panel player-left">
             <div class="player-card">
+                <div class="player-status-dot" id="selfStatusDot"></div>
                 <div class="player-avatar">
-                    <img id="selfAvatar" src="/game-service/images/avatar-default.png" alt="头像">
+                    <img id="selfAvatar" src="/game-service/images/avatar-default.png" alt="Avatar">
+                    <div class="avatar-glow-ring"></div>
                 </div>
                 <div class="player-info">
                     <div class="player-name" id="selfName">-</div>
-                    <div class="player-side" id="selfSide">
-                        <span class="side-badge" id="selfSideBadge">-</span>
+                    <div class="player-side-icon" id="selfSide">
+                        <span class="side-icon" id="selfSideBadge">-</span>
                     </div>
+                    <div class="player-badge" id="selfWinner" style="display:none;">Winner</div>
                 </div>
             </div>
         </div>
         
-        <!-- 中间：棋盘和对局信息 -->
+        <!-- 中间：棋盘区域 -->
         <div class="game-center-panel">
-            <div class="game-header">
-                <h2>五子棋</h2>
-                <button class="btn ghost" onclick="window.location.href='/game-service/lobby.html'">返回大厅</button>
-            </div>
-            
-            <!-- 游戏信息 -->
-            <div class="game-info">
-                <div class="info-row">
-                    <span id="meta" class="badge">当前执子: - | 已结束: 否</span>
-                    <span id="winner" class="winner" style="display:none;"></span>
-                </div>
-                <div class="info-row">
-                    <span><b>倒计时：</b><span id="timer">--</span>s</span>
-                    <span id="wsStatus" class="subtle">未连接</span>
-                </div>
-            </div>
-            
             <!-- 棋盘 -->
             <div class="board-container">
-                <div id="board" aria-label="棋盘"></div>
+                <div id="board" aria-label="Board"></div>
+                <div class="board-reflection-left"></div>
+                <div class="board-reflection-right"></div>
             </div>
             
             <!-- 操作按钮 -->
             <div class="game-actions">
-                <button class="btn ghost" id="btnResign">认输</button>
-                <button class="btn ghost" id="btnRestart">再开一局</button>
+                <button class="btn-action btn-resign" id="btnResign">Resign</button>
+                <button class="btn-action btn-restart" id="btnRestart">New Game</button>
             </div>
         </div>
         
         <!-- 右侧：对手玩家 -->
         <div class="player-panel player-right">
             <div class="player-card">
+                <div class="player-status-dot" id="opponentStatusDot"></div>
                 <div class="player-avatar">
-                    <img id="opponentAvatar" src="/game-service/images/avatar-default.png" alt="头像">
+                    <img id="opponentAvatar" src="/game-service/images/avatar-default.png" alt="Avatar">
+                    <div class="avatar-glow-ring"></div>
                 </div>
                 <div class="player-info">
-                    <div class="player-name" id="opponentName">等待对手...</div>
-                    <div class="player-side" id="opponentSide">
-                        <span class="side-badge" id="opponentSideBadge">-</span>
+                    <div class="player-name" id="opponentName">Waiting...</div>
+                    <div class="player-side-icon" id="opponentSide">
+                        <span class="side-icon" id="opponentSideBadge">-</span>
                     </div>
+                    <div class="player-badge" id="opponentWinner" style="display:none;">Winner</div>
                 </div>
             </div>
         </div>
+        
     </div>
+    
+    <!-- 全局聊天组件 -->
+    <div data-component="global-chat"></div>
     
     <!-- 引入依赖库 -->
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
@@ -83,6 +110,7 @@
     <script src="/game-service/js/header.js"></script>
     <script src="/game-service/js/api.js"></script>
     <script src="/game-service/js/ws.js"></script>
+    <script src="/game-service/js/global-chat.js"></script>
     <script src="/game-service/js/game.js"></script>
     
     <script>
@@ -226,22 +254,22 @@
             const opponentName = $('opponentName');
             const opponentAvatar = $('opponentAvatar');
             
-            // 更新自己的执子方
+            // 更新自己的执子方 - 使用X/O显示
             if (side === 'X' || side === 'x') {
-                selfSideBadge.textContent = '黑棋 (X)';
-                selfSideBadge.className = 'side-badge side-black';
-                opponentSideBadge.textContent = '白棋 (O)';
-                opponentSideBadge.className = 'side-badge side-white';
+                selfSideBadge.textContent = 'X';
+                selfSideBadge.className = 'side-icon side-black';
+                opponentSideBadge.textContent = 'O';
+                opponentSideBadge.className = 'side-icon side-white';
             } else if (side === 'O' || side === 'o') {
-                selfSideBadge.textContent = '白棋 (O)';
-                selfSideBadge.className = 'side-badge side-white';
-                opponentSideBadge.textContent = '黑棋 (X)';
-                opponentSideBadge.className = 'side-badge side-black';
+                selfSideBadge.textContent = 'O';
+                selfSideBadge.className = 'side-icon side-white';
+                opponentSideBadge.textContent = 'X';
+                opponentSideBadge.className = 'side-icon side-black';
             } else {
                 selfSideBadge.textContent = '-';
-                selfSideBadge.className = 'side-badge';
+                selfSideBadge.className = 'side-icon';
                 opponentSideBadge.textContent = '-';
-                opponentSideBadge.className = 'side-badge';
+                opponentSideBadge.className = 'side-icon';
             }
             
             // 根据模式设置对手信息 - PVE模式默认显示AI
@@ -272,9 +300,8 @@
          * 更新连接状态
          */
         function updateStatus(text, ok) {
-            const statusEl = $('wsStatus');
-            statusEl.textContent = text;
-            statusEl.className = ok ? 'status ok' : 'status err';
+            // 连接状态现在通过顶部信息栏显示，这里可以添加其他状态更新逻辑
+            // 如果需要显示连接状态，可以在顶部信息栏添加连接状态胶囊
         }
         
         /**
@@ -296,6 +323,8 @@
                 
                 sendRestart(currentRoomId, currentSeatKey);
             });
+            
+            // 聊天功能已由全局聊天组件处理
         }
         
         // 页面卸载时断开连接
