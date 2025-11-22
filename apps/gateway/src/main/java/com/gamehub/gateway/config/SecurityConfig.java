@@ -143,7 +143,7 @@ public class SecurityConfig {
     @Bean
     public ServerLogoutSuccessHandler oidcLogoutSuccessHandler(ReactiveClientRegistrationRepository clientRegistrationRepository) {
         OidcClientInitiatedServerLogoutSuccessHandler handler = new OidcClientInitiatedServerLogoutSuccessHandler(clientRegistrationRepository);
-        handler.setPostLogoutRedirectUri("{baseUrl}/game-service/lobby.html");
+        handler.setPostLogoutRedirectUri("{baseUrl}/game-service/index.html");
         return handler;
     }
 
