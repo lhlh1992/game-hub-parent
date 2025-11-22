@@ -538,6 +538,7 @@ label {
     line-height: 1;
 }
 
+
 /* 棋盘网格线 - 自然木质风格：深色清晰网格线 */
 #board::before {
     content: '';
@@ -574,42 +575,6 @@ label {
     z-index: 1;
 }
 
-/* 星位标记 - 自然木质风格：黑色圆点 */
-#board::after {
-    content: '';
-    position: absolute;
-    /* 星位点从padding内部开始，考虑左侧坐标区域（40px = 20px padding + 20px坐标） */
-    top: 20px; /* padding-top */
-    left: 40px; /* padding-left + 坐标区域 */
-    width: calc(var(--cell) * 14 + 1px);
-    height: calc(var(--cell) * 14 + 1px);
-    /* 自然木质风格：黑色星位点，像真实棋盘 */
-    background-image: 
-        /* 四个角星位：索引(3,3), (3,11), (11,3), (11,11) */
-        radial-gradient(circle, #1A1A1A 4px, transparent 4px),
-        radial-gradient(circle, #1A1A1A 4px, transparent 4px),
-        radial-gradient(circle, #1A1A1A 4px, transparent 4px),
-        radial-gradient(circle, #1A1A1A 4px, transparent 4px),
-        /* 中心点：索引(7,7) */
-        radial-gradient(circle, #1A1A1A 4px, transparent 4px);
-    background-size: 
-        8px 8px,
-        8px 8px,
-        8px 8px,
-        8px 8px,
-        8px 8px;
-    background-position: 
-        /* 四个角：索引3,3; 11,3; 3,11; 11,11 - 在网格线交点上 */
-        calc(var(--cell) * 3) calc(var(--cell) * 3),
-        calc(var(--cell) * 11) calc(var(--cell) * 3),
-        calc(var(--cell) * 3) calc(var(--cell) * 11),
-        calc(var(--cell) * 11) calc(var(--cell) * 11),
-        /* 中心点：索引7,7 - 在网格线交点上 */
-        calc(var(--cell) * 7) calc(var(--cell) * 7);
-    background-repeat: no-repeat;
-    pointer-events: none;
-    z-index: 1;
-}
 
 .cell {
     width: var(--cell);
