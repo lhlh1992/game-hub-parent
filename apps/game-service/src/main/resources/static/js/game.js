@@ -387,13 +387,6 @@ function updateGameInfo(state, series, currentSide = null, mode = null) {
         currentPlayerEl.textContent = current === 'X' ? 'Black' : current === 'O' ? 'White' : '-';
     }
     
-    // 更新顶部当前执子方提示（新增）
-    const turnIndicator = document.getElementById('turnIndicator');
-    if (turnIndicator && state?.current) {
-        const current = state.current === 'X' ? 'Black' : state.current === 'O' ? 'White' : '-';
-        turnIndicator.textContent = current !== '-' ? `${current} to play` : '-';
-    }
-    
     // 更新比分
     const scoreEl = document.getElementById('scoreInfo');
     if (scoreEl && series) {

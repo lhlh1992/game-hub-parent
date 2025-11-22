@@ -467,6 +467,8 @@ body::after {
     font-size: 0; /* 隐藏文本，使用CSS背景显示棋子 */
     line-height: 1;
     position: relative;
+    /* 【重要】确保棋子显示在进度条上方 */
+    z-index: 2;
 }
 
 /* 黑子立体样式（阴影和高光减弱，避免比头像更抢眼） */
