@@ -6,38 +6,72 @@
     <title>五子棋 - 游戏进行中</title>
     <link rel="stylesheet" href="/game-service/css/header.css">
     <link rel="stylesheet" href="/game-service/css/common.css">
+    <link rel="stylesheet" href="/game-service/css/game.css">
 </head>
 <body>
     <div data-component="global-header" data-active="profile"></div>
-    <div class="app">
-        <h2>五子棋</h2>
-        
-        <!-- 用户信息和房间信息 -->
-        <div class="row">
-            <div class="user-info" id="userInfo" style="display: none;">
-                <span class="username" id="username">-</span>
+    
+    <div class="game-layout">
+        <!-- 左侧：当前玩家（自己） -->
+        <div class="player-panel player-left">
+            <div class="player-card">
+                <div class="player-avatar">
+                    <img id="selfAvatar" src="/game-service/images/avatar-default.png" alt="头像">
+                </div>
+                <div class="player-info">
+                    <div class="player-name" id="selfName">-</div>
+                    <div class="player-side" id="selfSide">
+                        <span class="side-badge" id="selfSideBadge">-</span>
+                    </div>
+                </div>
             </div>
-            <span class="subtle" id="roomIdDisplay">房间: -</span>
-            <span class="spacer"></span>
-            <button class="btn ghost" onclick="window.location.href='/game-service/lobby.html'">返回大厅</button>
         </div>
         
-        <!-- 游戏信息 -->
-        <div class="row">
-            <span id="meta" class="badge">当前执子: - | 已结束: 否</span>
-            <span id="winner" class="winner" style="display:none;"></span>
-            <span><b>倒计时：</b><span id="timer">--</span>s</span>
+        <!-- 中间：棋盘和对局信息 -->
+        <div class="game-center-panel">
+            <div class="game-header">
+                <h2>五子棋</h2>
+                <button class="btn ghost" onclick="window.location.href='/game-service/lobby.html'">返回大厅</button>
+            </div>
+            
+            <!-- 游戏信息 -->
+            <div class="game-info">
+                <div class="info-row">
+                    <span id="meta" class="badge">当前执子: - | 已结束: 否</span>
+                    <span id="winner" class="winner" style="display:none;"></span>
+                </div>
+                <div class="info-row">
+                    <span><b>倒计时：</b><span id="timer">--</span>s</span>
+                    <span id="wsStatus" class="subtle">未连接</span>
+                </div>
+            </div>
+            
+            <!-- 棋盘 -->
+            <div class="board-container">
+                <div id="board" aria-label="棋盘"></div>
+            </div>
+            
+            <!-- 操作按钮 -->
+            <div class="game-actions">
+                <button class="btn ghost" id="btnResign">认输</button>
+                <button class="btn ghost" id="btnRestart">再开一局</button>
+            </div>
         </div>
         
-        <!-- 操作按钮 -->
-        <div class="row">
-            <button class="btn ghost" id="btnResign">认输</button>
-            <button class="btn ghost" id="btnRestart">再开一局</button>
-            <span id="wsStatus" class="subtle">未连接</span>
+        <!-- 右侧：对手玩家 -->
+        <div class="player-panel player-right">
+            <div class="player-card">
+                <div class="player-avatar">
+                    <img id="opponentAvatar" src="/game-service/images/avatar-default.png" alt="头像">
+                </div>
+                <div class="player-info">
+                    <div class="player-name" id="opponentName">等待对手...</div>
+                    <div class="player-side" id="opponentSide">
+                        <span class="side-badge" id="opponentSideBadge">-</span>
+                    </div>
+                </div>
+            </div>
         </div>
-        
-        <!-- 棋盘 -->
-        <div id="board" aria-label="棋盘"></div>
     </div>
     
     <!-- 引入依赖库 -->
@@ -60,6 +94,8 @@
         let currentRoomId = null;
         let currentSeatKey = null;
         let userInfo = null;
+        let mySide = null;
+        let gameMode = null;
         
         // 游戏回调函数
         window.gameCallbacks = {
@@ -93,8 +129,6 @@
                 
                 // 同步到 window 对象，供 game.js 使用
                 window._currentRoomId = currentRoomId;
-                
-                $('roomIdDisplay').textContent = `房间: ${currentRoomId}`;
                 
                 // 确保用户已登录
                 console.log('开始登录验证...');
@@ -140,6 +174,10 @@
                         // 订阅完整同步
                         subscribeFullSync((snap) => {
                             renderFullSync(snap);
+                            // 如果快照中有mode信息，立即更新对手显示
+                            if (snap.mode && typeof window.updateGameMode === 'function') {
+                                window.updateGameMode(snap.mode);
+                            }
                         });
                         
                         // 发送恢复请求
@@ -163,19 +201,72 @@
          * 显示用户信息
          */
         function displayUserInfo(info) {
-            const usernameEl = $('username');
-            const userInfoEl = $('userInfo');
+            const selfNameEl = $('selfName');
+            const selfAvatarEl = $('selfAvatar');
             
             const nickname = info && typeof info.nickname === 'string' && info.nickname.trim()
                 ? info.nickname.trim()
                 : null;
-            const displayName = nickname || (info && info.username) || null;
+            const displayName = nickname || (info && info.username) || '玩家';
+            const avatarUrl = info?.avatarUrl || '/game-service/images/avatar-default.png';
 
-            if (displayName) {
-                usernameEl.textContent = displayName;
-                userInfoEl.style.display = 'flex';
-            }
+            selfNameEl.textContent = displayName;
+            selfAvatarEl.src = avatarUrl;
         }
+        
+        /**
+         * 更新玩家执子方和模式
+         */
+        window.updatePlayerSide = function(side, mode) {
+            mySide = side;
+            gameMode = mode;
+            
+            const selfSideBadge = $('selfSideBadge');
+            const opponentSideBadge = $('opponentSideBadge');
+            const opponentName = $('opponentName');
+            const opponentAvatar = $('opponentAvatar');
+            
+            // 更新自己的执子方
+            if (side === 'X' || side === 'x') {
+                selfSideBadge.textContent = '黑棋 (X)';
+                selfSideBadge.className = 'side-badge side-black';
+                opponentSideBadge.textContent = '白棋 (O)';
+                opponentSideBadge.className = 'side-badge side-white';
+            } else if (side === 'O' || side === 'o') {
+                selfSideBadge.textContent = '白棋 (O)';
+                selfSideBadge.className = 'side-badge side-white';
+                opponentSideBadge.textContent = '黑棋 (X)';
+                opponentSideBadge.className = 'side-badge side-black';
+            } else {
+                selfSideBadge.textContent = '-';
+                selfSideBadge.className = 'side-badge';
+                opponentSideBadge.textContent = '-';
+                opponentSideBadge.className = 'side-badge';
+            }
+            
+            // 根据模式设置对手信息 - PVE模式默认显示AI
+            if (mode === 'PVE') {
+                opponentName.textContent = 'AI 对手';
+                opponentAvatar.src = '/game-service/images/avatar-default.png';
+            } else {
+                // PVP模式才显示等待对手
+                opponentName.textContent = '等待对手...';
+                opponentAvatar.src = '/game-service/images/avatar-default.png';
+            }
+        };
+        
+        /**
+         * 仅更新模式（用于提前设置PVE模式的对手显示）
+         */
+        window.updateGameMode = function(mode) {
+            gameMode = mode;
+            const opponentName = $('opponentName');
+            
+            // 如果是PVE模式，立即显示AI对手
+            if (mode === 'PVE') {
+                opponentName.textContent = 'AI 对手';
+            }
+        };
         
         /**
          * 更新连接状态
@@ -214,4 +305,3 @@
     </script>
 </body>
 </html>
-

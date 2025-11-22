@@ -59,8 +59,12 @@ function renderBoard(grid, lastMove) {
     boardEl.innerHTML = '';
     boardEl.style.setProperty('--n', grid.length.toString());
     
-    for (let y = 0; y < grid.length; y++) {
-        for (let x = 0; x < grid.length; x++) {
+    const n = grid.length;
+    const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O'];
+    
+    // 渲染棋盘格子
+    for (let y = 0; y < n; y++) {
+        for (let x = 0; x < n; x++) {
             const v = grid[x][y];
             const isLast = lastMove && lastMove.x === x && lastMove.y === y;
             
@@ -71,7 +75,7 @@ function renderBoard(grid, lastMove) {
             cell.textContent = v === '.' ? '' : v;
             cell.dataset.x = String(x);
             cell.dataset.y = String(y);
-            cell.title = `(${x}, ${y})`;
+            cell.title = `(${letters[x]}${y + 1})`;
             
             if (v === '.') {
                 cell.addEventListener('click', onCellClick);
@@ -80,6 +84,75 @@ function renderBoard(grid, lastMove) {
             boardEl.appendChild(cell);
         }
     }
+    
+    // 等待DOM完全渲染后，基于实际元素位置动态设置坐标标记
+    // 使用双重 requestAnimationFrame 确保布局完成
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            const boardRect = boardEl.getBoundingClientRect();
+            const cells = boardEl.querySelectorAll('.cell');
+            
+            if (cells.length !== n * n) return;
+            
+            // 添加Y轴坐标（左侧）- 数字 1-15
+            // 1在最底下，15在最上面
+            // Y轴要对齐到每一条横线（水平线），即每个cell的top边界
+            for (let y = 0; y < n; y++) {
+                // 获取第y行第0列的cell（每行第一个）
+                const cellIndex = y * n;
+                const cell = cells[cellIndex];
+                if (!cell) continue;
+                
+                const cellRect = cell.getBoundingClientRect();
+                // 网格横线在cell的top边界，不是中心！
+                // 直接使用实际DOM元素的top边界位置
+                const lineY = cellRect.top - boardRect.top;
+                
+                const coordY = document.createElement('div');
+                coordY.className = 'board-coord coord-y';
+                coordY.textContent = String(n - y);
+                coordY.style.position = 'absolute';
+                // 左侧坐标区域：获取第一个cell的left位置，减去一个cell宽度作为坐标区域
+                const firstCellRect = cells[0].getBoundingClientRect();
+                const coordXPos = firstCellRect.left - boardRect.left - (firstCellRect.width / 2);
+                coordY.style.left = `${coordXPos}px`;
+                coordY.style.top = `${lineY}px`; // 对齐到横线（cell的top边界）
+                coordY.style.transform = 'translate(-50%, -50%)';
+                coordY.style.textAlign = 'center';
+                boardEl.appendChild(coordY);
+            }
+            
+            // 添加X轴坐标（下方）- 字母 A-O
+            // X轴要对齐到每一条竖线（垂直线），即每个cell的left边界
+            const lastRowIndex = n - 1;
+            for (let x = 0; x < n; x++) {
+                // 获取最后一行第x列的cell
+                const cellIndex = lastRowIndex * n + x;
+                const cell = cells[cellIndex];
+                if (!cell) continue;
+                
+                const cellRect = cell.getBoundingClientRect();
+                // 网格竖线在cell的left边界，不是中心！
+                // 直接使用实际DOM元素的left边界位置
+                const lineX = cellRect.left - boardRect.left;
+                // 最后一条横线的位置（最后一行的top边界），这就是底线
+                // X轴坐标应该紧贴这条底线，稍微往下一点点
+                const lineY = cellRect.top - boardRect.top;
+                // 稍微往下一点点，让坐标标记正好在底线下方一点点（约半个字体大小）
+                const offsetY = lineY + 8; // 往下8px，正好贴着底线
+                
+                const coordX = document.createElement('div');
+                coordX.className = 'board-coord coord-x';
+                coordX.textContent = letters[x];
+                coordX.style.position = 'absolute';
+                coordX.style.left = `${lineX}px`; // 对齐到竖线（cell的left边界）
+                coordX.style.top = `${offsetY}px`; // 正好贴着底线，稍微往下一点点
+                coordX.style.transform = 'translate(-50%, -50%)';
+                coordX.style.textAlign = 'center';
+                boardEl.appendChild(coordX);
+            }
+        });
+    });
 }
 
 /**
@@ -189,6 +262,11 @@ function renderFullSync(snap) {
         whiteWins: seriesView.scoreO || 0,
         draws: 0
     }, snap.sideToMove, snap.mode);
+    
+    // 更新玩家执子方（如果快照中包含）
+    if (snap.mySide && typeof window.updatePlayerSide === 'function') {
+        window.updatePlayerSide(snap.mySide, snap.mode);
+    }
     
     // 处理游戏结束
     if (snap.outcome) {

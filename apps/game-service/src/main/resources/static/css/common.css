@@ -481,37 +481,124 @@ label {
     transform: translateY(0) !important;
 }
 
-/* 棋盘 */
+/* 棋盘 - 标准五子棋棋盘样式（15x15，米黄色背景，黑色网格线） */
 #board {
     display: grid;
     grid-template-columns: repeat(var(--n), var(--cell));
     grid-template-rows: repeat(var(--n), var(--cell));
-    gap: 2px;
+    gap: 0;
     margin-top: 20px;
     user-select: none;
-    background: linear-gradient(135deg, #F8F9FA, #FFFFFF);
-    padding: 12px;
-    border-radius: 16px;
-    border: 2px solid rgba(255, 107, 107, 0.15);
+    /* 标准五子棋棋盘背景色 - 米黄色/浅棕色 */
+    background: #DEB887;
+    padding: 20px;
+    border-radius: 4px;
+    border: 2px solid #8B6F47;
     box-shadow: 
-        inset 0 2px 8px rgba(255, 107, 107, 0.1),
-        0 4px 16px rgba(255, 107, 107, 0.1);
+        inset 0 0 0 1px rgba(139, 111, 71, 0.3),
+        0 4px 16px rgba(0, 0, 0, 0.2);
     position: relative;
+    /* 为坐标标记预留空间 */
+    padding-left: 40px; /* 左侧20px padding + 20px坐标区域 */
+    padding-bottom: 40px; /* 下方20px padding + 20px坐标区域 */
 }
 
-#board::before {
-    content: '🎯';
+/* 棋盘坐标标记样式 */
+.board-coord {
+    font-size: 12px;
+    font-weight: 600;
+    color: #5a2d0c;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+    user-select: none;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* Y轴坐标（数字）- 在左侧，对齐到网格线交点 */
+.coord-y {
     position: absolute;
-    top: -30px;
-    right: 20px;
-    font-size: 24px;
-    opacity: 0.3;
-    animation: float 3s ease-in-out infinite;
+    width: 20px;
+    text-align: center;
+    line-height: 1;
 }
 
-@keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
+/* X轴坐标（字母）- 在下方，对齐到网格线交点 */
+.coord-x {
+    position: absolute;
+    text-align: center;
+    line-height: 1;
+}
+
+/* 棋盘网格线 - 黑色细线，确保15条横线和15条竖线都显示 */
+#board::before {
+    content: '';
+    position: absolute;
+    /* 网格线从padding内部开始，考虑左侧坐标区域 */
+    top: 20px; /* padding-top */
+    left: 40px; /* padding-left + 坐标区域 */
+    /* 15x15棋盘：15条线，从位置0到位置14*cell，总宽度需要包含第15条线 */
+    width: calc(var(--cell) * 14 + 1px); /* 14个间隔 + 最后一条线 */
+    height: calc(var(--cell) * 14 + 1px);
+    /* 15条竖线：每条线在索引位置（0, cell, 2*cell, ..., 14*cell） */
+    background-image: 
+        repeating-linear-gradient(to right, 
+            #1A1A1A 0, 
+            #1A1A1A 1px, 
+            transparent 1px, 
+            transparent var(--cell)
+        ),
+        /* 15条横线：每条线在索引位置（0, cell, 2*cell, ..., 14*cell） */
+        repeating-linear-gradient(to bottom, 
+            #1A1A1A 0, 
+            #1A1A1A 1px, 
+            transparent 1px, 
+            transparent var(--cell)
+        );
+    background-size: 
+        calc(var(--cell) * 14 + 1px) 100%,
+        100% calc(var(--cell) * 14 + 1px);
+    background-position: 0 0;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* 星位标记 - 标准五子棋棋盘有5个星位点：4个角 + 1个中心 */
+#board::after {
+    content: '';
+    position: absolute;
+    /* 星位点从padding内部开始，考虑左侧坐标区域（40px = 20px padding + 20px坐标） */
+    top: 20px; /* padding-top */
+    left: 40px; /* padding-left + 坐标区域 */
+    width: calc(var(--cell) * 14 + 1px);
+    height: calc(var(--cell) * 14 + 1px);
+    /* 标准五子棋星位：4个角星位点（第4行/列和第12行/列的交点）+ 1个中心点 */
+    /* 15x15棋盘，索引0-14，星位在索引3、7、11的位置 */
+    /* 星位点在网格线交点上，所以位置是：索引 * cell */
+    background-image: 
+        /* 四个角星位：索引(3,3), (3,11), (11,3), (11,11) */
+        radial-gradient(circle, #1A1A1A 4px, transparent 4px),
+        radial-gradient(circle, #1A1A1A 4px, transparent 4px),
+        radial-gradient(circle, #1A1A1A 4px, transparent 4px),
+        radial-gradient(circle, #1A1A1A 4px, transparent 4px),
+        /* 中心点：索引(7,7) */
+        radial-gradient(circle, #1A1A1A 4px, transparent 4px);
+    background-size: 
+        4px 4px,
+        4px 4px,
+        4px 4px,
+        4px 4px,
+        4px 4px;
+    background-position: 
+        /* 四个角：索引3,3; 11,3; 3,11; 11,11 - 在网格线交点上 */
+        calc(var(--cell) * 3) calc(var(--cell) * 3),
+        calc(var(--cell) * 11) calc(var(--cell) * 3),
+        calc(var(--cell) * 3) calc(var(--cell) * 11),
+        calc(var(--cell) * 11) calc(var(--cell) * 11),
+        /* 中心点：索引7,7 - 在网格线交点上 */
+        calc(var(--cell) * 7) calc(var(--cell) * 7);
+    background-repeat: no-repeat;
+    pointer-events: none;
+    z-index: 1;
 }
 
 .cell {
@@ -520,54 +607,118 @@ label {
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1.5px solid rgba(255, 107, 107, 0.1);
-    background: rgba(255, 255, 255, 0.95);
+    border: none;
+    background: transparent;
     cursor: pointer;
-    font-weight: 700;
-    font-size: 18px;
-    border-radius: 8px;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    position: relative;
+    z-index: 2;
+    transition: all 0.15s ease;
 }
 
-.cell:hover {
-    background: rgba(255, 107, 107, 0.1);
-    border-color: rgba(255, 107, 107, 0.3);
-    transform: scale(1.05);
-    box-shadow: 0 2px 8px rgba(255, 107, 107, 0.2);
+/* 空位悬停效果 - 显示半透明圆圈提示 */
+.cell:hover:not(.X):not(.O) {
+    background: radial-gradient(circle, rgba(0, 0, 0, 0.08) 40%, transparent 40%);
 }
 
+/* 立体感黑棋 */
 .cell.X {
-    color: #1A202C;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    color: transparent;
+    position: relative;
 }
 
-.cell.O {
-    color: var(--gh-primary);
-    text-shadow: 0 2px 4px rgba(255, 107, 107, 0.2);
-}
-
-.cell.last {
-    outline: 3px solid var(--gh-warning);
-    outline-offset: -3px;
+.cell.X::before {
+    content: '';
+    position: absolute;
+    width: calc(var(--cell) * 0.85);
+    height: calc(var(--cell) * 0.85);
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.15), rgba(0, 0, 0, 0.8) 60%, #1A1A1A);
     box-shadow: 
-        0 0 0 2px rgba(237, 137, 54, 0.3),
-        0 4px 12px rgba(237, 137, 54, 0.4);
+        0 4px 8px rgba(0, 0, 0, 0.4),
+        0 2px 4px rgba(0, 0, 0, 0.3) inset,
+        0 -2px 4px rgba(255, 255, 255, 0.1) inset;
+    z-index: 1;
+}
+
+.cell.X::after {
+    content: '';
+    position: absolute;
+    width: calc(var(--cell) * 0.3);
+    height: calc(var(--cell) * 0.3);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.3), transparent);
+    top: 25%;
+    left: 25%;
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* 立体感白棋 */
+.cell.O {
+    color: transparent;
+    position: relative;
+}
+
+.cell.O::before {
+    content: '';
+    position: absolute;
+    width: calc(var(--cell) * 0.85);
+    height: calc(var(--cell) * 0.85);
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.95), rgba(240, 240, 240, 0.9) 60%, #E8E8E8);
+    box-shadow: 
+        0 4px 8px rgba(0, 0, 0, 0.3),
+        0 2px 4px rgba(255, 255, 255, 0.6) inset,
+        0 -2px 4px rgba(0, 0, 0, 0.1) inset;
+    z-index: 1;
+}
+
+.cell.O::after {
+    content: '';
+    position: absolute;
+    width: calc(var(--cell) * 0.35);
+    height: calc(var(--cell) * 0.35);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.8), rgba(240, 240, 240, 0.3));
+    top: 22%;
+    left: 22%;
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* 最后一步高亮 */
+.cell.last::before {
+    box-shadow: 
+        0 0 0 3px rgba(237, 137, 54, 0.6),
+        0 4px 8px rgba(0, 0, 0, 0.4),
+        0 2px 4px rgba(0, 0, 0, 0.3) inset,
+        0 -2px 4px rgba(255, 255, 255, 0.1) inset;
+    animation: lastPulse 1.5s ease-in-out infinite;
+}
+
+.cell.last.O::before {
+    box-shadow: 
+        0 0 0 3px rgba(237, 137, 54, 0.6),
+        0 4px 8px rgba(0, 0, 0, 0.3),
+        0 2px 4px rgba(255, 255, 255, 0.6) inset,
+        0 -2px 4px rgba(0, 0, 0, 0.1) inset;
     animation: lastPulse 1.5s ease-in-out infinite;
 }
 
 @keyframes lastPulse {
     0%, 100% { 
-        outline-color: var(--gh-warning);
         box-shadow: 
-            0 0 0 2px rgba(237, 137, 54, 0.3),
-            0 4px 12px rgba(237, 137, 54, 0.4);
+            0 0 0 3px rgba(237, 137, 54, 0.6),
+            0 4px 8px rgba(0, 0, 0, 0.4),
+            0 2px 4px rgba(0, 0, 0, 0.3) inset,
+            0 -2px 4px rgba(255, 255, 255, 0.1) inset;
     }
     50% { 
-        outline-color: var(--gh-primary);
         box-shadow: 
-            0 0 0 4px rgba(255, 107, 107, 0.4),
-            0 6px 16px rgba(255, 107, 107, 0.5);
+            0 0 0 5px rgba(255, 107, 107, 0.7),
+            0 6px 12px rgba(0, 0, 0, 0.5),
+            0 2px 4px rgba(0, 0, 0, 0.3) inset,
+            0 -2px 4px rgba(255, 255, 255, 0.1) inset;
     }
 }
 
