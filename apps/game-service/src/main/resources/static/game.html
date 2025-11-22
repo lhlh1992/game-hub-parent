@@ -22,6 +22,9 @@
                 <span class="info-label">Current</span>
                 <span class="info-value" id="currentPlayer">-</span>
             </div>
+            <div class="status-capsule turn-indicator">
+                <span class="turn-indicator-text" id="turnIndicator">-</span>
+            </div>
             <div class="status-capsule">
                 <span class="info-label">Black</span>
                 <span class="info-value side-indicator side-black-indicator">●</span>
@@ -75,9 +78,8 @@
                         </div>
                     </div>
                 </div>
-                <!-- 共享状态区域：回合提示始终存在，Winner 共享同一块区域 -->
+                <!-- 共享状态区域：Winner 显示区域 -->
                 <div class="player-status-area">
-                    <div class="player-status-label" id="selfStatusLabel">Opponent's turn</div>
                     <div class="player-winner-label" id="selfWinner">Winner</div>
                 </div>
             </div>
@@ -154,9 +156,8 @@
                         </div>
                     </div>
                 </div>
-                <!-- 共享状态区域：回合提示始终存在，Winner 共享同一块区域 -->
+                <!-- 共享状态区域：Winner 显示区域 -->
                 <div class="player-status-area">
-                    <div class="player-status-label" id="opponentStatusLabel">Opponent's turn</div>
                     <div class="player-winner-label" id="opponentWinner">Winner</div>
                 </div>
             </div>

@@ -108,6 +108,40 @@ body::after {
     transform: translateY(-1px);
 }
 
+/* 当前执子方提示（小巧、简洁） */
+.status-capsule.turn-indicator {
+    padding: 8px 16px; /* 稍小的内边距 */
+    background: transparent; /* 透明背景，不喧宾夺主 */
+    border: none;
+    box-shadow: none;
+}
+
+.status-capsule.turn-indicator:hover {
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+}
+
+.turn-indicator-text {
+    font-size: 11px; /* 小巧字体 */
+    font-weight: 500;
+    color: #6B7280; /* 柔和灰色 */
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.turn-indicator-text::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.6;
+}
+
 .info-label {
     font-size: 11px;
     font-weight: 600;
@@ -189,18 +223,8 @@ body::after {
         0 2px 8px rgba(0, 0, 0, 0.04),
         inset 0 1px 0 rgba(255, 255, 255, 0.95);
     position: relative;
-    transition: all 0.3s ease, box-shadow 0.15s ease; /* 添加阴影过渡动画 */
+    transition: all 0.3s ease;
     flex-shrink: 0;
-}
-
-/* 玩家卡片高亮外圈（当前回合时显示） */
-.player-card.active-turn {
-    box-shadow: 
-        0 4px 20px rgba(0, 0, 0, 0.06),
-        0 2px 8px rgba(0, 0, 0, 0.04),
-        0 0 0 3px rgba(59, 130, 246, 0.2), /* 高亮外圈 */
-        inset 0 1px 0 rgba(255, 255, 255, 0.95);
-    transition: box-shadow 0.18s ease; /* 150-200ms 淡入/淡出动画 */
 }
 
 .player-card:hover {
@@ -356,6 +380,19 @@ body::after {
     position: relative;
     flex-shrink: 0;
     margin: 0;
+    transition: box-shadow 0.3s ease, filter 0.3s ease; /* 光环过渡动画 300ms */
+}
+
+/* 头像光环效果（当前回合时显示，柔和发光描边） */
+.player-avatar.active-turn {
+    box-shadow: 
+        0 5.6px 22.4px rgba(0, 0, 0, 0.1),
+        0 0 0 1.4px rgba(0, 0, 0, 0.04),
+        0 0 0 3px rgba(255, 182, 193, 0.5), /* 柔和粉色描边 */
+        0 0 15px rgba(255, 182, 193, 0.4), /* 内圈发光 */
+        0 0 30px rgba(255, 182, 193, 0.3), /* 中圈发光 */
+        0 0 50px rgba(255, 182, 193, 0.2); /* 外圈发光，模糊感 */
+    filter: drop-shadow(0 0 10px rgba(255, 182, 193, 0.5)); /* 模糊发光感，不刺眼 */
 }
 
 .player-avatar img {
@@ -478,41 +515,7 @@ body::after {
     white-space: nowrap;
 }
 
-/* 状态标签（回合提示始终存在，通过颜色区分状态） */
-.player-status-label {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 13.5px;
-    font-weight: 600;
-    padding: 5.4px 13.5px;
-    border-radius: 16.2px;
-    text-transform: uppercase;
-    letter-spacing: 0.54px;
-    box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    white-space: nowrap;
-    opacity: 1; /* 始终显示 */
-    transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, opacity 0.18s ease; /* 透明度淡入/淡出 */
-    pointer-events: none;
-}
-
-/* 回合提示：当前玩家回合（高亮蓝色） */
-.player-status-label.my-turn {
-    color: #3B82F6; /* 高亮蓝色 */
-    background: rgba(59, 130, 246, 0.15);
-    border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-/* 回合提示：对手回合（浅灰色） */
-.player-status-label.opponent-turn {
-    color: #9CA3AF; /* 浅灰色 */
-    background: rgba(156, 163, 175, 0.08);
-    border: 1px solid rgba(156, 163, 175, 0.15);
-}
+/* 状态标签已移除，不再使用 */
 
 /* Winner 标签（在共享状态区域中，绝对定位重叠显示） */
 .player-winner-label {

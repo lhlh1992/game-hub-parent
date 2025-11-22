@@ -380,11 +380,18 @@ function updateGameInfo(state, series, currentSide = null, mode = null) {
         roundEl.textContent = String(series.index || 1);
     }
     
-    // 更新当前执子方
+    // 更新当前执子方（保留原有功能）
     const currentPlayerEl = document.getElementById('currentPlayer');
     if (currentPlayerEl) {
         const current = currentSide || state?.current || '-';
         currentPlayerEl.textContent = current === 'X' ? 'Black' : current === 'O' ? 'White' : '-';
+    }
+    
+    // 更新顶部当前执子方提示（新增）
+    const turnIndicator = document.getElementById('turnIndicator');
+    if (turnIndicator && state?.current) {
+        const current = state.current === 'X' ? 'Black' : state.current === 'O' ? 'White' : '-';
+        turnIndicator.textContent = current !== '-' ? `${current} to play` : '-';
     }
     
     // 更新比分
@@ -429,13 +436,12 @@ function updateGameInfo(state, series, currentSide = null, mode = null) {
         }
     }
     
-    // 更新状态标签（回合提示始终存在，通过颜色区分）
-    const selfStatusLabel = document.getElementById('selfStatusLabel');
-    const opponentStatusLabel = document.getElementById('opponentStatusLabel');
+    // 更新Winner标签和头像光环效果
     const selfWinnerEl = document.getElementById('selfWinner');
     const opponentWinnerEl = document.getElementById('opponentWinner');
-    const selfCard = document.querySelector('.player-panel.player-left .player-card');
-    const opponentCard = document.querySelector('.player-panel.player-right .player-card');
+    const selfAvatar = document.querySelector('.player-panel.player-left .player-avatar');
+    const opponentAvatar = document.querySelector('.player-panel.player-right .player-avatar');
+    const turnIndicator = document.getElementById('turnIndicator');
     
     // 先隐藏Winner标签
     if (selfWinnerEl) {
@@ -447,6 +453,10 @@ function updateGameInfo(state, series, currentSide = null, mode = null) {
         opponentWinnerEl.classList.remove('show');
     }
     
+    // 先移除所有头像光环
+    if (selfAvatar) selfAvatar.classList.remove('active-turn');
+    if (opponentAvatar) opponentAvatar.classList.remove('active-turn');
+    
     if (state?.over && state?.winner) {
         // 游戏结束，显示Winner标签
         const isSelfWinner = mySide && ((state.winner === 'X' && mySide === 'X') || (state.winner === 'O' && mySide === 'O'));
@@ -455,61 +465,39 @@ function updateGameInfo(state, series, currentSide = null, mode = null) {
                 selfWinnerEl.style.opacity = '1';
                 selfWinnerEl.classList.add('show');
             }
-            // 隐藏回合提示
-            if (selfStatusLabel) {
-                selfStatusLabel.style.opacity = '0';
-            }
         } else {
             if (opponentWinnerEl) {
                 opponentWinnerEl.style.opacity = '1';
                 opponentWinnerEl.classList.add('show');
             }
-            // 隐藏回合提示
-            if (opponentStatusLabel) {
-                opponentStatusLabel.style.opacity = '0';
-            }
         }
-        // 移除卡片高亮
-        if (selfCard) selfCard.classList.remove('active-turn');
-        if (opponentCard) opponentCard.classList.remove('active-turn');
+        // 更新顶部提示
+        if (turnIndicator) {
+            turnIndicator.textContent = '-';
+        }
     } else if (!state?.over && state?.current) {
-        // 游戏进行中，更新回合提示（始终显示，通过颜色区分）
+        // 游戏进行中，更新头像光环和顶部提示
         const isMyTurn = mySide && ((state.current === 'X' && mySide === 'X') || (state.current === 'O' && mySide === 'O'));
         
         if (isMyTurn) {
-            // 自己的回合
-            if (selfStatusLabel) {
-                selfStatusLabel.textContent = "Your turn";
-                selfStatusLabel.classList.remove('opponent-turn');
-                selfStatusLabel.classList.add('my-turn');
-                selfStatusLabel.style.opacity = '1';
-            }
-            if (opponentStatusLabel) {
-                opponentStatusLabel.textContent = "Opponent's turn";
-                opponentStatusLabel.classList.remove('my-turn');
-                opponentStatusLabel.classList.add('opponent-turn');
-                opponentStatusLabel.style.opacity = '1';
-            }
-            // 卡片高亮
-            if (selfCard) selfCard.classList.add('active-turn');
-            if (opponentCard) opponentCard.classList.remove('active-turn');
+            // 自己的回合：自己的头像显示光环
+            if (selfAvatar) selfAvatar.classList.add('active-turn');
+            if (opponentAvatar) opponentAvatar.classList.remove('active-turn');
         } else {
-            // 对手的回合
-            if (selfStatusLabel) {
-                selfStatusLabel.textContent = "Opponent's turn";
-                selfStatusLabel.classList.remove('my-turn');
-                selfStatusLabel.classList.add('opponent-turn');
-                selfStatusLabel.style.opacity = '1';
-            }
-            if (opponentStatusLabel) {
-                opponentStatusLabel.textContent = "Your turn";
-                opponentStatusLabel.classList.remove('opponent-turn');
-                opponentStatusLabel.classList.add('my-turn');
-                opponentStatusLabel.style.opacity = '1';
-            }
-            // 卡片高亮
-            if (selfCard) selfCard.classList.remove('active-turn');
-            if (opponentCard) opponentCard.classList.add('active-turn');
+            // 对手的回合：对手的头像显示光环
+            if (selfAvatar) selfAvatar.classList.remove('active-turn');
+            if (opponentAvatar) opponentAvatar.classList.add('active-turn');
+        }
+        
+        // 更新顶部当前执子方提示
+        if (turnIndicator) {
+            const currentSide = state.current === 'X' ? 'Black' : state.current === 'O' ? 'White' : '-';
+            turnIndicator.textContent = `${currentSide} to play`;
+        }
+    } else {
+        // 无当前执子方
+        if (turnIndicator) {
+            turnIndicator.textContent = '-';
         }
     }
     
