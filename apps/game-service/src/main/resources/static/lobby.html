@@ -6,63 +6,143 @@
     <title>游戏大厅 - 五子棋</title>
     <link rel="stylesheet" href="/game-service/css/header.css">
     <link rel="stylesheet" href="/game-service/css/common.css">
+    <link rel="stylesheet" href="/game-service/css/lobby.css">
 </head>
 <body>
-    <div data-component="global-header" data-active="lobby"></div>
-    <div class="app">
-        <h2>游戏大厅</h2>
-        
-        <!-- 用户信息区域 -->
-        <div class="row">
-            <div class="user-info" id="userInfo" style="display: none;">
-                <span class="username" id="username">-</span>
-                <button class="btn ghost" id="btnLogout">退出</button>
+    <div data-component="global-header" data-active="game"></div>
+    <div class="lobby-container">
+        <div class="lobby-header">
+            <h1 class="lobby-title">五子棋</h1>
+            <p class="lobby-subtitle">选择你的游戏模式</p>
+        </div>
+
+        <div class="game-modes">
+            <!-- 人机模式 -->
+            <div class="mode-card" id="pveModeCard">
+                <div class="mode-icon">🤖</div>
+                <h3 class="mode-title">人机对战</h3>
+                <p class="mode-desc">与AI对手进行对战，提升你的棋艺</p>
+                <button class="mode-btn primary" id="btnPVE">开始游戏</button>
             </div>
-            <div id="loadingInfo" class="loading"></div>
+
+            <!-- 创建房间 -->
+            <div class="mode-card" id="createRoomCard">
+                <div class="mode-icon">🏠</div>
+                <h3 class="mode-title">创建房间</h3>
+                <p class="mode-desc">创建私人房间，邀请好友一起对战</p>
+                <button class="mode-btn primary" id="btnCreateRoom">创建房间</button>
+            </div>
+
+            <!-- 在线匹配 -->
+            <div class="mode-card" id="matchmakingCard">
+                <div class="mode-icon">⚔️</div>
+                <h3 class="mode-title">在线匹配</h3>
+                <p class="mode-desc">快速匹配其他玩家，开始一场精彩对决</p>
+                <button class="mode-btn primary" id="btnMatchmaking">开始匹配</button>
+                <div id="matchStatus" class="match-status" style="display: none;">
+                    <div class="match-loading">
+                        <span class="loading-dot"></span>
+                        <span class="loading-dot"></span>
+                        <span class="loading-dot"></span>
+                    </div>
+                    <p class="match-text">正在匹配中...</p>
+                    <button class="mode-btn cancel" id="btnCancelMatch">取消匹配</button>
+                </div>
+            </div>
         </div>
-        
-        <!-- 创建房间区域 -->
-        <div class="row">
-            <h3 style="margin: 0; font-size: 16px;">创建房间</h3>
+
+        <!-- 游戏规则说明 -->
+        <div class="rules-section">
+            <h2 class="rules-title">游戏规则</h2>
+            <div class="rules-content">
+                <div class="rule-item">
+                    <div class="rule-icon">🎯</div>
+                    <div class="rule-text">
+                        <h4>基本规则</h4>
+                        <p>五子棋是在15×15的棋盘上进行的两人对弈游戏。双方轮流在棋盘上落子，黑子先行。率先在横、竖、斜任意方向连成五子的玩家获胜。</p>
+                    </div>
+                </div>
+                <div class="rule-item">
+                    <div class="rule-icon">🚫</div>
+                    <div class="rule-text">
+                        <h4>禁手规则（连珠模式）</h4>
+                        <p>在连珠模式下，黑棋有禁手限制：不能形成双三、双四、长连（超过五子）等禁手。白棋无禁手限制。黑棋若下出禁手，则判负。</p>
+                    </div>
+                </div>
+                <div class="rule-item">
+                    <div class="rule-icon">⚡</div>
+                    <div class="rule-text">
+                        <h4>游戏模式</h4>
+                        <p><strong>人机对战：</strong>与AI对手对战，可选择AI执黑或执白。<strong>创建房间：</strong>创建私人房间，通过房间ID邀请好友加入。<strong>在线匹配：</strong>系统自动为你匹配实力相近的对手。</p>
+                    </div>
+                </div>
+            </div>
         </div>
-        
-        <div class="row">
-            <label>
-                模式：
-                <select id="mode">
-                    <option value="PVE">PVE（人机）</option>
-                    <option value="PVP">PVP（人人）</option>
-                </select>
-            </label>
-            <label>
-                AI执子：
-                <select id="aiPiece">
-                    <option value="O">O（白）</option>
-                    <option value="X">X（黑）</option>
-                </select>
-            </label>
-            <label>
-                规则：
-                <select id="rule">
-                    <option value="STANDARD">标准</option>
-                    <option value="RENJU">连珠（禁手）</option>
-                </select>
-            </label>
-            <button class="btn primary" id="btnCreateRoom">创建房间</button>
-            <span id="createStatus" class="subtle"></span>
+
+        <!-- 创建房间配置弹窗 -->
+        <div class="modal" id="createRoomModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>创建房间</h3>
+                    <button class="modal-close" id="closeCreateModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>
+                            <span>模式：</span>
+                            <select id="mode">
+                                <option value="PVE">PVE（人机）</option>
+                                <option value="PVP">PVP（人人）</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <span>AI执子：</span>
+                            <select id="aiPiece">
+                                <option value="O">O（白）</option>
+                                <option value="X">X（黑）</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <span>规则：</span>
+                            <select id="rule">
+                                <option value="STANDARD">标准</option>
+                                <option value="RENJU">连珠（禁手）</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div id="createStatus" class="status-message"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn secondary" id="cancelCreate">取消</button>
+                    <button class="btn primary" id="confirmCreate">创建</button>
+                </div>
+            </div>
         </div>
-        
-        <!-- 进入房间区域 -->
-        <div class="row">
-            <h3 style="margin: 0; font-size: 16px;">进入房间</h3>
-        </div>
-        
-        <div class="row">
-            <label>
-                房间ID：
-                <input type="text" id="roomId" placeholder="输入房间ID">
-            </label>
-            <button class="btn primary" id="btnEnterRoom">进入房间</button>
+
+        <!-- 进入房间弹窗 -->
+        <div class="modal" id="enterRoomModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>进入房间</h3>
+                    <button class="modal-close" id="closeEnterModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>
+                            <span>房间ID：</span>
+                            <input type="text" id="roomId" placeholder="输入房间ID">
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn secondary" id="cancelEnter">取消</button>
+                    <button class="btn primary" id="confirmEnter">进入</button>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -77,8 +157,9 @@
         const $ = id => document.getElementById(id);
         
         let currentToken = null;
-        let userInfo = null;
-        
+        let matchmakingInterval = null;
+        let isMatchmaking = false;
+
         // 页面加载时初始化
         document.addEventListener('DOMContentLoaded', async () => {
             try {
@@ -87,15 +168,6 @@
                 currentToken = await ensureAuthenticated();
                 console.log('登录成功，token:', currentToken ? '已获取' : '未获取');
                 
-                // 获取用户信息
-                userInfo = await getUserInfo();
-                if (userInfo) {
-                    displayUserInfo(userInfo);
-                    console.log('用户信息:', userInfo);
-                } else {
-                    console.warn('未获取到用户信息');
-                }
-                
                 // 绑定事件
                 bindEvents();
             } catch (error) {
@@ -103,88 +175,194 @@
                 handleFetchFailure(error, '大厅初始化失败');
             }
         });
-        
-        /**
-         * 显示用户信息
-         */
-        function displayUserInfo(info) {
-            const usernameEl = $('username');
-            const userInfoEl = $('userInfo');
-            const loadingEl = $('loadingInfo');
-            
-            const nickname = info && typeof info.nickname === 'string' && info.nickname.trim()
-                ? info.nickname.trim()
-                : null;
-            const displayName = nickname || (info && info.username) || null;
 
-            if (displayName) {
-                usernameEl.textContent = displayName;
-                userInfoEl.style.display = 'flex';
-                if (loadingEl) loadingEl.style.display = 'none';
-            }
-        }
-        
         /**
          * 绑定事件
          */
         function bindEvents() {
+            // 人机模式
+            $('btnPVE').addEventListener('click', () => {
+                showCreateRoomModal('PVE');
+            });
+
             // 创建房间
-            $('btnCreateRoom').addEventListener('click', async () => {
-                const mode = $('mode').value;
-                const aiPiece = $('aiPiece').value;
-                const rule = $('rule').value;
-                
-                $('btnCreateRoom').disabled = true;
-                $('createStatus').textContent = '创建中...';
-                $('createStatus').className = 'subtle';
-                
-                try {
-                    const roomId = await createRoom(currentToken, mode, aiPiece, rule);
-                    $('createStatus').textContent = `房间创建成功: ${roomId}`;
-                    $('createStatus').className = 'status ok';
-                    
-                    // 延迟跳转，让用户看到成功提示
-                    setTimeout(() => {
-                        window.location.href = `/game-service/game.html?roomId=${roomId}`;
-                    }, 500);
-                } catch (error) {
-                    $('createStatus').textContent = `创建失败: ${error.message}`;
-                    $('createStatus').className = 'status err';
-                    console.error('创建房间失败:', error);
-                } finally {
-                    $('btnCreateRoom').disabled = false;
-                }
+            $('btnCreateRoom').addEventListener('click', () => {
+                showCreateRoomModal('PVP');
             });
-            
-            // 进入房间
-            $('btnEnterRoom').addEventListener('click', () => {
-                const roomId = $('roomId').value.trim();
-                if (!roomId) {
-                    alert('请输入房间ID');
-                    return;
-                }
-                window.location.href = `/game-service/game.html?roomId=${roomId}`;
+
+            // 在线匹配
+            $('btnMatchmaking').addEventListener('click', () => {
+                startMatchmaking();
             });
-            
+
+            // 取消匹配
+            $('btnCancelMatch').addEventListener('click', () => {
+                cancelMatchmaking();
+            });
+
+            // 创建房间弹窗
+            $('confirmCreate').addEventListener('click', async () => {
+                await handleCreateRoom();
+            });
+
+            $('cancelCreate').addEventListener('click', () => {
+                hideCreateRoomModal();
+            });
+
+            $('closeCreateModal').addEventListener('click', () => {
+                hideCreateRoomModal();
+            });
+
+            // 进入房间弹窗
+            $('confirmEnter').addEventListener('click', () => {
+                handleEnterRoom();
+            });
+
+            $('cancelEnter').addEventListener('click', () => {
+                hideEnterRoomModal();
+            });
+
+            $('closeEnterModal').addEventListener('click', () => {
+                hideEnterRoomModal();
+            });
+
             // 房间ID输入框支持回车
             $('roomId').addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
-                    $('btnEnterRoom').click();
+                    $('confirmEnter').click();
                 }
             });
-            
-            // 退出登录：清本地 token -> 表单 POST /logout（浏览器自动跟随 302 完成 OIDC 登出）
-            $('btnLogout').addEventListener('click', () => {
-                if (!confirm('确定要退出登录吗？')) return;
-                clearToken();
-                const form = document.createElement('form');
-                form.method = 'post';
-                form.action = '/logout';
-                document.body.appendChild(form);
-                form.submit();
+
+            // 点击模态框外部关闭
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.style.display = 'none';
+                    }
+                });
             });
+        }
+
+        /**
+         * 显示创建房间弹窗
+         */
+        function showCreateRoomModal(defaultMode = 'PVE') {
+            $('mode').value = defaultMode;
+            $('createStatus').textContent = '';
+            $('createStatus').className = 'status-message';
+            $('createRoomModal').style.display = 'flex';
+        }
+
+        /**
+         * 隐藏创建房间弹窗
+         */
+        function hideCreateRoomModal() {
+            $('createRoomModal').style.display = 'none';
+        }
+
+        /**
+         * 显示进入房间弹窗
+         */
+        function showEnterRoomModal() {
+            $('roomId').value = '';
+            $('enterRoomModal').style.display = 'flex';
+        }
+
+        /**
+         * 隐藏进入房间弹窗
+         */
+        function hideEnterRoomModal() {
+            $('enterRoomModal').style.display = 'none';
+        }
+
+        /**
+         * 处理创建房间
+         */
+        async function handleCreateRoom() {
+            const mode = $('mode').value;
+            const aiPiece = $('aiPiece').value;
+            const rule = $('rule').value;
+            
+            $('confirmCreate').disabled = true;
+            $('createStatus').textContent = '创建中...';
+            $('createStatus').className = 'status-message';
+            
+            try {
+                const roomId = await createRoom(currentToken, mode, aiPiece, rule);
+                $('createStatus').textContent = `房间创建成功: ${roomId}`;
+                $('createStatus').className = 'status-message success';
+                
+                // 延迟跳转，让用户看到成功提示
+                setTimeout(() => {
+                    window.location.href = `/game-service/game.html?roomId=${roomId}`;
+                }, 500);
+            } catch (error) {
+                $('createStatus').textContent = `创建失败: ${error.message}`;
+                $('createStatus').className = 'status-message error';
+                console.error('创建房间失败:', error);
+            } finally {
+                $('confirmCreate').disabled = false;
+            }
+        }
+
+        /**
+         * 处理进入房间
+         */
+        function handleEnterRoom() {
+            const roomId = $('roomId').value.trim();
+            if (!roomId) {
+                alert('请输入房间ID');
+                return;
+            }
+            window.location.href = `/game-service/game.html?roomId=${roomId}`;
+        }
+
+        /**
+         * 开始匹配
+         */
+        function startMatchmaking() {
+            if (isMatchmaking) return;
+            
+            isMatchmaking = true;
+            $('btnMatchmaking').style.display = 'none';
+            $('matchStatus').style.display = 'block';
+            
+            // TODO: 实现实际的匹配逻辑
+            // 这里先模拟匹配过程
+            console.log('开始匹配...');
+            
+            // 模拟匹配（实际应该调用后端API）
+            matchmakingInterval = setInterval(() => {
+                // 这里应该轮询匹配状态或使用WebSocket
+                console.log('匹配中...');
+            }, 2000);
+
+            // 模拟匹配成功（5秒后）
+            setTimeout(() => {
+                if (isMatchmaking) {
+                    // 实际应该从后端获取房间ID
+                    alert('匹配成功！功能开发中，请使用创建房间功能。');
+                    cancelMatchmaking();
+                }
+            }, 5000);
+        }
+
+        /**
+         * 取消匹配
+         */
+        function cancelMatchmaking() {
+            if (!isMatchmaking) return;
+            
+            isMatchmaking = false;
+            if (matchmakingInterval) {
+                clearInterval(matchmakingInterval);
+                matchmakingInterval = null;
+            }
+            
+            $('btnMatchmaking').style.display = 'block';
+            $('matchStatus').style.display = 'none';
+            console.log('取消匹配');
         }
     </script>
 </body>
 </html>
-
