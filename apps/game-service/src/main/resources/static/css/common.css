@@ -489,7 +489,6 @@ label {
     user-select: none;
     /* 精致木质风格：浅米色/淡黄棕色，轻纹理 */
     background: #F5E5D0;
-    padding: 20px;
     border-radius: 16px;
     /* 深色边框，精致 */
     border: 3px solid #2C2C2C;
@@ -502,13 +501,14 @@ label {
         0 4px 16px rgba(0, 0, 0, 0.1),
         0 0 0 1px rgba(0, 0, 0, 0.05);
     position: relative;
-    /* 为坐标标记预留空间 */
-    padding-left: 40px; /* 左侧20px padding + 20px坐标区域 */
-    padding-bottom: 40px; /* 下方20px padding + 20px坐标区域 */
+    /* 【关键修复】统一padding，确保前后左右对称 */
+    /* 为坐标标记预留空间：上下左右都统一为40px（20px基础padding + 20px坐标区域） */
+    padding: 40px;
     /* 棋盘尺寸：15x15交叉点，需要14个间隔，但最后一个交叉点的.cell需要额外空间 */
     /* .cell 宽度是 var(--cell) * 0.8，所以最后一个交叉点需要额外 var(--cell) * 0.4 的空间 */
-    width: calc(var(--cell) * (var(--n) - 1) + var(--cell) * 0.4 + 40px);
-    height: calc(var(--cell) * (var(--n) - 1) + var(--cell) * 0.4 + 40px);
+    /* 左右各40px padding，所以总宽度需要加上80px */
+    width: calc(var(--cell) * (var(--n) - 1) + var(--cell) * 0.4 + 80px);
+    height: calc(var(--cell) * (var(--n) - 1) + var(--cell) * 0.4 + 80px);
     /* 【关键修复】确保padding区域不可点击，只有.cell元素可以点击 */
     pointer-events: none;
     overflow: visible;
@@ -553,9 +553,9 @@ label {
 #board::before {
     content: '';
     position: absolute;
-    /* 网格线从padding内部开始，考虑左侧坐标区域，对齐到交叉点中心 */
-    top: calc(20px - 0.75px); /* padding-top - 网格线中心偏移 */
-    left: calc(40px - 0.75px); /* padding-left + 坐标区域 - 网格线中心偏移 */
+    /* 【关键修复】网格线从padding内部开始，现在padding统一为40px，对齐到交叉点中心 */
+    top: calc(40px - 0.75px); /* padding-top - 网格线中心偏移 */
+    left: calc(40px - 0.75px); /* padding-left - 网格线中心偏移 */
     /* 15x15交叉点：15条线，14个间隔，总宽度需要包含第15条线（1.5px宽） */
     width: calc(var(--cell) * (var(--n) - 1) + 1.5px); /* (n-1)个间隔 + 最后一条线宽度 */
     height: calc(var(--cell) * (var(--n) - 1) + 1.5px);
@@ -890,7 +890,15 @@ label {
     }
     
     #board {
-        padding: 8px;
+        /* 【响应式】小屏幕下保持对称，减少padding */
+        padding: 24px;
+        width: calc(var(--cell) * (var(--n) - 1) + var(--cell) * 0.4 + 48px);
+        height: calc(var(--cell) * (var(--n) - 1) + var(--cell) * 0.4 + 48px);
+    }
+    
+    #board::before {
+        top: calc(24px - 0.75px);
+        left: calc(24px - 0.75px);
     }
     
     :root {

@@ -78,18 +78,20 @@ function renderBoard(grid, lastMove) {
     const cellSizeStr = rootStyle.getPropertyValue('--cell').trim();
     const cellSize = parseFloat(cellSizeStr) || 32;
     
-    // 动态获取#board的padding值
+    // 动态获取#board的padding值（现在统一为40px，确保前后左右对称）
     const boardStyle = getComputedStyle(boardEl);
     const paddingLeft = parseFloat(boardStyle.paddingLeft) || 40;
-    const paddingTop = parseFloat(boardStyle.paddingTop) || 20;
+    const paddingTop = parseFloat(boardStyle.paddingTop) || 40;
+    const paddingRight = parseFloat(boardStyle.paddingRight) || 40;
+    const paddingBottom = parseFloat(boardStyle.paddingBottom) || 40;
     
-    // 【关键】网格线CSS: 
+    // 【关键修复】网格线CSS: 现在padding统一为40px，确保对称
     // - left: calc(40px - 0.75px) = 39.25px（网格线容器左边缘）
-    // - top: calc(20px - 0.75px) = 19.25px（网格线容器上边缘）
+    // - top: calc(40px - 0.75px) = 39.25px（网格线容器上边缘）
     // repeating-linear-gradient从0开始，第一条线在0-1.5px，中心在0.75px
     // 所以：
     // - 第一条竖线中心 = 39.25 + 0.75 = 40px（相对于#board）
-    // - 第一条横线中心 = 19.25 + 0.75 = 20px（相对于#board）
+    // - 第一条横线中心 = 39.25 + 0.75 = 40px（相对于#board）
     const gridLineLeftEdge = paddingLeft - 0.75; // 网格线容器左边缘
     const gridLineTopEdge = paddingTop - 0.75;  // 网格线容器上边缘
     const gridLineCenterOffset = 0.75; // 网格线中心偏移（1.5px / 2）
