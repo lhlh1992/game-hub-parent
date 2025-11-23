@@ -329,32 +329,36 @@ body::after {
 }
 
 .countdown-text {
-    font-size: 11px; /* 字号略小 */
-    font-weight: 400; /* 正常字重，时间不足时加粗 */
-    color: #6B7280; /* 柔和灰色 */
+    font-size: 18px; /* 【增大】从11px改为18px，更醒目 */
+    font-weight: 700; /* 【加粗】从400改为700，更醒目 */
+    color: #1F2937; /* 【加深】从柔和灰色改为深色，更醒目 */
     font-variant-numeric: tabular-nums; /* 等宽数字，避免跳动 */
     text-align: center;
     line-height: 1;
     white-space: nowrap;
     transition: color 0.3s ease, font-weight 0.3s ease, transform 0.3s ease;
+    /* 【增强可见性】添加文字阴影，让数字更突出 */
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8), 0 0 4px rgba(0, 0, 0, 0.1);
 }
 
 /* 倒计时状态：正常（> 10秒） */
 .countdown-text.normal {
-    color: #6B7280;
-    font-weight: 400;
+    color: #1F2937; /* 深灰色，更醒目 */
+    font-weight: 700;
 }
 
 /* 倒计时状态：警告（≤ 10秒） */
 .countdown-text.warning {
     color: #F59E0B; /* 橙色 */
-    font-weight: 600; /* 适度加粗 */
+    font-weight: 700; /* 加粗 */
+    text-shadow: 0 1px 3px rgba(245, 158, 11, 0.4), 0 0 6px rgba(245, 158, 11, 0.3);
 }
 
 /* 倒计时状态：危险（≤ 5秒） */
 .countdown-text.danger {
     color: #EF4444; /* 红色 */
-    font-weight: 700; /* 更粗 */
+    font-weight: 800; /* 更粗 */
+    text-shadow: 0 1px 3px rgba(239, 68, 68, 0.5), 0 0 8px rgba(239, 68, 68, 0.4);
     animation: countdownPulse 1s ease-in-out infinite; /* 呼吸动效 */
 }
 
