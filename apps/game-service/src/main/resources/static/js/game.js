@@ -335,6 +335,15 @@ function renderBoard(grid, lastMove, winPieces) {
         
         svg.appendChild(line);
         boardEl.appendChild(svg);
+        
+        // 【胜利弹窗】在画红线的同时显示庆祝弹窗
+        // 从全局 state 获取获胜方信息
+        if (state && (state.outcome || state.winner)) {
+            const winner = state.winner || (state.outcome === 'X_WIN' ? 'X' : state.outcome === 'O_WIN' ? 'O' : null);
+            if (winner) {
+                showVictoryModal(winner, null);
+            }
+        }
     }
     
     // ====================================================================
@@ -511,6 +520,12 @@ function handleGameEvent(evt) {
     }
     
     if (evt.type === 'ERROR') {
+        // 检测禁手错误
+        const errorMsg = evt.payload?.message || evt.payload || '';
+        if (errorMsg.includes('禁手') || errorMsg.includes('forbidden')) {
+            showForbiddenTip();
+        }
+        
         if (window.gameCallbacks && window.gameCallbacks.onError) {
             window.gameCallbacks.onError(evt.payload);
         }
@@ -569,6 +584,15 @@ function handleGameEvent(evt) {
             window.gameCallbacks.onGameOver(state.winner);
         }
     }
+    
+    // 如果游戏结束但没有五连（超时、认输），也需要显示弹窗
+    // 五连的情况会在 renderBoard 中画红线时一起触发
+    if (state?.over && (!winPieces || winPieces.size < 5)) {
+        const winner = state.winner || (state.outcome === 'X_WIN' ? 'X' : state.outcome === 'O_WIN' ? 'O' : null);
+        if (winner) {
+            showVictoryModal(winner, null);
+        }
+    }
 }
 
 /**
@@ -618,7 +642,17 @@ function renderFullSync(snap) {
         winPieces = detectWinLines(currentGrid, winnerPiece);
     }
     
+    // 如果有游戏结束状态，即使没有五连（超时、认输），也显示弹窗
+    // 但只在 renderBoard 中画红线时一起触发，避免重复
     renderBoard(currentGrid, snap.lastMove, winPieces);
+    
+    // 如果游戏结束但没有五连（超时、认输），也需要显示弹窗
+    if (snap.outcome && (!winPieces || winPieces.size < 5)) {
+        const winner = snap.outcome === 'X_WIN' ? 'X' : snap.outcome === 'O_WIN' ? 'O' : null;
+        if (winner) {
+            showVictoryModal(winner, snap);
+        }
+    }
     
     const seriesView = snap.seriesView || {};
     const round = snap.round || seriesView.round || 1;
@@ -777,6 +811,122 @@ function updateGameInfo(state, series, currentSide = null, mode = null) {
     
     // 更新倒计时显示（根据当前执子方）
     updateTimerDisplay();
+}
+
+/**
+ * 显示禁手提示
+ */
+function showForbiddenTip() {
+    const tip = document.getElementById('forbiddenTip');
+    if (!tip) return;
+    
+    // 如果提示框正在显示，不重复显示
+    if (tip.classList.contains('show')) {
+        return;
+    }
+    
+    // 清除之前的定时器
+    if (tip._hideTimer) {
+        clearTimeout(tip._hideTimer);
+        tip._hideTimer = null;
+    }
+    
+    // 显示提示框
+    tip.classList.add('show');
+    
+    // 2秒后自动消失
+    tip._hideTimer = setTimeout(() => {
+        tip.classList.remove('show');
+        tip._hideTimer = null;
+    }, 2000);
+}
+
+/**
+ * 显示游戏结束庆祝弹窗
+ * @param {string} winner - 获胜方 'X' 或 'O'
+ * @param {Object} snap - 快照数据（可选）
+ */
+function showVictoryModal(winner, snap) {
+    const modal = document.getElementById('victoryModal');
+    const winnerNameEl = document.getElementById('victoryWinnerName');
+    const sideBadgeEl = document.getElementById('victorySideBadge');
+    const sideTextEl = document.getElementById('victorySideText');
+    
+    if (!modal || !winnerNameEl || !sideBadgeEl || !sideTextEl) return;
+    
+    // 获取获胜者名字
+    const mySide = typeof window !== 'undefined' ? (window.mySide || window._mySide) : null;
+    let winnerName = 'Unknown';
+    
+    if (winner === 'X' || winner === 'x' || winner === 0 || winner === '0') {
+        // 黑棋获胜
+        if (mySide === 'X') {
+            // 自己获胜
+            const selfNameEl = document.getElementById('selfName');
+            winnerName = selfNameEl ? selfNameEl.textContent : 'You';
+        } else {
+            // 对手获胜
+            const opponentNameEl = document.getElementById('opponentName');
+            winnerName = opponentNameEl ? opponentNameEl.textContent : 'Opponent';
+        }
+        sideBadgeEl.className = 'victory-side-badge black';
+        sideTextEl.textContent = 'Black';
+    } else if (winner === 'O' || winner === 'o' || winner === 1 || winner === '1') {
+        // 白棋获胜
+        if (mySide === 'O') {
+            // 自己获胜
+            const selfNameEl = document.getElementById('selfName');
+            winnerName = selfNameEl ? selfNameEl.textContent : 'You';
+        } else {
+            // 对手获胜
+            const opponentNameEl = document.getElementById('opponentName');
+            winnerName = opponentNameEl ? opponentNameEl.textContent : 'Opponent';
+        }
+        sideBadgeEl.className = 'victory-side-badge white';
+        sideTextEl.textContent = 'White';
+    }
+    
+    // 更新弹窗内容
+    winnerNameEl.textContent = winnerName;
+    
+    // 清除之前的定时器和事件监听器（避免重复绑定）
+    if (modal._autoHideTimer) {
+        clearTimeout(modal._autoHideTimer);
+        modal._autoHideTimer = null;
+    }
+    const existingHandler = modal._clickHandler;
+    if (existingHandler) {
+        modal.removeEventListener('click', existingHandler);
+        modal._clickHandler = null;
+    }
+    
+    // 关闭弹窗的函数
+    const closeModal = () => {
+        modal.classList.remove('show');
+        if (modal._autoHideTimer) {
+            clearTimeout(modal._autoHideTimer);
+            modal._autoHideTimer = null;
+        }
+        if (modal._clickHandler) {
+            modal.removeEventListener('click', modal._clickHandler);
+            modal._clickHandler = null;
+        }
+    };
+    
+    // 添加点击关闭功能（点击弹窗任何地方都关闭）
+    const clickHandler = (e) => {
+        closeModal();
+    };
+    modal.addEventListener('click', clickHandler);
+    modal._clickHandler = clickHandler;
+    
+    // 显示弹窗
+    modal.classList.add('show');
+    
+    // 4秒后自动消失
+    modal._autoHideTimer = setTimeout(() => {
+        closeModal();
+    }, 4000);
 }
 
 /**

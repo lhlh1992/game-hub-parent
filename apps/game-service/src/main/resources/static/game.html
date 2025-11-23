@@ -183,6 +183,29 @@
     <!-- 全局聊天组件 -->
     <div data-component="global-chat"></div>
     
+    <!-- 禁手提示框 -->
+    <div id="forbiddenTip" class="forbidden-tip">
+        <div class="forbidden-tip-content">
+            <span class="forbidden-tip-icon">⚠️</span>
+            <span class="forbidden-tip-text">禁手</span>
+        </div>
+    </div>
+    
+    <!-- 游戏结束庆祝弹窗 -->
+    <div id="victoryModal" class="victory-modal">
+        <div class="victory-modal-content">
+            <div class="victory-icon">🎉</div>
+            <div class="victory-title">Victory!</div>
+            <div class="victory-winner">
+                <span class="victory-winner-name" id="victoryWinnerName">-</span>
+            </div>
+            <div class="victory-side">
+                <span class="victory-side-badge" id="victorySideBadge"></span>
+                <span class="victory-side-text" id="victorySideText">-</span>
+            </div>
+        </div>
+    </div>
+    
     <!-- 引入依赖库 -->
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
