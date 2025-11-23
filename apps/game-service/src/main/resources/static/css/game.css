@@ -458,11 +458,13 @@ body::after {
 
 /* 棋子图标（立体样式，大小为头像的32%，约54px，精致低干扰的辅助视觉元素） */
 .side-icon {
-    display: inline-flex;
+    display: inline-flex !important;
     align-items: center;
     justify-content: center;
-    width: 54px; /* 168px * 0.32 = 53.76px，约54px，头像直径的32%，不超过1/3 */
-    height: 54px;
+    width: 54px !important; /* 168px * 0.32 = 53.76px，约54px，头像直径的32%，不超过1/3 */
+    height: 54px !important;
+    min-width: 54px !important;
+    min-height: 54px !important;
     border-radius: 50%;
     font-size: 0; /* 隐藏文本，使用CSS背景显示棋子 */
     line-height: 1;
@@ -478,13 +480,17 @@ body::after {
         rgba(255, 255, 255, 0.08) 15%,
         #3A3A3A 40%,
         #2A2A2A 60%,
-        #1A1A1A 100%);
-    border: 1.5px solid rgba(0, 0, 0, 0.25);
+        #1A1A1A 100%) !important;
+    border: 1.5px solid rgba(0, 0, 0, 0.25) !important;
     box-shadow: 
-        0 3px 8px rgba(0, 0, 0, 0.2), /* 减弱阴影 */
+        0 3px 8px rgba(0, 0, 0, 0.2),
         0 1.5px 4px rgba(0, 0, 0, 0.15),
-        inset 0 -1.5px 3px rgba(0, 0, 0, 0.3), /* 减弱内阴影 */
-        inset 0 1.5px 1.5px rgba(255, 255, 255, 0.08); /* 减弱高光 */
+        inset 0 -1.5px 3px rgba(0, 0, 0, 0.3),
+        inset 0 1.5px 1.5px rgba(255, 255, 255, 0.08) !important;
+    width: 54px !important;
+    height: 54px !important;
+    min-width: 54px !important;
+    min-height: 54px !important;
 }
 
 /* 白子立体样式（阴影和高光减弱，避免比头像更抢眼） */
@@ -494,13 +500,17 @@ body::after {
         rgba(255, 255, 255, 0.92) 20%,
         #F5F5F5 40%,
         #E8E8E8 60%,
-        #D0D0D0 100%);
-    border: 1.5px solid rgba(0, 0, 0, 0.12);
+        #D0D0D0 100%) !important;
+    border: 1.5px solid rgba(0, 0, 0, 0.12) !important;
     box-shadow: 
-        0 3px 8px rgba(0, 0, 0, 0.18), /* 减弱阴影 */
+        0 3px 8px rgba(0, 0, 0, 0.18),
         0 1.5px 4px rgba(0, 0, 0, 0.12),
-        inset 0 -1.5px 3px rgba(0, 0, 0, 0.15), /* 减弱内阴影 */
-        inset 0 1.5px 3px rgba(255, 255, 255, 0.7); /* 减弱高光 */
+        inset 0 -1.5px 3px rgba(0, 0, 0, 0.15),
+        inset 0 1.5px 3px rgba(255, 255, 255, 0.7) !important;
+    width: 54px !important;
+    height: 54px !important;
+    min-width: 54px !important;
+    min-height: 54px !important;
 }
 
 /* 执子文本（Black/White，在棋子下方居中，字号略小于昵称） */
