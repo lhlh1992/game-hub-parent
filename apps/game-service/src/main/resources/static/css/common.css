@@ -641,7 +641,8 @@ label {
         0 -4px 8px rgba(255, 255, 255, 0.2) inset,
         0 0 0 2px rgba(255, 255, 255, 0.1);
     z-index: 1;
-    transition: all 0.2s ease;
+    /* 移除 transition，避免干扰 win-flash 动画 */
+    /* transition: all 0.2s ease; */
 }
 
 .cell.X:hover::before {
@@ -699,7 +700,8 @@ label {
         0 -4px 8px rgba(0, 0, 0, 0.15) inset,
         0 0 0 2px rgba(0, 0, 0, 0.05);
     z-index: 1;
-    transition: all 0.2s ease;
+    /* 移除 transition，避免干扰 win-flash 动画 */
+    /* transition: all 0.2s ease; */
 }
 
 .cell.O:hover::before {
@@ -740,6 +742,11 @@ label {
     animation: lastPulse 1.5s ease-in-out infinite;
 }
 
+/* 【重要】当有 win-flash 时，禁用 last 的动画和样式 - 必须在 win-flash 动画之前 */
+.cell.last.win-flash::before {
+    animation: none !important;
+}
+
 /* 天元和星位标记 */
 .star-point {
     position: absolute;
@@ -771,6 +778,94 @@ label {
         0 2px 4px rgba(255, 255, 255, 0.6) inset,
         0 -2px 4px rgba(0, 0, 0, 0.1) inset;
     animation: lastPulse 1.5s ease-in-out infinite;
+}
+
+/* 【五连闪烁效果】黑棋 - 红色闪烁 - 使用最高优先级 */
+.cell.X.win-flash::before {
+    animation-name: winFlashBlack !important;
+    animation-duration: 0.6s !important;
+    animation-timing-function: ease-in-out !important;
+    animation-iteration-count: infinite !important;
+    animation-delay: 0s !important;
+    animation-fill-mode: both !important;
+    animation-play-state: running !important;
+    z-index: 999 !important;
+    transition: none !important;
+}
+
+/* 确保 last + win-flash 时也应用闪烁动画 */
+.cell.X.last.win-flash::before {
+    animation-name: winFlashBlack !important;
+    animation-duration: 0.6s !important;
+    animation-timing-function: ease-in-out !important;
+    animation-iteration-count: infinite !important;
+    animation-delay: 0s !important;
+    animation-fill-mode: both !important;
+    animation-play-state: running !important;
+    z-index: 999 !important;
+    transition: none !important;
+}
+
+@keyframes winFlashBlack {
+    0% {
+        background: #FF0000 !important;
+        box-shadow: 0 0 25px #FF0000, 0 0 50px #FF0000, 0 0 75px rgba(255, 0, 0, 0.8) !important;
+        transform: translate(-50%, -50%) scale(1.12) !important;
+    }
+    50% {
+        background: radial-gradient(circle at 30% 30%, #4A4A4A 0%, #2A2A2A 40%, #0F0F0F 100%) !important;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5), 0 4px 8px rgba(0, 0, 0, 0.4) inset, 0 -4px 8px rgba(255, 255, 255, 0.2) inset !important;
+        transform: translate(-50%, -50%) scale(1) !important;
+    }
+    100% {
+        background: #FF0000 !important;
+        box-shadow: 0 0 25px #FF0000, 0 0 50px #FF0000, 0 0 75px rgba(255, 0, 0, 0.8) !important;
+        transform: translate(-50%, -50%) scale(1.12) !important;
+    }
+}
+
+/* 【五连闪烁效果】白棋 - 红色闪烁 - 使用最高优先级 */
+.cell.O.win-flash::before {
+    animation-name: winFlashWhite !important;
+    animation-duration: 0.6s !important;
+    animation-timing-function: ease-in-out !important;
+    animation-iteration-count: infinite !important;
+    animation-delay: 0s !important;
+    animation-fill-mode: both !important;
+    animation-play-state: running !important;
+    z-index: 999 !important;
+    transition: none !important;
+}
+
+/* 确保 last + win-flash 时也应用闪烁动画 */
+.cell.O.last.win-flash::before {
+    animation-name: winFlashWhite !important;
+    animation-duration: 0.6s !important;
+    animation-timing-function: ease-in-out !important;
+    animation-iteration-count: infinite !important;
+    animation-delay: 0s !important;
+    animation-fill-mode: both !important;
+    animation-play-state: running !important;
+    z-index: 999 !important;
+    transition: none !important;
+}
+
+@keyframes winFlashWhite {
+    0% {
+        background: #FF0000 !important;
+        box-shadow: 0 0 25px #FF0000, 0 0 50px #FF0000, 0 0 75px rgba(255, 0, 0, 0.8) !important;
+        transform: translate(-50%, -50%) scale(1.12) !important;
+    }
+    50% {
+        background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 1) 0%, rgba(240, 240, 240, 1) 40%, rgba(220, 220, 220, 1) 100%) !important;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5), 0 4px 8px rgba(255, 255, 255, 1) inset, 0 -4px 8px rgba(0, 0, 0, 0.15) inset !important;
+        transform: translate(-50%, -50%) scale(1) !important;
+    }
+    100% {
+        background: #FF0000 !important;
+        box-shadow: 0 0 25px #FF0000, 0 0 50px #FF0000, 0 0 75px rgba(255, 0, 0, 0.8) !important;
+        transform: translate(-50%, -50%) scale(1.12) !important;
+    }
 }
 
 @keyframes lastPulse {

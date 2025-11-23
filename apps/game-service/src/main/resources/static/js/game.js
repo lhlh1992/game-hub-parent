@@ -52,17 +52,109 @@ function normalizeGrid(raw) {
 }
 
 /**
+ * 检测棋盘上的五连（仅在游戏结束时调用）
+ * @param {Array} grid - 棋盘数据
+ * @param {string} winnerPiece - 获胜方的棋子类型 'X' 或 'O'
+ * @returns {Set} 五连坐标的 Set，格式为 "x,y"
+ */
+function detectWinLines(grid, winnerPiece) {
+    if (!grid || !winnerPiece) return new Set();
+    
+    const n = grid.length;
+    const winPieces = new Set();
+    
+    // 4个方向：横、竖、主对角、反对角
+    const dirs = [
+        [1, 0],  // →
+        [0, 1],  // ↓
+        [1, 1],  // ↘
+        [1, -1]  // ↗
+    ];
+    
+    // 【修复】标准化 winnerPiece：处理各种格式
+    // 后端约定：BLACK='X', WHITE='O'
+    // 但传输时可能变成：数字 0='X'（黑棋），数字 1='O'（白棋）
+    let normalizedWinner = winnerPiece;
+    if (winnerPiece === 0 || winnerPiece === '0') {
+        normalizedWinner = 'X'; // 0 = 黑棋
+    } else if (winnerPiece === 1 || winnerPiece === '1') {
+        normalizedWinner = 'O'; // 1 = 白棋
+    } else if (winnerPiece === 'O' || winnerPiece === 'o') {
+        normalizedWinner = 'O';
+    } else if (winnerPiece === 'X' || winnerPiece === 'x') {
+        normalizedWinner = 'X';
+    }
+    
+    // 遍历棋盘上的每个棋子
+    for (let x = 0; x < n; x++) {
+        for (let y = 0; y < n; y++) {
+            const piece = grid[x][y];
+            // 【修复】匹配各种格式：'X'/'O', 0/1, '0'/'1'
+            let pieceMatches = false;
+            if (normalizedWinner === 'X') {
+                pieceMatches = (piece === 'X' || piece === 'x' || piece === 0 || piece === '0');
+            } else if (normalizedWinner === 'O') {
+                pieceMatches = (piece === 'O' || piece === 'o' || piece === 1 || piece === '1');
+            }
+            if (!pieceMatches) continue;
+            
+            // 检查这个棋子在4个方向上是否形成五连
+            for (let dirIdx = 0; dirIdx < dirs.length; dirIdx++) {
+                const [dx, dy] = dirs[dirIdx];
+                const line = [];
+                
+                // 正方向收集
+                let cx = x + dx, cy = y + dy;
+                while (cx >= 0 && cx < n && cy >= 0 && cy < n && grid[cx][cy] === winnerPiece) {
+                    line.push([cx, cy]);
+                    cx += dx;
+                    cy += dy;
+                }
+                
+                // 添加中心点
+                line.push([x, y]);
+                
+                // 反方向收集
+                cx = x - dx;
+                cy = y - dy;
+                while (cx >= 0 && cx < n && cy >= 0 && cy < n && grid[cx][cy] === winnerPiece) {
+                    line.unshift([cx, cy]);
+                    cx -= dx;
+                    cy -= dy;
+                }
+                
+                // 如果找到5个或更多
+                if (line.length >= 5) {
+                    // 只取前5个，添加到 Set 中
+                    for (let i = 0; i < 5; i++) {
+                        const [px, py] = line[i];
+                        winPieces.add(px + ',' + py);
+                    }
+                    break; // 找到一个方向就够了，继续下一个棋子
+                }
+            }
+        }
+    }
+    
+    return winPieces;
+}
+
+/**
  * 渲染棋盘
  * @param {Array} grid - 棋盘数据
  * @param {Object} lastMove - 最后一步坐标 {x, y}
+ * @param {Set} winPieces - 五连坐标的 Set（可选）
  */
-function renderBoard(grid, lastMove) {
+function renderBoard(grid, lastMove, winPieces) {
     const boardEl = document.getElementById('board');
     if (!boardEl) return;
     
     // 获取board-container，坐标轴刻度将放在这里（避免被scale影响）
     const boardContainer = boardEl.parentElement;
     if (!boardContainer || !boardContainer.classList.contains('board-container')) return;
+    
+    // 清除旧的胜利连线
+    boardEl.querySelectorAll('.win-line').forEach(el => el.remove());
     
     boardEl.innerHTML = '';
     boardEl.style.setProperty('--n', grid.length.toString());
@@ -112,12 +204,25 @@ function renderBoard(grid, lastMove) {
             
             const v = grid[x][y];
             const isLast = lastMove && lastMove.x === x && lastMove.y === y;
+            const isWinPiece = winPieces && winPieces.has(x + ',' + y);
             
             const cell = document.createElement('div');
-            cell.className = 'cell' + 
-                (v === 'X' ? ' X' : (v === 'O' ? ' O' : '')) + 
-                (isLast ? ' last' : '');
-            cell.textContent = v === '.' ? '' : v;
+            let className = 'cell';
+            // 【修复】处理各种棋子值格式：'X'/'O', '0'/'1', 数字 0/1
+            // 标准化棋子值
+            let pieceType = null;
+            if (v === 'X' || v === 'x' || v === 0 || v === '0') {
+                pieceType = 'X'; // 黑棋
+            } else if (v === 'O' || v === 'o' || v === 1 || v === '1') {
+                pieceType = 'O'; // 白棋
+            }
+            
+            if (pieceType === 'X') className += ' X';
+            else if (pieceType === 'O') className += ' O';
+            if (isLast) className += ' last';
+            // 不再添加 win-flash 类，改用红线连线
+            cell.className = className;
+            cell.textContent = (v === '.' || v === null || v === undefined) ? '' : String(v);
             cell.dataset.x = String(x);
             cell.dataset.y = String(y);
             cell.title = `(${letters[y]}${n - x})`;
@@ -179,6 +284,58 @@ function renderBoard(grid, lastMove) {
         
         boardEl.appendChild(starPoint);
     });
+    
+    // ====================================================================
+    // 【五连胜利连线】如果有五连，画一条红线连接五个棋子
+    // ====================================================================
+    if (winPieces && winPieces.size >= 5) {
+        // 将 winPieces Set 转换为数组并排序，确保顺序正确
+        const winCoords = Array.from(winPieces).map(coord => {
+            const [x, y] = coord.split(',').map(Number);
+            return { x, y };
+        });
+        
+        // 按坐标排序，找到起点和终点（可能是横、竖、斜）
+        // 简单排序：先按x排序，如果x相同则按y排序
+        winCoords.sort((a, b) => {
+            if (a.x !== b.x) return a.x - b.x;
+            return a.y - b.y;
+        });
+        
+        // 计算五个棋子的中心位置
+        const positions = winCoords.map(coord => {
+            const crossPointX = gridLineCenterX + coord.y * cellSize;
+            const crossPointY = gridLineCenterY + coord.x * cellSize;
+            return {
+                x: crossPointX,
+                y: crossPointY
+            };
+        });
+        
+        // 创建SVG线条
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.className = 'win-line';
+        svg.style.position = 'absolute';
+        svg.style.left = '0';
+        svg.style.top = '0';
+        svg.style.width = '100%';
+        svg.style.height = '100%';
+        svg.style.pointerEvents = 'none';
+        svg.style.zIndex = '15'; // 在棋子上方
+        
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', positions[0].x);
+        line.setAttribute('y1', positions[0].y);
+        line.setAttribute('x2', positions[positions.length - 1].x);
+        line.setAttribute('y2', positions[positions.length - 1].y);
+        line.setAttribute('stroke', '#FF0000');
+        line.setAttribute('stroke-width', '4');
+        line.setAttribute('stroke-linecap', 'round');
+        line.setAttribute('opacity', '0.9');
+        
+        svg.appendChild(line);
+        boardEl.appendChild(svg);
+    }
     
     // ====================================================================
     // 【坐标轴标签】稳定实现 - 自适应不同分辨率
@@ -382,7 +539,25 @@ function handleGameEvent(evt) {
     if (state?.lastMove && Number.isFinite(state.lastMove.x) && Number.isFinite(state.lastMove.y)) {
         lastClient = { x: state.lastMove.x, y: state.lastMove.y };
     }
-    renderBoard(currentGrid, lastClient);
+    
+    // 【纯前端实现】游戏结束时，检测五连并闪烁
+    let winPieces = null;
+    if (state?.over || state?.outcome) {
+        const outcome = state.outcome || (state.winner === 'X' ? 'X_WIN' : state.winner === 'O' || state.winner === '0' ? 'O_WIN' : null);
+        if (outcome && (outcome === 'X_WIN' || outcome === 'O_WIN')) {
+            // 【修复】处理各种格式：0='X'（黑棋），1='O'（白棋）
+            let winnerPiece = outcome === 'X_WIN' ? 'X' : 'O';
+            // 如果后端返回的是数字，需要正确映射
+            if (state.winner === 0 || state.winner === '0') {
+                winnerPiece = 'X'; // 0 = 黑棋
+            } else if (state.winner === 1 || state.winner === '1') {
+                winnerPiece = 'O'; // 1 = 白棋
+            }
+            winPieces = detectWinLines(currentGrid, winnerPiece);
+        }
+    }
+    
+    renderBoard(currentGrid, lastClient, winPieces);
     
     // 更新游戏信息显示
     updateGameInfo(state, series);
@@ -428,7 +603,22 @@ function renderFullSync(snap) {
     
     grid = snap.board.cells;
     const currentGrid = grid;
-    renderBoard(currentGrid, snap.lastMove);
+    
+    // 【纯前端实现】游戏结束时，检测五连并画线
+    let winPieces = null;
+    if (snap.outcome && (snap.outcome === 'X_WIN' || snap.outcome === 'O_WIN')) {
+        // 【修复】处理各种格式：0='X'（黑棋），1='O'（白棋）
+        let winnerPiece = snap.outcome === 'X_WIN' ? 'X' : 'O';
+        // 如果后端返回的是数字，需要正确映射
+        if (snap.winner === 0 || snap.winner === '0') {
+            winnerPiece = 'X'; // 0 = 黑棋
+        } else if (snap.winner === 1 || snap.winner === '1') {
+            winnerPiece = 'O'; // 1 = 白棋
+        }
+        winPieces = detectWinLines(currentGrid, winnerPiece);
+    }
+    
+    renderBoard(currentGrid, snap.lastMove, winPieces);
     
     const seriesView = snap.seriesView || {};
     const round = snap.round || seriesView.round || 1;
