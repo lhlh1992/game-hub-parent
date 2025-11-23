@@ -881,6 +881,8 @@ body::after {
     transform-origin: center;
     /* 【关键修复】确保board-container本身不响应点击，只有内部的cell可以点击 */
     pointer-events: none;
+    /* 【关键修复】确保不裁剪边缘的棋子 */
+    overflow: visible;
 }
 
 /* 棋盘左右反射光 */

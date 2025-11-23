@@ -44,6 +44,10 @@ function normalizeGrid(raw) {
     if (Array.isArray(raw) && typeof raw[0] === 'string') {
         return raw.map(row => row.split(''));
     }
+    // 【关键修复】如果是二维数组，创建深拷贝，避免引用问题
+    if (Array.isArray(raw) && Array.isArray(raw[0])) {
+        return raw.map(row => [...row]); // 创建新数组，避免引用问题
+    }
     return raw;
 }
 
@@ -69,19 +73,43 @@ function renderBoard(grid, lastMove) {
     const n = grid.length;
     const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O'];
     
-    // 渲染棋盘格子
-    // 【关键修复】严格确保只创建 n x n 个cell，不多不少
-    console.log(`[DEBUG] ========== 开始渲染棋盘 ==========`);
-    console.log(`[DEBUG] n=${n}, 应该创建 ${n * n} 个cell`);
-    console.log(`[DEBUG] grid数组大小: ${grid.length}x${grid[0]?.length || 0}`);
+    // 【交叉点布局】动态获取网格线位置，不要写死
+    const rootStyle = getComputedStyle(document.documentElement);
+    const cellSizeStr = rootStyle.getPropertyValue('--cell').trim();
+    const cellSize = parseFloat(cellSizeStr) || 32;
+    
+    // 动态获取#board的padding值
+    const boardStyle = getComputedStyle(boardEl);
+    const paddingLeft = parseFloat(boardStyle.paddingLeft) || 40;
+    const paddingTop = parseFloat(boardStyle.paddingTop) || 20;
+    
+    // 【关键】网格线CSS: 
+    // - left: calc(40px - 0.75px) = 39.25px（网格线容器左边缘）
+    // - top: calc(20px - 0.75px) = 19.25px（网格线容器上边缘）
+    // repeating-linear-gradient从0开始，第一条线在0-1.5px，中心在0.75px
+    // 所以：
+    // - 第一条竖线中心 = 39.25 + 0.75 = 40px（相对于#board）
+    // - 第一条横线中心 = 19.25 + 0.75 = 20px（相对于#board）
+    const gridLineLeftEdge = paddingLeft - 0.75; // 网格线容器左边缘
+    const gridLineTopEdge = paddingTop - 0.75;  // 网格线容器上边缘
+    const gridLineCenterOffset = 0.75; // 网格线中心偏移（1.5px / 2）
+    const gridLineCenterX = gridLineLeftEdge + gridLineCenterOffset; // 第一个网格线中心X = paddingLeft
+    const gridLineCenterY = gridLineTopEdge + gridLineCenterOffset;  // 第一个网格线中心Y = paddingTop
+    
+    const cellWidth = cellSize * 0.8;
+    const cellHeight = cellSize * 0.8;
     
     let cellCount = 0;
-    for (let y = 0; y < n; y++) {
-        for (let x = 0; x < n; x++) {
-            // 【关键】双重检查：确保坐标在有效范围内
+    // 【关键日志】检查边缘位置的grid值
+    console.log('[棋子渲染] ========== renderBoard 开始 ==========');
+    console.log(`[棋子渲染] grid[14][0]=${grid[14]?.[0] || '.'}, grid[0][14]=${grid[0]?.[14] || '.'}, grid[14][14]=${grid[14]?.[14] || '.'}`);
+    
+    // grid[x][y]中x是行，y是列
+    for (let x = 0; x < n; x++) {
+        for (let y = 0; y < n; y++) {
             if (x < 0 || x >= n || y < 0 || y >= n) {
-                console.error(`[DEBUG] ❌ 创建cell时坐标超出范围: x=${x}, y=${y}, n=${n}`);
-                continue; // 跳过超出范围的cell
+                console.warn(`[DEBUG] ⚠️ 跳过无效坐标: x=${x}, y=${y}, n=${n}`);
+                continue;
             }
             
             const v = grid[x][y];
@@ -92,48 +120,60 @@ function renderBoard(grid, lastMove) {
                 (v === 'X' ? ' X' : (v === 'O' ? ' O' : '')) + 
                 (isLast ? ' last' : '');
             cell.textContent = v === '.' ? '' : v;
-            // 【重要】严格设置坐标，确保坐标范围是 0 到 n-1
             cell.dataset.x = String(x);
             cell.dataset.y = String(y);
-            cell.title = `(${letters[x]}${y + 1})`;
+            cell.title = `(${letters[y]}${n - x})`;
             
-            // 【重要】只有空位时才添加点击事件，并且确保坐标有效
+            // 绝对定位：交叉点在网格线交点上
+            const crossPointX = gridLineCenterX + y * cellSize;
+            const crossPointY = gridLineCenterY + x * cellSize;
+            cell.style.position = 'absolute';
+            cell.style.left = `${crossPointX - cellWidth / 2}px`;
+            cell.style.top = `${crossPointY - cellHeight / 2}px`;
+            cell.style.margin = '0';
+            cell.style.transform = 'none';
+            cell.style.zIndex = '10';
+            
+            // 【关键日志】边缘位置的棋子渲染
+            if ((x === 14 || y === 14) && v !== '.') {
+                console.log(`[棋子渲染] ⚠️ 边缘位置有棋子: grid[${x}][${y}]=${v}`);
+                console.log(`[棋子渲染]   JS: className="${cell.className}", left=${cell.style.left}, top=${cell.style.top}`);
+            }
+            
             if (v === '.' && x >= 0 && x < n && y >= 0 && y < n) {
                 cell.addEventListener('click', onCellClick);
             }
             
             boardEl.appendChild(cell);
             cellCount++;
+            
+            // 【关键日志】边缘位置的CSS检查（渲染后）
+            if ((x === 14 || y === 14) && v !== '.') {
+                // 使用 setTimeout 确保 DOM 更新完成后再检查
+                setTimeout(() => {
+                    const cellInDOM = boardEl.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+                    if (cellInDOM) {
+                        const computedStyle = window.getComputedStyle(cellInDOM);
+                        const beforeStyle = window.getComputedStyle(cellInDOM, '::before');
+                        console.log(`[棋子渲染] ✅ DOM检查: grid[${x}][${y}]=${v}`);
+                        console.log(`[棋子渲染]   CSS: position=${computedStyle.position}, width=${computedStyle.width}, height=${computedStyle.height}`);
+                        console.log(`[棋子渲染]   ::before: content="${beforeStyle.content}", display=${beforeStyle.display}, width=${beforeStyle.width}, height=${beforeStyle.height}`);
+                        console.log(`[棋子渲染]   ::before: background=${beforeStyle.background || 'none'}, opacity=${beforeStyle.opacity}`);
+                        if (beforeStyle.width === '0px' || beforeStyle.height === '0px' || beforeStyle.display === 'none') {
+                            console.error(`[棋子渲染] ❌ CSS问题: ::before伪元素未正确渲染！`);
+                        }
+                    }
+                }, 0);
+            }
         }
     }
     
-    // 【重要】验证创建的cell数量，确保只有 n x n 个
+    // 【关键日志】验证cell数量
     const createdCells = boardEl.querySelectorAll('.cell');
-    console.log(`[DEBUG] 创建的cell数量: 循环计数=${cellCount}, DOM查询=${createdCells.length}, 期望=${n * n}`);
-    
     if (createdCells.length !== n * n) {
-        console.error(`[DEBUG] ❌ 棋盘cell数量错误: 期望 ${n * n} 个，实际 ${createdCells.length} 个`);
-        // 输出所有cell的坐标
-        createdCells.forEach((cell, idx) => {
-            const x = parseInt(cell.dataset.x, 10);
-            const y = parseInt(cell.dataset.y, 10);
-            console.log(`[DEBUG] Cell ${idx}: x=${x}, y=${y}, 是否超出范围: ${x >= n || y >= n || x < 0 || y < 0}`);
-        });
-    }
-    
-    // 检查是否有坐标超出范围的cell
-    let foundOutOfRange = false;
-    createdCells.forEach((cell) => {
-        const x = parseInt(cell.dataset.x, 10);
-        const y = parseInt(cell.dataset.y, 10);
-        if (x >= n || y >= n || x < 0 || y < 0) {
-            console.error(`[DEBUG] ❌ 发现超出范围的cell: x=${x}, y=${y}, n=${n}`);
-            foundOutOfRange = true;
-        }
-    });
-    
-    if (!foundOutOfRange && createdCells.length === n * n) {
-        console.log(`[DEBUG] ✅ 棋盘渲染成功: ${n}x${n}=${n * n}个cell，所有坐标都在有效范围内`);
+        console.error(`[棋子渲染] ❌ cell数量错误: 期望${n * n}个，实际${createdCells.length}个`);
+    } else {
+        console.log(`[棋子渲染] ✅ 创建了${n * n}个cell`);
     }
     
     // ====================================================================
@@ -164,6 +204,8 @@ function renderBoard(grid, lastMove) {
     // 
     // ====================================================================
     
+    // 【暂时注释】坐标轴标签 - 先删除，保证正常业务能通
+    /*
     // 等待DOM完全渲染后，基于实际元素位置动态设置坐标轴刻度
     // 使用双重 requestAnimationFrame 确保布局完成
     requestAnimationFrame(() => {
@@ -181,65 +223,54 @@ function renderBoard(grid, lastMove) {
             
             // 添加Y轴刻度（左侧）- 数字 1-15
             // 1在最底下，15在最上面
-            // Y轴刻度要对齐到每一条横线（水平线），即每个cell的top边界
-            for (let y = 0; y < n; y++) {
-                // 获取第y行第0列的cell（每行第一个）
-                const cellIndex = y * n;
-                const cell = cells[cellIndex];
-                if (!cell) continue;
-                
-                const cellRect = cell.getBoundingClientRect();
-                // 网格横线在cell的top边界
-                // 【关键】必须除以 scale：因为坐标轴刻度会被 scale 放大，所以位置值要缩小 scale 倍来补偿
-                const lineY = (cellRect.top - containerRect.top) / scale;
+            // 【交叉点布局】直接使用计算出的交叉点位置，而不是getBoundingClientRect
+            const rootStyle = getComputedStyle(document.documentElement);
+            const cellSizeStr = rootStyle.getPropertyValue('--cell').trim();
+            const cellSizeForCoord = parseFloat(cellSizeStr) || 32;
+            const startXForCoord = 40;
+            const startYForCoord = 20;
+            const gridLineCenterOffsetForCoord = 0.75;
+            
+            for (let x = 0; x < n; x++) {
+                // 直接计算交叉点位置（与renderBoard中的计算一致）
+                const crossPointY = startYForCoord + gridLineCenterOffsetForCoord + x * cellSizeForCoord;
+                const coordYPos = (crossPointY - containerRect.top) / scale;
                 
                 const coordY = document.createElement('div');
                 coordY.className = 'board-coord coord-y';
-                coordY.textContent = String(n - y);
+                coordY.textContent = String(n - x); // x是行索引，从下往上显示
                 coordY.style.position = 'absolute';
-                // 左侧坐标区域：获取第一个cell的left位置，减去固定偏移20px
-                // 【关键】必须除以 scale：补偿 board-container 的 scale 缩放
-                const firstCellRect = cells[0].getBoundingClientRect();
-                const coordXPos = (firstCellRect.left - containerRect.left - 20) / scale;
+                const coordXPos = (startXForCoord - 20 - containerRect.left) / scale;
                 coordY.style.left = `${coordXPos}px`;
-                coordY.style.top = `${lineY}px`; // 对齐到横线（cell的top边界）
+                coordY.style.top = `${coordYPos}px`;
                 coordY.style.transform = 'translate(-50%, -50%)';
                 coordY.style.textAlign = 'center';
                 boardContainer.appendChild(coordY);
             }
             
             // 添加X轴刻度（下方）- 字母 A-O
-            // X轴刻度要对齐到每一条竖线（垂直线），即每个cell的left边界
+            // 【交叉点布局】直接使用计算出的交叉点位置
             const lastRowIndex = n - 1;
-            for (let x = 0; x < n; x++) {
-                // 获取最后一行第x列的cell
-                const cellIndex = lastRowIndex * n + x;
-                const cell = cells[cellIndex];
-                if (!cell) continue;
-                
-                const cellRect = cell.getBoundingClientRect();
-                // 网格竖线在cell的left边界
-                // 【关键】必须除以 scale：补偿 board-container 的 scale 缩放
-                const lineX = (cellRect.left - containerRect.left) / scale;
-                // 最后一条横线的位置（最后一行的top边界），这就是底线
-                // 【关键】必须除以 scale：补偿 board-container 的 scale 缩放
-                const lineY = (cellRect.top - containerRect.top) / scale;
-                // 稍微往下一点点，让刻度正好在底线下方
-                // 【关键】偏移量也要除以 scale：12px 是期望的最终偏移，但会被 scale 放大，所以除以 scale
-                const offsetY = lineY + 12 / scale;
+            for (let y = 0; y < n; y++) {
+                // 直接计算交叉点位置（与renderBoard中的计算一致）
+                const crossPointX = startXForCoord + gridLineCenterOffsetForCoord + y * cellSizeForCoord;
+                const crossPointY = startYForCoord + gridLineCenterOffsetForCoord + lastRowIndex * cellSizeForCoord;
+                const coordXPos = (crossPointX - containerRect.left) / scale;
+                const coordYPos = (crossPointY + 12 - containerRect.top) / scale;
                 
                 const coordX = document.createElement('div');
                 coordX.className = 'board-coord coord-x';
-                coordX.textContent = letters[x];
+                coordX.textContent = letters[y]; // y是列索引，对应字母A-O
                 coordX.style.position = 'absolute';
-                coordX.style.left = `${lineX}px`; // 对齐到竖线（cell的left边界）
-                coordX.style.top = `${offsetY}px`; // 正好贴着底线，稍微往下一点点
+                coordX.style.left = `${coordXPos}px`;
+                coordX.style.top = `${coordYPos}px`;
                 coordX.style.transform = 'translate(-50%, -50%)';
                 coordX.style.textAlign = 'center';
                 boardContainer.appendChild(coordX);
             }
         });
     });
+    */
 }
 
 /**
@@ -258,12 +289,6 @@ function isGameOver() {
  * @param {Event} e - 点击事件
  */
 function onCellClick(e) {
-    console.log('[DEBUG] ========== onCellClick 被调用 ==========');
-    console.log('[DEBUG] e.currentTarget:', e.currentTarget);
-    console.log('[DEBUG] e.target:', e.target);
-    console.log('[DEBUG] e.target.tagName:', e.target?.tagName);
-    console.log('[DEBUG] e.target.className:', e.target?.className);
-    console.log('[DEBUG] e.target.dataset:', e.target?.dataset);
     
     // 如果游戏已结束，不允许下棋
     if (isGameOver()) {
@@ -291,75 +316,23 @@ function onCellClick(e) {
     
     const x = parseInt(e.currentTarget.dataset.x, 10);
     const y = parseInt(e.currentTarget.dataset.y, 10);
-    console.log(`[DEBUG] 点击坐标: x=${x}, y=${y}`);
     
-    // 【重要】严格验证坐标是否在有效范围内
+    // 验证坐标
     const n = grid ? grid.length : DEFAULT_N;
-    console.log(`[DEBUG] 棋盘大小: n=${n}, grid.length=${grid?.length}, DEFAULT_N=${DEFAULT_N}`);
-    
-    // 双重检查：确保坐标是有效数字
-    if (isNaN(x) || isNaN(y)) {
-        console.error(`[DEBUG] ❌ 坐标无效: x=${x}, y=${y}`);
-        e.preventDefault();
-        e.stopPropagation();
+    if (isNaN(x) || isNaN(y) || x < 0 || x >= n || y < 0 || y >= n) {
         return;
     }
     
-    // 【关键修复】严格边界检查：坐标必须在 0 到 n-1 之间（15x15棋盘就是0-14）
-    // 使用严格的小于号，确保绝对不会超出边界
-    if (x < 0 || x >= n || y < 0 || y >= n) {
-        console.error(`[DEBUG] ❌❌❌ 坐标超出范围: x=${x}, y=${y}, 有效范围: 0-${n-1}, 棋盘大小: ${n}x${n}`);
-        console.error('[DEBUG] 这不应该发生！请检查cell的dataset设置！');
-        // 【额外检查】检查点击位置是否在padding区域
-        const boardEl = document.getElementById('board');
-        if (boardEl) {
-            const boardRect = boardEl.getBoundingClientRect();
-            const clickX = e.clientX;
-            const clickY = e.clientY;
-            console.error(`[DEBUG] 点击位置: clientX=${clickX}, clientY=${clickY}`);
-            console.error(`[DEBUG] 棋盘位置: left=${boardRect.left}, top=${boardRect.top}, right=${boardRect.right}, bottom=${boardRect.bottom}`);
-            console.error(`[DEBUG] 点击是否在棋盘内: ${clickX >= boardRect.left && clickX <= boardRect.right && clickY >= boardRect.top && clickY <= boardRect.bottom}`);
-        }
-        e.preventDefault();
-        e.stopPropagation();
+    if (!grid || !grid[x] || typeof grid[x][y] === 'undefined' || grid[x][y] !== '.') {
         return;
     }
     
-    // 【额外保护】如果点击的是最后一列（x=14）或最后一行（y=14），也拒绝
-    // 这样可以确保绝对不会在边界外落子
-    if (x === n - 1 || y === n - 1) {
-        console.error(`[DEBUG] ❌❌❌ 拒绝在边界位置落子: x=${x}, y=${y}, 这是最后一列或最后一行`);
-        console.error(`[DEBUG] 15x15棋盘的有效范围是 0-13，不允许在边界（14）落子`);
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-    }
+    // 【关键日志】点击落子
+    console.log(`[棋子渲染] 点击落子: x=${x}, y=${y}`);
     
-    // 额外验证：确保grid数组存在且坐标有效
-    if (!grid || !grid[x] || typeof grid[x][y] === 'undefined') {
-        console.error(`[DEBUG] ❌ 坐标对应的grid位置不存在: x=${x}, y=${y}, grid存在=${!!grid}, grid[x]存在=${!!grid?.[x]}`);
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-    }
-    
-    // 验证该位置是否为空
-    if (grid && grid[x] && grid[x][y] !== '.') {
-        console.log(`[DEBUG] 位置 (${x}, ${y}) 已有棋子: ${grid[x][y]}`);
-        return;
-    }
-    
-    console.log(`[DEBUG] ✅ 坐标验证通过，准备落子: x=${x}, y=${y}`);
-    
-    // 获取当前执子方（从 state 或使用默认值）
     const side = state?.current || 'X';
-    
-    // 触发外部回调
     if (window.gameCallbacks && window.gameCallbacks.onPlace) {
-        console.log(`[DEBUG] 调用 onPlace: x=${x}, y=${y}, side=${side}`);
         window.gameCallbacks.onPlace(x, y, side);
-    } else {
-        console.warn('[DEBUG] window.gameCallbacks.onPlace 不存在');
     }
 }
 
@@ -404,17 +377,25 @@ function handleGameEvent(evt) {
     state = payload.state || payload;
     const series = payload.series || null;
     
+    // 【关键日志】后端数据更新
     const g = normalizeGrid(state?.board?.grid ?? state?.board ?? state?.grid);
+    let currentGrid = grid;
     if (g) {
         grid = g;
+        currentGrid = g;
+        console.log('[棋子渲染] 后端数据更新:', {
+            'grid[14][0]': currentGrid[14]?.[0] || '.',
+            'grid[0][14]': currentGrid[0]?.[14] || '.',
+            'grid[14][14]': currentGrid[14]?.[14] || '.',
+            'lastMove': state?.lastMove
+        });
     }
     
-    // 渲染最后一步
     let lastClient = null;
     if (state?.lastMove && Number.isFinite(state.lastMove.x) && Number.isFinite(state.lastMove.y)) {
         lastClient = { x: state.lastMove.x, y: state.lastMove.y };
     }
-    renderBoard(grid, lastClient);
+    renderBoard(currentGrid, lastClient);
     
     // 更新游戏信息显示
     updateGameInfo(state, series);
@@ -459,7 +440,17 @@ function renderFullSync(snap) {
     state.current = snap.sideToMove || state.current;
     
     grid = snap.board.cells;
-    renderBoard(grid, snap.lastMove);
+    const currentGrid = grid;
+    
+    // 【关键日志】快照同步
+    console.log('[棋子渲染] 快照同步:', {
+        'grid[14][0]': currentGrid[14]?.[0] || '.',
+        'grid[0][14]': currentGrid[0]?.[14] || '.',
+        'grid[14][14]': currentGrid[14]?.[14] || '.',
+        'lastMove': snap.lastMove
+    });
+    
+    renderBoard(currentGrid, snap.lastMove);
     
     const seriesView = snap.seriesView || {};
     const round = snap.round || seriesView.round || 1;

@@ -111,9 +111,9 @@ public class GomokuAI {
 
     /** 仅考虑"合法"的一步即胜（RENJU + 黑方禁手会被过滤） */
     private Move findImmediateWinLegal(Board b, char side) {
-        // 【关键修复】排除最后一列和最后一行（x=14 或 y=14），有效范围是 0-13
-        for (int x = 0; x < Board.SIZE - 1; x++) {
-            for (int y = 0; y < Board.SIZE - 1; y++) {
+        // 【已修复】允许在 0-14 的所有交叉点落子
+        for (int x = 0; x < Board.SIZE; x++) {
+            for (int y = 0; y < Board.SIZE; y++) {
                 if (!b.isEmpty(x, y)) continue;
                 if (isForbiddenPoint(b, x, y, side)) continue;
                 b.place(x, y, side);
@@ -127,9 +127,9 @@ public class GomokuAI {
 
     /** 对方一步会形成【活四】或【双活三】 → 返回该威胁点（提前卡位） */
     private int[] findOpponentThreat(Board b, char opp) {
-        // 【关键修复】排除最后一列和最后一行（x=14 或 y=14），有效范围是 0-13
-        for (int x = 0; x < Board.SIZE - 1; x++) {
-            for (int y = 0; y < Board.SIZE - 1; y++) {
+        // 【已修复】允许在 0-14 的所有交叉点落子
+        for (int x = 0; x < Board.SIZE; x++) {
+            for (int y = 0; y < Board.SIZE; y++) {
                 if (!b.isEmpty(x, y)) continue;
                 // 这里判断对方的威胁，不需要套我方禁手
                 b.place(x, y, opp);
@@ -244,14 +244,13 @@ public class GomokuAI {
         }
 
         int pad = 2;
-        // 【关键修复】排除最后一列和最后一行（x=14 或 y=14），有效范围是 0-13
-        int sx = Math.max(0, minX - pad), ex = Math.min(Board.SIZE - 2, maxX + pad);
-        int sy = Math.max(0, minY - pad), ey = Math.min(Board.SIZE - 2, maxY + pad);
+        // 【已修复】允许在 0-14 的所有交叉点落子
+        int sx = Math.max(0, minX - pad), ex = Math.min(Board.SIZE - 1, maxX + pad);
+        int sy = Math.max(0, minY - pad), ey = Math.min(Board.SIZE - 1, maxY + pad);
 
         for (int x = sx; x <= ex; x++) {
             for (int y = sy; y <= ey; y++) {
-                // 【额外保护】双重检查，确保不在边界位置
-                if (x >= Board.SIZE - 1 || y >= Board.SIZE - 1) continue;
+                // 【已移除】边界限制已移除，允许在 0-14 的所有交叉点落子
                 if (!b.isEmpty(x, y)) continue;
                 if (!hasNeighbor(b, x, y)) continue;
                 list.add(new int[]{x, y});

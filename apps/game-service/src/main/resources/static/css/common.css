@@ -483,13 +483,8 @@ label {
 
 /* 棋盘 - 精致木质风格（浅木色，深色边框和网格） */
 #board {
-    display: grid;
-    grid-template-columns: repeat(var(--n), var(--cell));
-    grid-template-rows: repeat(var(--n), var(--cell));
-    /* 【关键修复】禁用grid自动创建隐式行/列，确保只有15x15个cell */
-    grid-auto-columns: 0;
-    grid-auto-rows: 0;
-    gap: 0;
+    /* 【交叉点布局】使用相对定位，子元素绝对定位在交叉点上 */
+    position: relative;
     margin-top: 20px;
     user-select: none;
     /* 精致木质风格：浅米色/淡黄棕色，轻纹理 */
@@ -510,9 +505,13 @@ label {
     /* 为坐标标记预留空间 */
     padding-left: 40px; /* 左侧20px padding + 20px坐标区域 */
     padding-bottom: 40px; /* 下方20px padding + 20px坐标区域 */
+    /* 棋盘尺寸：15x15交叉点，需要14个间隔，但最后一个交叉点的.cell需要额外空间 */
+    /* .cell 宽度是 var(--cell) * 0.8，所以最后一个交叉点需要额外 var(--cell) * 0.4 的空间 */
+    width: calc(var(--cell) * (var(--n) - 1) + var(--cell) * 0.4 + 40px);
+    height: calc(var(--cell) * (var(--n) - 1) + var(--cell) * 0.4 + 40px);
     /* 【关键修复】确保padding区域不可点击，只有.cell元素可以点击 */
     pointer-events: none;
-    overflow: hidden;
+    overflow: visible;
     /* 添加精致的轻木纹纹理 */
     background-image: 
         repeating-linear-gradient(0deg, transparent, transparent 10px, rgba(0, 0, 0, 0.008) 10px, rgba(0, 0, 0, 0.008) 11px),
@@ -554,12 +553,12 @@ label {
 #board::before {
     content: '';
     position: absolute;
-    /* 网格线从padding内部开始，考虑左侧坐标区域 */
-    top: 20px; /* padding-top */
-    left: 40px; /* padding-left + 坐标区域 */
-    /* 15x15棋盘：15条线，从位置0到位置14*cell，总宽度需要包含第15条线 */
-    width: calc(var(--cell) * 14 + 1px); /* 14个间隔 + 最后一条线 */
-    height: calc(var(--cell) * 14 + 1px);
+    /* 网格线从padding内部开始，考虑左侧坐标区域，对齐到交叉点中心 */
+    top: calc(20px - 0.75px); /* padding-top - 网格线中心偏移 */
+    left: calc(40px - 0.75px); /* padding-left + 坐标区域 - 网格线中心偏移 */
+    /* 15x15交叉点：15条线，14个间隔，总宽度需要包含第15条线（1.5px宽） */
+    width: calc(var(--cell) * (var(--n) - 1) + 1.5px); /* (n-1)个间隔 + 最后一条线宽度 */
+    height: calc(var(--cell) * (var(--n) - 1) + 1.5px);
     /* 自然木质风格：深色清晰的网格线 */
     background-image: 
         repeating-linear-gradient(to right, 
@@ -575,8 +574,8 @@ label {
             transparent var(--cell)
         );
     background-size: 
-        calc(var(--cell) * 14 + 1px) 100%,
-        100% calc(var(--cell) * 14 + 1px);
+        calc(var(--cell) * (var(--n) - 1) + 1.5px) 100%,
+        100% calc(var(--cell) * (var(--n) - 1) + 1.5px);
     background-position: 0 0;
     /* 轻微凹陷效果，像真实棋盘 */
     box-shadow: 
@@ -588,21 +587,20 @@ label {
 
 
 .cell {
-    width: var(--cell);
-    height: var(--cell);
+    /* 【交叉点布局】使用绝对定位，放置在网格线交点上 */
+    position: absolute;
+    width: calc(var(--cell) * 0.8);
+    height: calc(var(--cell) * 0.8);
     display: flex;
     align-items: center;
     justify-content: center;
     border: none;
     background: transparent;
     cursor: pointer;
-    position: relative;
     z-index: 2;
     transition: all 0.15s ease;
-    /* 【关键修复】确保cell可以响应点击，覆盖父元素的pointer-events: none */
     pointer-events: auto;
-    /* 【关键修复】确保棋子不会超出cell边界 */
-    overflow: hidden;
+    overflow: visible;
 }
 
 /* 空位悬停效果 - Q萌风格：更可爱的提示 */
@@ -615,6 +613,7 @@ label {
 /* 专业立体感黑棋 - 增强材质感 */
 .cell.X {
     color: transparent;
+    /* 【关键修复】确保 ::before 伪元素相对于 .cell 定位 */
     position: relative;
 }
 
@@ -624,8 +623,8 @@ label {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: calc(var(--cell) * 0.85);
-    height: calc(var(--cell) * 0.85);
+    width: 75%;
+    height: 75%;
     border-radius: 50%;
     background: radial-gradient(circle at 30% 30%, 
         rgba(255, 255, 255, 0.4) 0%,
@@ -657,8 +656,8 @@ label {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: calc(var(--cell) * 0.35);
-    height: calc(var(--cell) * 0.35);
+    width: 35%;
+    height: 35%;
     border-radius: 50%;
     background: radial-gradient(circle, 
         rgba(255, 255, 255, 0.7) 0%,
@@ -672,6 +671,7 @@ label {
 /* 专业立体感白棋 - 增强材质感 */
 .cell.O {
     color: transparent;
+    /* 【关键修复】确保 ::before 伪元素相对于 .cell 定位 */
     position: relative;
 }
 
@@ -681,8 +681,8 @@ label {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: calc(var(--cell) * 0.85);
-    height: calc(var(--cell) * 0.85);
+    width: 75%;
+    height: 75%;
     border-radius: 50%;
     background: radial-gradient(circle at 30% 30%,
         rgba(255, 255, 255, 1) 0%,
@@ -714,8 +714,8 @@ label {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: calc(var(--cell) * 0.38);
-    height: calc(var(--cell) * 0.38);
+    width: 38%;
+    height: 38%;
     border-radius: 50%;
     background: radial-gradient(circle,
         rgba(255, 255, 255, 1) 0%,
