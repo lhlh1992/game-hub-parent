@@ -145,6 +145,42 @@ function renderBoard(grid, lastMove) {
     const createdCells = boardEl.querySelectorAll('.cell');
     
     // ====================================================================
+    // 【天元和星位标记】在棋盘交叉点上添加标记点
+    // ====================================================================
+    // 对于15x15棋盘：
+    // - 天元：正中央 (7, 7)
+    // - 四个角星：(3, 3), (3, 11), (11, 3), (11, 11)
+    // 星位标记使用小圆点，天元稍大一些
+    
+    // 清除旧的星位标记
+    boardEl.querySelectorAll('.star-point').forEach(el => el.remove());
+    
+    // 定义星位坐标（x, y, 是否是天元）
+    const starPoints = [
+        { x: 7, y: 7, isTengen: true },   // 天元（中心）
+        { x: 3, y: 3, isTengen: false },  // 左上角星
+        { x: 3, y: 11, isTengen: false }, // 右上角星
+        { x: 11, y: 3, isTengen: false }, // 左下角星
+        { x: 11, y: 11, isTengen: false } // 右下角星
+    ];
+    
+    starPoints.forEach(star => {
+        const crossPointX = gridLineCenterX + star.y * cellSize;
+        const crossPointY = gridLineCenterY + star.x * cellSize;
+        
+        const starPoint = document.createElement('div');
+        starPoint.className = 'star-point' + (star.isTengen ? ' tengen' : '');
+        starPoint.style.position = 'absolute';
+        starPoint.style.left = `${crossPointX}px`;
+        starPoint.style.top = `${crossPointY}px`;
+        starPoint.style.transform = 'translate(-50%, -50%)';
+        starPoint.style.pointerEvents = 'none';
+        starPoint.style.zIndex = '5'; // 在网格线上方，但在棋子下方
+        
+        boardEl.appendChild(starPoint);
+    });
+    
+    // ====================================================================
     // 【坐标轴标签】稳定实现 - 自适应不同分辨率
     // ====================================================================
     // 关键点：
