@@ -613,8 +613,8 @@ label {
 /* 专业立体感黑棋 - 增强材质感 */
 .cell.X {
     color: transparent;
-    /* 【关键修复】确保 ::before 伪元素相对于 .cell 定位 */
-    position: relative;
+    /* 不需要 position: relative，因为 .cell 已经是 position: absolute */
+    /* ::before 的 position: absolute 会相对于 .cell 定位 */
 }
 
 .cell.X::before {
@@ -671,8 +671,8 @@ label {
 /* 专业立体感白棋 - 增强材质感 */
 .cell.O {
     color: transparent;
-    /* 【关键修复】确保 ::before 伪元素相对于 .cell 定位 */
-    position: relative;
+    /* 不需要 position: relative，因为 .cell 已经是 position: absolute */
+    /* ::before 的 position: absolute 会相对于 .cell 定位 */
 }
 
 .cell.O::before {

@@ -100,15 +100,11 @@ function renderBoard(grid, lastMove) {
     const cellHeight = cellSize * 0.8;
     
     let cellCount = 0;
-    // 【关键日志】检查边缘位置的grid值
-    console.log('[棋子渲染] ========== renderBoard 开始 ==========');
-    console.log(`[棋子渲染] grid[14][0]=${grid[14]?.[0] || '.'}, grid[0][14]=${grid[0]?.[14] || '.'}, grid[14][14]=${grid[14]?.[14] || '.'}`);
     
     // grid[x][y]中x是行，y是列
     for (let x = 0; x < n; x++) {
         for (let y = 0; y < n; y++) {
             if (x < 0 || x >= n || y < 0 || y >= n) {
-                console.warn(`[DEBUG] ⚠️ 跳过无效坐标: x=${x}, y=${y}, n=${n}`);
                 continue;
             }
             
@@ -134,47 +130,17 @@ function renderBoard(grid, lastMove) {
             cell.style.transform = 'none';
             cell.style.zIndex = '10';
             
-            // 【关键日志】边缘位置的棋子渲染
-            if ((x === 14 || y === 14) && v !== '.') {
-                console.log(`[棋子渲染] ⚠️ 边缘位置有棋子: grid[${x}][${y}]=${v}`);
-                console.log(`[棋子渲染]   JS: className="${cell.className}", left=${cell.style.left}, top=${cell.style.top}`);
-            }
-            
             if (v === '.' && x >= 0 && x < n && y >= 0 && y < n) {
                 cell.addEventListener('click', onCellClick);
             }
             
             boardEl.appendChild(cell);
             cellCount++;
-            
-            // 【关键日志】边缘位置的CSS检查（渲染后）
-            if ((x === 14 || y === 14) && v !== '.') {
-                // 使用 setTimeout 确保 DOM 更新完成后再检查
-                setTimeout(() => {
-                    const cellInDOM = boardEl.querySelector(`[data-x="${x}"][data-y="${y}"]`);
-                    if (cellInDOM) {
-                        const computedStyle = window.getComputedStyle(cellInDOM);
-                        const beforeStyle = window.getComputedStyle(cellInDOM, '::before');
-                        console.log(`[棋子渲染] ✅ DOM检查: grid[${x}][${y}]=${v}`);
-                        console.log(`[棋子渲染]   CSS: position=${computedStyle.position}, width=${computedStyle.width}, height=${computedStyle.height}`);
-                        console.log(`[棋子渲染]   ::before: content="${beforeStyle.content}", display=${beforeStyle.display}, width=${beforeStyle.width}, height=${beforeStyle.height}`);
-                        console.log(`[棋子渲染]   ::before: background=${beforeStyle.background || 'none'}, opacity=${beforeStyle.opacity}`);
-                        if (beforeStyle.width === '0px' || beforeStyle.height === '0px' || beforeStyle.display === 'none') {
-                            console.error(`[棋子渲染] ❌ CSS问题: ::before伪元素未正确渲染！`);
-                        }
-                    }
-                }, 0);
-            }
         }
     }
     
-    // 【关键日志】验证cell数量
+    // 验证cell数量
     const createdCells = boardEl.querySelectorAll('.cell');
-    if (createdCells.length !== n * n) {
-        console.error(`[棋子渲染] ❌ cell数量错误: 期望${n * n}个，实际${createdCells.length}个`);
-    } else {
-        console.log(`[棋子渲染] ✅ 创建了${n * n}个cell`);
-    }
     
     // ====================================================================
     // 【重要】坐标轴刻度定位逻辑 - 必须考虑 board-container 的 transform scale
@@ -292,23 +258,16 @@ function onCellClick(e) {
     
     // 如果游戏已结束，不允许下棋
     if (isGameOver()) {
-        console.log('[DEBUG] 游戏已结束，不允许下棋');
         return;
     }
     
     const currentRoomId = typeof window !== 'undefined' ? window._currentRoomId : null;
     if (!currentRoomId) {
-        console.log('[DEBUG] 未选择房间');
         return;
     }
     
     // 【重要】确保点击的是真正的cell元素
     if (!e.currentTarget || !e.currentTarget.classList.contains('cell')) {
-        console.error('[DEBUG] ❌ 点击的不是棋盘单元格!');
-        console.error('[DEBUG] currentTarget:', e.currentTarget);
-        console.error('[DEBUG] target:', e.target);
-        console.error('[DEBUG] classList:', e.currentTarget?.classList);
-        console.error('[DEBUG] 点击位置可能超出棋盘边界！');
         e.preventDefault();
         e.stopPropagation();
         return;
@@ -326,9 +285,6 @@ function onCellClick(e) {
     if (!grid || !grid[x] || typeof grid[x][y] === 'undefined' || grid[x][y] !== '.') {
         return;
     }
-    
-    // 【关键日志】点击落子
-    console.log(`[棋子渲染] 点击落子: x=${x}, y=${y}`);
     
     const side = state?.current || 'X';
     if (window.gameCallbacks && window.gameCallbacks.onPlace) {
@@ -377,18 +333,11 @@ function handleGameEvent(evt) {
     state = payload.state || payload;
     const series = payload.series || null;
     
-    // 【关键日志】后端数据更新
     const g = normalizeGrid(state?.board?.grid ?? state?.board ?? state?.grid);
     let currentGrid = grid;
     if (g) {
         grid = g;
         currentGrid = g;
-        console.log('[棋子渲染] 后端数据更新:', {
-            'grid[14][0]': currentGrid[14]?.[0] || '.',
-            'grid[0][14]': currentGrid[0]?.[14] || '.',
-            'grid[14][14]': currentGrid[14]?.[14] || '.',
-            'lastMove': state?.lastMove
-        });
     }
     
     let lastClient = null;
@@ -441,15 +390,6 @@ function renderFullSync(snap) {
     
     grid = snap.board.cells;
     const currentGrid = grid;
-    
-    // 【关键日志】快照同步
-    console.log('[棋子渲染] 快照同步:', {
-        'grid[14][0]': currentGrid[14]?.[0] || '.',
-        'grid[0][14]': currentGrid[0]?.[14] || '.',
-        'grid[14][14]': currentGrid[14]?.[14] || '.',
-        'lastMove': snap.lastMove
-    });
-    
     renderBoard(currentGrid, snap.lastMove);
     
     const seriesView = snap.seriesView || {};
