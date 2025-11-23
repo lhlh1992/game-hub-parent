@@ -145,100 +145,100 @@ function renderBoard(grid, lastMove) {
     const createdCells = boardEl.querySelectorAll('.cell');
     
     // ====================================================================
-    // 【重要】坐标轴刻度定位逻辑 - 必须考虑 board-container 的 transform scale
+    // 【坐标轴标签】稳定实现 - 自适应不同分辨率
     // ====================================================================
-    // 
-    // 【术语说明】：
-    // - 坐标轴刻度：棋盘左侧的数字（1-15）和底部的字母（A-O），用于标识网格位置
-    // - Y轴刻度：左侧数字，标识行号
-    // - X轴刻度：底部字母，标识列号
-    // 
-    // 【问题原因】：
-    // 1. board-container 有 CSS 属性：transform: scale(1.25)，用于放大棋盘
-    // 2. 坐标轴刻度作为 board-container 的子元素，也会被 scale(1.25) 影响
-    // 3. 如果直接使用 getBoundingClientRect() 获取的像素值设置刻度位置，
-    //    刻度会被额外放大 1.25 倍，导致位置偏移，无法对齐到网格线
-    // 
-    // 【修复方法】：
-    // 1. 获取 scale 值（当前是 1.25，如果修改 CSS 需要同步修改这里）
-    // 2. 计算刻度位置时，将所有像素值除以 scale，补偿缩放影响
-    // 3. 这样刻度的实际位置 = (计算位置 / scale) * scale = 计算位置，正好对齐
-    // 
-    // 【注意事项】：
-    // - 如果修改 game.css 中 .board-container 的 transform: scale() 值，
-    //   必须同步修改这里的 scale 常量
-    // - 所有坐标计算（left, top, offset）都必须除以 scale
-    // - 这是坐标轴刻度对齐的关键，不要遗漏或忘记除以 scale
-    // 
-    // ====================================================================
+    // 关键点：
+    // 1. 使用双重 requestAnimationFrame 确保布局完成
+    // 2. 基于 #board 的实际位置计算，确保精确对齐
+    // 3. 坐标轴放在 board-container 上，需要考虑 scale 影响
+    // 4. 监听窗口 resize，自动重新计算位置
+    // 5. 位置 = (#board相对位置 + 交叉点位置) / scale
     
-    // 【暂时注释】坐标轴标签 - 先删除，保证正常业务能通
-    /*
-    // 等待DOM完全渲染后，基于实际元素位置动态设置坐标轴刻度
-    // 使用双重 requestAnimationFrame 确保布局完成
+    function updateCoordinates() {
+        // 清除旧的坐标轴标签
+        boardContainer.querySelectorAll('.board-coord').forEach(el => el.remove());
+        
+        // 获取 board-container 的 scale 值（从CSS中动态读取）
+        const containerStyle = getComputedStyle(boardContainer);
+        const transform = containerStyle.transform;
+        let scale = 1.25; // 默认值
+        if (transform && transform !== 'none') {
+            const matrix = transform.match(/matrix\(([^)]+)\)/);
+            if (matrix) {
+                const values = matrix[1].split(',').map(v => parseFloat(v.trim()));
+                if (values.length >= 1) {
+                    scale = values[0];
+                }
+            }
+        }
+        
+        // 获取 #board 相对于 board-container 的位置（基于实际渲染位置）
+        const boardRect = boardEl.getBoundingClientRect();
+        const containerRect = boardContainer.getBoundingClientRect();
+        const boardOffsetX = (boardRect.left - containerRect.left) / scale;
+        const boardOffsetY = (boardRect.top - containerRect.top) / scale;
+        
+        // 添加Y轴刻度（左侧）- 数字 1-15，1在最底下，15在最上面
+        for (let x = 0; x < n; x++) {
+            const crossPointY = gridLineCenterY + x * cellSize; // 交叉点Y坐标（相对于#board）
+            const coordY = document.createElement('div');
+            coordY.className = 'board-coord coord-y';
+            coordY.textContent = String(n - x);
+            coordY.style.position = 'absolute';
+            coordY.style.left = `${boardOffsetX + paddingLeft - 20}px`; // 在棋盘左侧，距离左边缘20px
+            coordY.style.top = `${boardOffsetY + crossPointY}px`;
+            coordY.style.transform = 'translate(-50%, -50%)';
+            coordY.style.textAlign = 'center';
+            boardContainer.appendChild(coordY);
+        }
+        
+        // 添加X轴刻度（下方）- 字母 A-O
+        const lastRowIndex = n - 1;
+        for (let y = 0; y < n; y++) {
+            const crossPointX = gridLineCenterX + y * cellSize; // 交叉点X坐标（相对于#board）
+            const crossPointY = gridLineCenterY + lastRowIndex * cellSize; // 最后一行交叉点Y
+            const coordX = document.createElement('div');
+            coordX.className = 'board-coord coord-x';
+            coordX.textContent = letters[y];
+            coordX.style.position = 'absolute';
+            coordX.style.left = `${boardOffsetX + crossPointX}px`;
+            coordX.style.top = `${boardOffsetY + crossPointY + 20}px`; // 在棋盘下方，距离下边缘20px
+            coordX.style.transform = 'translate(-50%, -50%)';
+            coordX.style.textAlign = 'center';
+            boardContainer.appendChild(coordX);
+        }
+    }
+    
+    // 等待布局完成后更新坐标轴
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-            const boardRect = boardEl.getBoundingClientRect();
-            const containerRect = boardContainer.getBoundingClientRect();
-            const cells = boardEl.querySelectorAll('.cell');
-            
-            if (cells.length !== n * n) return;
-            
-            // 【关键】board-container 的 transform scale 值
-            // 必须与 game.css 中 .board-container 的 transform: scale() 保持一致
-            // 如果修改 CSS 中的 scale 值，必须同步修改这里
-            const scale = 1.25;
-            
-            // 添加Y轴刻度（左侧）- 数字 1-15
-            // 1在最底下，15在最上面
-            // 【交叉点布局】直接使用计算出的交叉点位置，而不是getBoundingClientRect
-            const rootStyle = getComputedStyle(document.documentElement);
-            const cellSizeStr = rootStyle.getPropertyValue('--cell').trim();
-            const cellSizeForCoord = parseFloat(cellSizeStr) || 32;
-            const startXForCoord = 40;
-            const startYForCoord = 20;
-            const gridLineCenterOffsetForCoord = 0.75;
-            
-            for (let x = 0; x < n; x++) {
-                // 直接计算交叉点位置（与renderBoard中的计算一致）
-                const crossPointY = startYForCoord + gridLineCenterOffsetForCoord + x * cellSizeForCoord;
-                const coordYPos = (crossPointY - containerRect.top) / scale;
-                
-                const coordY = document.createElement('div');
-                coordY.className = 'board-coord coord-y';
-                coordY.textContent = String(n - x); // x是行索引，从下往上显示
-                coordY.style.position = 'absolute';
-                const coordXPos = (startXForCoord - 20 - containerRect.left) / scale;
-                coordY.style.left = `${coordXPos}px`;
-                coordY.style.top = `${coordYPos}px`;
-                coordY.style.transform = 'translate(-50%, -50%)';
-                coordY.style.textAlign = 'center';
-                boardContainer.appendChild(coordY);
-            }
-            
-            // 添加X轴刻度（下方）- 字母 A-O
-            // 【交叉点布局】直接使用计算出的交叉点位置
-            const lastRowIndex = n - 1;
-            for (let y = 0; y < n; y++) {
-                // 直接计算交叉点位置（与renderBoard中的计算一致）
-                const crossPointX = startXForCoord + gridLineCenterOffsetForCoord + y * cellSizeForCoord;
-                const crossPointY = startYForCoord + gridLineCenterOffsetForCoord + lastRowIndex * cellSizeForCoord;
-                const coordXPos = (crossPointX - containerRect.left) / scale;
-                const coordYPos = (crossPointY + 12 - containerRect.top) / scale;
-                
-                const coordX = document.createElement('div');
-                coordX.className = 'board-coord coord-x';
-                coordX.textContent = letters[y]; // y是列索引，对应字母A-O
-                coordX.style.position = 'absolute';
-                coordX.style.left = `${coordXPos}px`;
-                coordX.style.top = `${coordYPos}px`;
-                coordX.style.transform = 'translate(-50%, -50%)';
-                coordX.style.textAlign = 'center';
-                boardContainer.appendChild(coordX);
-            }
+            updateCoordinates();
         });
     });
-    */
+    
+    // 【关键】监听窗口 resize，确保分辨率变化时重新计算坐标轴位置
+    // 使用防抖，避免频繁触发
+    let resizeTimer = null;
+    const handleResize = () => {
+        if (resizeTimer) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            requestAnimationFrame(() => {
+                updateCoordinates();
+            });
+        }, 150); // 150ms 防抖
+    };
+    
+    // 只在当前页面添加监听器，避免内存泄漏
+    if (typeof window !== 'undefined') {
+        window.addEventListener('resize', handleResize);
+        // 存储清理函数，供页面卸载时调用
+        if (!window._gameResizeHandlers) {
+            window._gameResizeHandlers = [];
+        }
+        window._gameResizeHandlers.push(() => {
+            window.removeEventListener('resize', handleResize);
+        });
+    }
 }
 
 /**

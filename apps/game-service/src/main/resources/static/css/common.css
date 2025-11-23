@@ -528,6 +528,8 @@ label {
     pointer-events: none;
     z-index: 10;
     letter-spacing: 0.2px;
+    /* 【关键】确保坐标轴标签清晰可见，不受transform影响 */
+    transform-origin: center center;
 }
 
 /* Y轴坐标（数字）- 在左侧，对齐到网格线交点 */

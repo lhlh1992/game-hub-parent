@@ -455,9 +455,14 @@
             }
         }
         
-        // 页面卸载时断开连接
+        // 页面卸载时断开连接并清理监听器
         window.addEventListener('beforeunload', () => {
             disconnectWebSocket();
+            // 清理坐标轴 resize 监听器
+            if (window._gameResizeHandlers) {
+                window._gameResizeHandlers.forEach(cleanup => cleanup());
+                window._gameResizeHandlers = [];
+            }
         });
     </script>
 </body>
