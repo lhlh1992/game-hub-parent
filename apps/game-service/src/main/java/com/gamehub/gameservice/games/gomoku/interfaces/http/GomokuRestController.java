@@ -6,6 +6,7 @@ import com.gamehub.gameservice.games.gomoku.domain.enums.Rule;
 import com.gamehub.gameservice.games.gomoku.domain.model.GomokuState;
 import com.gamehub.gameservice.games.gomoku.domain.model.Move;
 import com.gamehub.gameservice.games.gomoku.service.GomokuService;
+import com.gamehub.web.common.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -27,14 +28,15 @@ public class GomokuRestController {
      *  需要认证用户，创建者作为房主
      */
     @PostMapping("/new")
-    public ResponseEntity<String> newRoom(@RequestParam(name = "mode", defaultValue="PVE") String mode,
-                                          @RequestParam(name = "aiPiece", required = false) Character aiPiece,
-                                          @RequestParam(name = "rule", defaultValue="STANDARD") String rule,
-                                          @AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<ApiResponse<String>> newRoom(@RequestParam(name = "mode", defaultValue="PVE") String mode,
+                                                       @RequestParam(name = "aiPiece", required = false) Character aiPiece,
+                                                       @RequestParam(name = "rule", defaultValue="STANDARD") String rule,
+                                                       @AuthenticationPrincipal Jwt jwt) {
         String ownerUserId = jwt.getSubject(); // 从 JWT 获取房主用户ID
         var m = "PVP".equalsIgnoreCase(mode) ? Mode.PVP : Mode.PVE;
         var r = "RENJU".equalsIgnoreCase(rule) ? Rule.RENJU : Rule.STANDARD;
-        return ResponseEntity.ok(svc.newRoom(m, aiPiece, r, ownerUserId));
+        String roomId = svc.newRoom(m, aiPiece, r, ownerUserId);
+        return ResponseEntity.ok(ApiResponse.success(roomId));
     }
 
     /**

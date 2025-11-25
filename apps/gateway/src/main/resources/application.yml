@@ -27,7 +27,7 @@ spring:
             # 你在 Keycloak 建的客户端ID
             client-id: game-hub
             # 在 Keycloak “凭证”页复制的值
-            client-secret: Lt2kkFyWYjJAEBNd7ZAk3TQTjMkj89iZ
+            client-secret: j5PktsGfvSWaF8JXwpfzGhuvAoYlPGWd
             # 授权模式：使用 OAuth2 授权码模式（最常见，浏览器重定向登录后由网关用 code 换 token）
             authorization-grant-type: authorization_code
             # 回调地址模板：登录成功后 Keycloak 把授权码回传到此；
@@ -99,3 +99,7 @@ keycloak:
     client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:}
     username: ${KEYCLOAK_ADMIN_USERNAME:admin}
     password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
+
+logging:
+  level:
+    org.springframework.security: DEBUG

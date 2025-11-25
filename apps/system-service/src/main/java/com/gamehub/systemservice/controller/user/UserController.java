@@ -5,9 +5,11 @@ import com.gamehub.systemservice.dto.request.CreateUserRequest;
 import com.gamehub.systemservice.dto.request.UpdateUserRequest;
 import com.gamehub.systemservice.entity.user.SysUser;
 import com.gamehub.systemservice.service.user.UserService;
+import com.gamehub.web.common.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -30,17 +32,16 @@ public class UserController {
      * 获取当前登录用户信息
      */
     @GetMapping("/me")
-    public Result<SysUser> getCurrentUser(@AuthenticationPrincipal Jwt jwt) {
-        // 从 JWT 中获取 Keycloak 用户ID（sub）
+    public ResponseEntity<ApiResponse<SysUser>> getCurrentUser(@AuthenticationPrincipal Jwt jwt) {
         String sub = jwt.getSubject();
         UUID keycloakUserId = UUID.fromString(sub);
 
         Optional<SysUser> user = userService.findByKeycloakUserId(keycloakUserId);
         if (user.isEmpty()) {
-            return Result.error(404, "用户不存在，请先同步用户信息");
+            return ResponseEntity.status(404).body(ApiResponse.notFound("用户不存在，请先同步用户信息"));
         }
 
-        return Result.success(user.get());
+        return ResponseEntity.ok(ApiResponse.success(user.get()));
     }
 
     /**

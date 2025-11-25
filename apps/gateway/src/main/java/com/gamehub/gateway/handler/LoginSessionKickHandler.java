@@ -63,8 +63,8 @@ public class LoginSessionKickHandler implements ServerAuthenticationSuccessHandl
         this.blacklistService = blacklistService;
         this.sessionEventPublisher = sessionEventPublisher;
         this.keycloakSsoLogoutService = keycloakSsoLogoutService;
-        // 使用默认的成功处理器（用于重定向）
-        this.defaultSuccessHandler = new org.springframework.security.web.server.authentication.RedirectServerAuthenticationSuccessHandler("/");
+        // 登录成功后跳回前端首页，让前端继续调用 /token 获取凭证
+        this.defaultSuccessHandler = new org.springframework.security.web.server.authentication.RedirectServerAuthenticationSuccessHandler("http://localhost:5173/");
     }
 
     @Override

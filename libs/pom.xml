@@ -16,5 +16,6 @@
     <modules>
         <module>session-common</module>
         <module>session-kafka-notifier</module>
+        <module>web-common</module>
     </modules>
 </project>

@@ -1,5 +1,7 @@
 package com.gamehub.gameservice.platform.transport;
 
+import com.gamehub.web.common.ApiResponse;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,7 +18,7 @@ import java.util.Optional;
 public class MeController {
 
     @GetMapping
-    public Map<String, Object> me(@AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> me(@AuthenticationPrincipal Jwt jwt) {
         String sub = jwt.getSubject();
         String username = Optional.ofNullable(jwt.getClaimAsString("preferred_username"))
                 .orElse(sub);
@@ -39,14 +41,15 @@ public class MeController {
             clientRoles = res;
         }
 
-        return Map.of(
+        Map<String, Object> body = Map.of(
                 "sub", sub,
                 "username", username,
                 "email", Objects.toString(email, null),
                 "realm_roles", Objects.requireNonNullElse(realmRoles, java.util.List.of()),
                 "resource_access", Objects.requireNonNullElse(clientRoles, Map.of())
         );
+
+        return ResponseEntity.ok(ApiResponse.success(body));
     }
 }
-
 
