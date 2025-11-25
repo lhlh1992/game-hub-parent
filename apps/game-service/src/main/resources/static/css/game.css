@@ -194,7 +194,7 @@ body::after {
     align-items: center;
     justify-content: flex-start;
     padding: 0;
-    align-self: center; /* 与棋盘垂直居中对齐 */
+    align-self: start; /* 顶部对齐，确保左右卡片在同一水平线上 */
     gap: 20px; /* 卡片与下方区域的间距 */
 }
 
@@ -203,7 +203,7 @@ body::after {
 .player-panel.player-right {
     justify-content: flex-start;
     padding-top: 0;
-    align-self: center;
+    align-self: start; /* 顶部对齐，确保左右卡片在同一水平线上 */
 }
 
 .player-card {
@@ -575,14 +575,14 @@ body::after {
     align-items: center;
     justify-content: flex-start;
     padding: 0;
-    align-self: center; /* 与棋盘垂直居中对齐 */
+    align-self: start; /* 顶部对齐，确保左右卡片在同一水平线上 */
     gap: 20px; /* 卡片与下方区域的间距 */
 }
 
 /* Player1 和 Player2 卡片完全一致，宽度自适应 */
 .player-panel.player-left .player-card,
 .player-panel.player-right .player-card {
-    align-self: center;
+    align-self: center; /* 居中对齐，与下方区域对齐 */
     width: auto; /* 自适应宽度 */
     min-width: 300px; /* 最小宽度一致，增加20% */
     max-width: 330px; /* 最大宽度一致，增加18% */
@@ -795,7 +795,7 @@ body::after {
 
 /* ========== 聊天区域（左侧，玩家1卡片下方，与玩家卡片宽度一致） ========== */
 .game-chat-panel {
-    width: 100%;
+    width: auto; /* 改为auto，与玩家卡片保持一致 */
     min-width: 300px; /* 与玩家卡片最小宽度一致 */
     max-width: 330px; /* 与玩家卡片最大宽度一致 */
     min-height: 400px;
@@ -811,6 +811,7 @@ body::after {
     flex-shrink: 0;
     margin: 0;
     padding: 16px; /* 内边距，保持与卡片左右对齐 */
+    align-self: center; /* 居中对齐，与玩家卡片对齐 */
 }
 
 /* 聊天区域头部（迷你标题栏，极简风格） */
@@ -984,7 +985,7 @@ body::after {
 
 /* ========== 系统信息区域（右侧，玩家2卡片下方，与聊天区域和玩家卡片宽度一致） ========== */
 .system-info-panel {
-    width: 100%;
+    width: auto; /* 改为auto，与玩家卡片保持一致 */
     min-width: 300px; /* 与玩家卡片最小宽度一致 */
     max-width: 330px; /* 与玩家卡片最大宽度一致，与聊天区域一致 */
     min-height: 400px;
@@ -1000,6 +1001,7 @@ body::after {
     flex-shrink: 0;
     margin: 0;
     padding: 16px; /* 与聊天区域一致 */
+    align-self: center; /* 居中对齐，与玩家卡片对齐 */
 }
 
 /* 系统信息区头部（与聊天区域头部一致） */
