@@ -28,12 +28,12 @@ spring:
           max-wait: 5s
 
 
-# session会话管理redis
+# session会话管理redis（所有服务统一用 database 0）
 session:
   redis:
     host: 127.0.0.1
     port: 6379
-    database: 2
+    database: ${SESSION_REDIS_DATABASE:0}
     password: zaqxsw
   # Kafka 会话失效事件通知
   kafka:

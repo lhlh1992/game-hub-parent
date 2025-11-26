@@ -82,7 +82,7 @@ session:
   redis:
     host: ${SESSION_REDIS_HOST:127.0.0.1}
     port: ${SESSION_REDIS_PORT:6379}
-    database: ${SESSION_REDIS_DATABASE:1}
+    database: ${SESSION_REDIS_DATABASE:0}
     password: ${SESSION_REDIS_PASSWORD:zaqxsw}
   # Kafka 会话失效事件通知
   kafka:
