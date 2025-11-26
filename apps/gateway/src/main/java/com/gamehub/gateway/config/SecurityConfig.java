@@ -3,6 +3,7 @@ package com.gamehub.gateway.config;
 import com.gamehub.gateway.handler.LoginSessionKickHandler;
 import com.gamehub.gateway.service.JwtBlacklistService;
 import com.gamehub.gateway.service.KeycloakSsoLogoutService;
+import com.gamehub.session.SessionRegistry;
 import com.gamehub.session.event.SessionInvalidatedEvent;
 import com.gamehub.sessionkafkanotifier.publisher.SessionEventPublisher;
 import org.slf4j.Logger;
@@ -56,9 +57,12 @@ public class SecurityConfig {
 
     // 用于在本地会话失效时同步告知 Keycloak 注销 SSO
     private final KeycloakSsoLogoutService keycloakSsoLogoutService;
+    // 用于清理 Redis 中的会话数据
+    private final SessionRegistry sessionRegistry;
 
-    public SecurityConfig(KeycloakSsoLogoutService keycloakSsoLogoutService) {
+    public SecurityConfig(KeycloakSsoLogoutService keycloakSsoLogoutService, SessionRegistry sessionRegistry) {
         this.keycloakSsoLogoutService = keycloakSsoLogoutService;
+        this.sessionRegistry = sessionRegistry;
     }
  
 
@@ -173,8 +177,28 @@ public class SecurityConfig {
                                 ? publishSessionInvalidatedEvent(authentication, sessionEventPublisher)
                                 : Mono.empty();
                         
+                        // 3. 清理 SessionRegistry 中的登录会话
+                        Mono<Void> cleanupMono = Mono.fromRunnable(() -> {
+                            try {
+                                String userId = null;
+                                if (authentication.getPrincipal() instanceof Jwt jwt) {
+                                    userId = jwt.getSubject();
+                                } else if (authentication.getPrincipal() instanceof org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal principal) {
+                                    userId = principal.getName();
+                                } else {
+                                    userId = authentication.getName();
+                                }
+                                if (userId != null && !userId.isBlank()) {
+                                    sessionRegistry.removeAllSessions(userId);
+                                    log.info("登出时清理 SessionRegistry: userId={}", userId);
+                                }
+                            } catch (Exception e) {
+                                log.warn("登出时清理 SessionRegistry 失败", e);
+                            }
+                        });
+                        
                         // 并行执行，不阻塞
-                        return Mono.when(blacklistMono, publishMono);
+                        return Mono.when(blacklistMono, publishMono, cleanupMono);
                     })
                     //移除存储的 OAuth2 授权信息
                     .then(authorizedClientRepository.removeAuthorizedClient(REGISTRATION_ID, authentication, exchange.getExchange()))
@@ -244,7 +268,7 @@ public class SecurityConfig {
     }
 
     /**
-     * 统一处理认证/鉴权失败：清除会话、拉黑 token、发布事件，然后根据请求类型响应。
+     * 统一处理认证/鉴权失败：清除会话、拉黑 token、清理 SessionRegistry、发布事件，然后根据请求类型响应。
      * 确保 token 失效时与手动登出效果一致。
      */
     private Mono<Void> handleAuthenticationFailure(ServerWebExchange exchange,
@@ -255,11 +279,37 @@ public class SecurityConfig {
         logAuthFailure(exchange);
         return invalidateSession(exchange)
                 .then(blacklistCurrentToken(exchange, blacklistService, jwtDecoder, sessionEventPublisher))
+                .then(cleanupSessionRegistry(exchange, jwtDecoder))
                 .onErrorResume(ex -> {
                     log.warn("处理认证失败逻辑时发生异常，但仍将重定向到登录页", ex);
                     return Mono.empty();
                 })
                 .then(redirectBasedOnRequest(exchange));
+    }
+
+    /**
+     * 清理 SessionRegistry 中的会话数据（401/403 时调用）。
+     */
+    private Mono<Void> cleanupSessionRegistry(ServerWebExchange exchange, ReactiveJwtDecoder jwtDecoder) {
+        String authorization = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            return Mono.empty();
+        }
+        String token = authorization.substring("Bearer ".length());
+        return jwtDecoder.decode(token)
+                .flatMap(jwt -> Mono.fromRunnable(() -> {
+                    try {
+                        String userId = jwt.getSubject();
+                        if (userId != null && !userId.isBlank()) {
+                            sessionRegistry.removeAllSessions(userId);
+                            log.info("认证失败时清理 SessionRegistry: userId={}", userId);
+                        }
+                    } catch (Exception e) {
+                        log.warn("认证失败时清理 SessionRegistry 失败", e);
+                    }
+                }))
+                .onErrorResume(ex -> Mono.empty())
+                .then();
     }
 
     /**

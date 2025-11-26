@@ -223,7 +223,7 @@ public class LoginSessionKickHandler implements ServerAuthenticationSuccessHandl
     }
 
     /**
-     * 将被踢掉的旧会话 token 加入黑名单。
+     * 将被踢掉的旧会话 token 加入黑名单，并从 SessionRegistry 中删除。
      */
     private Mono<Void> blacklistKickedSessions(List<LoginSessionInfo> kickedSessions) {
         if (kickedSessions.isEmpty()) {
@@ -232,6 +232,16 @@ public class LoginSessionKickHandler implements ServerAuthenticationSuccessHandl
 
         return Mono.fromRunnable(() -> {
             for (LoginSessionInfo kickedSession : kickedSessions) {
+                // 1. 从 SessionRegistry 中删除旧会话
+                try {
+                    sessionRegistry.unregisterLoginSession(kickedSession.getSessionId());
+                    log.debug("已从 SessionRegistry 删除旧会话: sessionId={}, loginSessionId={}", 
+                            kickedSession.getSessionId(), kickedSession.getLoginSessionId());
+                } catch (Exception e) {
+                    log.warn("从 SessionRegistry 删除旧会话失败: sessionId={}", kickedSession.getSessionId(), e);
+                }
+                
+                // 2. 将旧 token 加入黑名单
                 if (kickedSession.getToken() != null && !kickedSession.getToken().isBlank()) {
                     // 计算剩余 TTL
                     long ttlSeconds = 0;
