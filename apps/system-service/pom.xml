@@ -78,6 +78,19 @@
             <artifactId>web-common</artifactId>
             <version>1.0.0-SNAPSHOT</version>
         </dependency>
+
+        <!-- 会话管理（Redis） -->
+        <dependency>
+            <groupId>com.gamehub</groupId>
+            <artifactId>session-common</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+
+        <!-- Redis（用于会话管理） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

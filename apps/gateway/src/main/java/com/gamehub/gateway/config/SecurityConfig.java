@@ -91,9 +91,10 @@ public class SecurityConfig {
                 //静态资源放行
                 .pathMatchers("/game-service/*.html", "/game-service/css/**",
                               "/game-service/js/**", "/game-service/static/**").permitAll()
-                // 放行 system-service 的用户注册接口（不需要认证）
+                // 放行 system-service 的用户注册接口和会话监控接口（不需要认证）
                 .pathMatchers("/system-service/api/users/save").permitAll()
                 .pathMatchers("/system-service/api/auth/token").permitAll()
+                .pathMatchers("/system-service/internal/sessions/**").permitAll()
 
                 // 放行 事件驱动
                 .pathMatchers("/system-service/internal/keycloak/events/**").permitAll()

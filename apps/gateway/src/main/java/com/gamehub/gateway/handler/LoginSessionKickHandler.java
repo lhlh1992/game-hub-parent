@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
+import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.web.server.WebFilterExchange;
 import org.springframework.security.web.server.authentication.ServerAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
@@ -84,6 +85,7 @@ public class LoginSessionKickHandler implements ServerAuthenticationSuccessHandl
 
                     OAuth2AccessToken accessToken = authorizedClient.getAccessToken();
                     String tokenValue = accessToken.getTokenValue();
+                    OAuth2RefreshToken refreshToken = authorizedClient.getRefreshToken();
                     
                     // 步骤2：解析 JWT，提取 userId、sessionId(jti)、loginSessionId(sid)
                     return extractJwtInfo(tokenValue)
@@ -112,10 +114,19 @@ public class LoginSessionKickHandler implements ServerAuthenticationSuccessHandl
                                         .build();
 
                                 // 步骤4：计算 TTL
-                                long ttlSeconds = 0;
-                                if (expiresAt != null) {
-                                    ttlSeconds = Duration.between(Instant.now(), expiresAt).getSeconds();
+                                // 登录会话（sid）的生命周期应该与 refresh_token 一致
+                                // - 登录时创建，登出时删除
+                                // - 如果 refresh_token 过期，用户无法刷新 token，登录会话也应该失效
+                                // - 使用 refresh_token 的过期时间作为 TTL，而不是 access_token 的过期时间
+                                long ttlSeconds = 0; // 默认使用默认 TTL（12小时）
+                                if (refreshToken != null && refreshToken.getExpiresAt() != null) {
+                                    Instant refreshExpiresAt = refreshToken.getExpiresAt();
+                                    ttlSeconds = Duration.between(Instant.now(), refreshExpiresAt).getSeconds();
                                     ttlSeconds = Math.max(ttlSeconds, 0);
+                                    log.debug("使用 refresh_token 过期时间计算 TTL: refreshExpiresAt={}, ttlSeconds={}", 
+                                            refreshExpiresAt, ttlSeconds);
+                                } else {
+                                    log.debug("refresh_token 不存在或没有过期时间，使用默认 TTL（12小时）");
                                 }
 
                                 // 步骤5：注册新会话，标记旧会话为 KICKED（单点登录核心）

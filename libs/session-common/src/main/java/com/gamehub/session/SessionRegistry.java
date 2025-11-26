@@ -152,6 +152,42 @@ public class SessionRegistry {
     }
 
     /**
+     * 刷新已存在的登录会话（用于 token 刷新时同步新的 jti / token 信息）。
+     *
+     * @param sessionInfo       更新后的会话信息（包含新的 sessionId/token 等）
+     * @param previousSessionId 刷新前的 sessionId（旧 jti），用于清理旧数据
+     * @param ttlSeconds        新的 TTL（秒），<=0 使用默认值
+     */
+    public void refreshLoginSession(LoginSessionInfo sessionInfo, String previousSessionId, long ttlSeconds) {
+        Objects.requireNonNull(sessionInfo, "sessionInfo must not be null");
+        requireText(sessionInfo.getSessionId(), "sessionId");
+        requireText(sessionInfo.getUserId(), "userId");
+
+        String userId = sessionInfo.getUserId();
+
+        if (previousSessionId != null && !previousSessionId.isBlank() && !previousSessionId.equals(sessionInfo.getSessionId())) {
+            redis.opsForSet().remove(LOGIN_USER_KEY_PREFIX + userId, previousSessionId);
+            redis.delete(LOGIN_SESSION_KEY_PREFIX + previousSessionId);
+        }
+
+        Duration ttl = resolveTtl(ttlSeconds, DEFAULT_LOGIN_TTL);
+        String userKey = LOGIN_USER_KEY_PREFIX + userId;
+        String sessionKey = LOGIN_SESSION_KEY_PREFIX + sessionInfo.getSessionId();
+        String sessionJson = JSON.toJSONString(sessionInfo);
+
+        redis.opsForSet().add(userKey, sessionInfo.getSessionId());
+        redis.opsForValue().set(sessionKey, sessionJson, ttl);
+
+        if (sessionInfo.getLoginSessionId() != null && !sessionInfo.getLoginSessionId().isBlank()) {
+            String loginSessionKey = LOGIN_SESSION_BY_LOGIN_SESSION_ID_PREFIX + sessionInfo.getLoginSessionId();
+            redis.opsForValue().set(loginSessionKey, sessionJson, ttl);
+        }
+
+        log.debug("刷新登录会话: userId={}, sessionId={}, loginSessionId={}, ttl={}s",
+                userId, sessionInfo.getSessionId(), sessionInfo.getLoginSessionId(), ttl.getSeconds());
+    }
+
+    /**
      * 注销单个登录会话。
      * 
      * 注意：此方法会删除会话记录。如果希望保留审计记录，可以使用 {@link #updateSessionStatus(String, SessionStatus)} 将状态设置为 EXPIRED。

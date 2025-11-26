@@ -52,3 +52,6 @@ gomoku:
   turn:
     seconds: 30    # 回合时长（秒），默认 30
     aiTimed: false # AI 回合是否计时，默认不计时
+logging:
+  level:
+    org.springframework.security: INFO

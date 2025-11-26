@@ -73,7 +73,7 @@ public class WebSocketSessionManager {
                 disconnectHelper.forceDisconnect(old.getSessionId());
             });
         } else {
-            log.debug("用户 {} WebSocket 连接 {} 注册完成，无旧连接, loginSessionId={}", 
+            log.info("用户 {} WebSocket 连接 {} 注册完成，无旧连接, loginSessionId={}",
                     userId, sessionId, loginSessionId);
         }
     }

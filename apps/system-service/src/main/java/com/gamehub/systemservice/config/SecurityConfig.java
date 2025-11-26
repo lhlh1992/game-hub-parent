@@ -35,6 +35,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/token").permitAll()
                         // Keycloak 事件回调（内部使用，使用共享密钥校验）
                         .requestMatchers("/internal/keycloak/events/**").permitAll()
+                        // 会话监控接口（开发调试用，完全开放）
+                        .requestMatchers("/internal/sessions/**").permitAll()
                         // 其他请求需要认证
                         .anyRequest().authenticated()
                 )

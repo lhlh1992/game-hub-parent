@@ -91,7 +91,15 @@ keycloak:
   # 可选：若插件使用 Basic Auth 方式推送事件，则配置用户名与密码（两者都配置才生效）
   # 注意：必须与 docker-compose.yml 中的 WEBHOOK_HTTP_AUTH_USERNAME 和 WEBHOOK_HTTP_AUTH_PASSWORD 一致
   event-webhook-basic-username: admin
-  event-webhook-basic-password: 123456 
+  event-webhook-basic-password: 123456
+
+# session 会话管理配置（用于会话监控功能）
+session:
+  redis:
+    host: ${SESSION_REDIS_HOST:127.0.0.1}
+    port: ${SESSION_REDIS_PORT:6379}
+    database: ${SESSION_REDIS_DATABASE:1}
+    password: ${SESSION_REDIS_PASSWORD:zaqxsw} 
 
 # 日志配置
 logging:

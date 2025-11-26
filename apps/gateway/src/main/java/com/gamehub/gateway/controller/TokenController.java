@@ -16,6 +16,8 @@ import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebSession;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -80,6 +82,7 @@ public class TokenController {
 
 					OAuth2AccessToken accessToken = authorizedClient.getAccessToken();
 					String tokenValue = accessToken.getTokenValue();
+					OAuth2RefreshToken refreshToken = authorizedClient.getRefreshToken();
 					
 					// 步骤3：解析 JWT，提取 loginSessionId
 					return jwtDecoder.decode(tokenValue)
@@ -120,11 +123,18 @@ public class TokenController {
 													// 检查 token 的 jti 与会话的 sessionId 是否匹配
 													String sessionJti = sessionInfo.getSessionId();
 													if (!jwtJti.equals(sessionJti)) {
-														log.error("Token 的 jti 与会话的 sessionId 不匹配，拒绝返回: userId={}, jwtJti={}, sessionJti={}", 
-																userId, jwtJti, sessionJti);
-														return Mono.just(ResponseEntity.status(401).<Map<String, Object>>body(
-																Map.<String, Object>of("error", "Token 已失效", "message", "请重新登录")
-														));
+														log.info("检测到 token 刷新，更新 SessionRegistry: userId={}, loginSessionId={}, oldJti={}, newJti={}",
+																userId, loginSessionId, sessionJti, jwtJti);
+														
+														Long issuedAtMillis = jwt.getIssuedAt() != null ? jwt.getIssuedAt().toEpochMilli() : Instant.now().toEpochMilli();
+														Long expiresAtMillis = jwt.getExpiresAt() != null ? jwt.getExpiresAt().toEpochMilli() : null;
+														sessionInfo.setSessionId(jwtJti);
+														sessionInfo.setToken(tokenValue);
+														sessionInfo.setIssuedAt(issuedAtMillis);
+														sessionInfo.setExpiresAt(expiresAtMillis);
+														
+														long refreshTtlSeconds = resolveRefreshTtlSeconds(refreshToken);
+														sessionRegistry.refreshLoginSession(sessionInfo, sessionJti, refreshTtlSeconds);
 													}
 												} else {
 													log.debug("SessionRegistry 中找不到会话: userId={}, loginSessionId={}", userId, loginSessionId);
@@ -138,7 +148,6 @@ public class TokenController {
 													result.put("expires_at", accessToken.getExpiresAt().toEpochMilli());
 												}
 												// 获取 refresh_token（用于刷新 access_token）
-												OAuth2RefreshToken refreshToken = authorizedClient.getRefreshToken();
 												if (refreshToken != null) {
 													result.put("refresh_token", refreshToken.getTokenValue());
 													if (refreshToken.getExpiresAt() != null) {
@@ -157,7 +166,6 @@ public class TokenController {
 									if (accessToken.getExpiresAt() != null) {
 										result.put("expires_at", accessToken.getExpiresAt().toEpochMilli());
 									}
-									OAuth2RefreshToken refreshToken = authorizedClient.getRefreshToken();
 									if (refreshToken != null) {
 										result.put("refresh_token", refreshToken.getTokenValue());
 										if (refreshToken.getExpiresAt() != null) {
@@ -176,7 +184,6 @@ public class TokenController {
 								if (accessToken.getExpiresAt() != null) {
 									result.put("expires_at", accessToken.getExpiresAt().toEpochMilli());
 								}
-								OAuth2RefreshToken refreshToken = authorizedClient.getRefreshToken();
 								if (refreshToken != null) {
 									result.put("refresh_token", refreshToken.getTokenValue());
 									if (refreshToken.getExpiresAt() != null) {
@@ -215,6 +222,14 @@ public class TokenController {
 		}
 		
 		return null;
+	}
+
+	private long resolveRefreshTtlSeconds(OAuth2RefreshToken refreshToken) {
+		if (refreshToken != null && refreshToken.getExpiresAt() != null) {
+			long ttl = Duration.between(Instant.now(), refreshToken.getExpiresAt()).getSeconds();
+			return Math.max(ttl, 0);
+		}
+		return 0;
 	}
 }
 
