@@ -55,3 +55,5 @@ gomoku:
 logging:
   level:
     org.springframework.security: INFO
+    com.gamehub.gameservice.platform.ws: INFO  # WebSocket 断开检测日志
+    com.gamehub.session: DEBUG  # SessionRegistry 日志（可选，用于调试）

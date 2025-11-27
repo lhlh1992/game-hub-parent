@@ -111,13 +111,65 @@ public class WebSocketSessionManager {
 
     /**
      * 连接断开时清理会话。
+     * 
+     * 重要：此方法会检测到所有类型的断开，包括：
+     * - 正常关闭浏览器/页签
+     * - 强制关闭浏览器
+     * - 网络中断
+     * - 系统崩溃
+     * 
+     * 因为这是基于 TCP 连接断开的检测，比浏览器端事件更可靠。
      */
     @EventListener
     public void handleSessionDisconnect(SessionDisconnectEvent event) {
         String sessionId = event.getSessionId();
-        if (sessionId != null) {
-            sessionRegistry.unregisterWebSocketSession(sessionId);
+        if (sessionId == null) {
+            log.warn("【WebSocket断开检测】收到 SessionDisconnectEvent 但缺少 sessionId");
+            return;
         }
+        
+        // 1. 从 SessionRegistry 查询会话信息（包含 userId）
+        WebSocketSessionInfo sessionInfo = sessionRegistry.getWebSocketSession(sessionId);
+        String userId = null;
+        String loginSessionId = null;
+        
+        if (sessionInfo != null) {
+            userId = sessionInfo.getUserId();
+            loginSessionId = sessionInfo.getLoginSessionId();
+            log.info("【WebSocket断开检测】检测到断开: sessionId={}, userId={}, loginSessionId={}, service={}, connectedAt={}", 
+                    sessionId, userId, loginSessionId, sessionInfo.getService(), 
+                    sessionInfo.getConnectedAt() != null ? 
+                        java.time.Instant.ofEpochMilli(sessionInfo.getConnectedAt()) : null);
+        } else {
+            // 如果无法从 SessionRegistry 获取，尝试从事件中提取
+            StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
+            Principal principal = accessor.getUser();
+            if (principal != null) {
+                userId = principal.getName();
+                loginSessionId = extractLoginSessionId(principal);
+                log.info("【WebSocket断开检测】检测到断开（从事件提取）: sessionId={}, userId={}, loginSessionId={}", 
+                        sessionId, userId, loginSessionId);
+            } else {
+                log.warn("【WebSocket断开检测】检测到断开但无法获取用户信息: sessionId={}", sessionId);
+            }
+        }
+        
+        // 2. 记录断开信息（用于测试和调试）
+        if (userId != null) {
+            log.info("【WebSocket断开检测】玩家断开连接详情: userId={}, sessionId={}, loginSessionId={}, 断开时间={}", 
+                    userId, sessionId, loginSessionId, java.time.Instant.now());
+            
+            // TODO: 后续实现玩家-房间绑定后，这里可以查询玩家所在房间
+            // String roomId = roomRepository.getUserRoom(userId);
+            // if (roomId != null) {
+            //     log.info("【WebSocket断开检测】玩家所在房间: userId={}, roomId={}", userId, roomId);
+            //     // 标记玩家为断开状态，但不立即清理绑定
+            // }
+        }
+        
+        // 3. 清理 WebSocket 会话注册
+        sessionRegistry.unregisterWebSocketSession(sessionId);
+        log.debug("【WebSocket断开检测】已清理会话注册: sessionId={}", sessionId);
     }
 
 }
