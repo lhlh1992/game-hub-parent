@@ -17,6 +17,8 @@ import com.gamehub.gameservice.games.gomoku.domain.rule.GomokuJudge;
 import com.gamehub.gameservice.games.gomoku.domain.rule.GomokuJudgeRenju;
 import com.gamehub.gameservice.games.gomoku.domain.rule.Outcome;
 import com.gamehub.gameservice.games.gomoku.service.GomokuService;
+import com.gamehub.gameservice.platform.ongoing.OngoingGameInfo;
+import com.gamehub.gameservice.platform.ongoing.OngoingGameTracker;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,6 +51,7 @@ public class GomokuServiceImpl implements GomokuService {
     @Value("${gomoku.turn.seconds:30}")
     private int turnSeconds;
 
+    private final OngoingGameTracker ongoingGameTracker;
 
 
     @Override
@@ -75,6 +78,9 @@ public class GomokuServiceImpl implements GomokuService {
         meta.setDraws(0);
         meta.setOwnerUserId(ownerUserId); // 保存房主用户ID
         roomRepo.saveRoomMeta(roomId, meta, Duration.ofHours(48));
+
+        // 3.1 记录用户正在进行中的房间，供前端“继续游戏”入口使用
+        ongoingGameTracker.save(ownerUserId, OngoingGameInfo.gomoku(roomId));
 
         // 4) Redis：写入首盘 GameStateRecord（空盘，黑先）
         String emptyBoard = String.valueOf(Board.EMPTY).repeat(Board.SIZE * Board.SIZE);

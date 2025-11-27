@@ -55,6 +55,11 @@ public final class RedisKeys {
         return "gomoku:room:" + roomId + ":series";
     }
 
+    // ---- 用户维度：正在进行中的房间 ----
+    public static String userOngoing(String userId) {
+        return PFX + "user:" + userId + ":ongoing";
+    }
+
 
 
 }
