@@ -14,6 +14,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Duration;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * RedisGameStateRepository
@@ -53,6 +54,15 @@ public class RedisGameStateRepository implements GameStateRepository {
     @Override
     public void delete(String roomId, String gameId) {
         ops.del(RedisKeys.gameState(roomId, gameId));
+    }
+
+    @Override
+    public void deleteAll(String roomId) {
+        String pattern = RedisKeys.gameStatePrefix(roomId) + "*" + RedisKeys.gameStateSuffix();
+        Set<String> keys = redisTemplate.keys(pattern);
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
     }
 
     /**

@@ -39,6 +39,12 @@ public interface GameStateRepository {
      */
     void delete(String roomId, String gameId);
 
+    /**
+     * 删除指定房间下所有棋局状态（用于房间销毁）
+     * @param roomId 房间ID
+     */
+    void deleteAll(String roomId);
+
 
     // === 新增：基于 WATCH/MULTI 的原子更新 ===
     boolean updateAtomically(

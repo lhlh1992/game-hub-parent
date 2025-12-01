@@ -69,4 +69,14 @@ public class GomokuRestController {
     public record GameStateDTO(char[][] board,char current,boolean over,Character winner){
         static GameStateDTO from(GomokuState s){ return new GameStateDTO(s.board().view(), s.current(), s.over(), s.winner()); }
     }
+
+    /**
+     * 房间内玩家主动退出
+     */
+    @PostMapping("/rooms/{roomId}/leave")
+    public ResponseEntity<ApiResponse<GomokuService.LeaveResult>> leaveRoom(@PathVariable String roomId,
+                                                                            @AuthenticationPrincipal Jwt jwt) {
+        var result = svc.leaveRoom(roomId, jwt.getSubject());
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
 }

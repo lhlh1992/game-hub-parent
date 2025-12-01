@@ -63,6 +63,12 @@ public interface RoomRepository {
     void deleteSeats(String roomId);
 
     /**
+     * 删除房间的所有 seatKey（用于销毁房间）
+     * @param roomId 房间ID
+     */
+    void deleteSeatKeys(String roomId);
+
+    /**
      * 保存 seatKey -> 座位标识（X/O），带 TTL。
      * seatKey 用于断线重连后身份验证。
      * @param roomId   房间ID
@@ -98,5 +104,11 @@ public interface RoomRepository {
 
     /** 获取系列比分视图 */
     SeriesView getSeries(String roomId);
+
+    /**
+     * 删除系列比分缓存
+     * @param roomId 房间ID
+     */
+    void deleteSeries(String roomId);
 
 }

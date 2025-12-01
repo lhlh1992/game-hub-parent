@@ -17,10 +17,13 @@ import com.gamehub.gameservice.games.gomoku.domain.rule.GomokuJudge;
 import com.gamehub.gameservice.games.gomoku.domain.rule.GomokuJudgeRenju;
 import com.gamehub.gameservice.games.gomoku.domain.rule.Outcome;
 import com.gamehub.gameservice.games.gomoku.service.GomokuService;
+import com.gamehub.gameservice.games.gomoku.application.TurnClockCoordinator;
 import com.gamehub.gameservice.platform.ongoing.OngoingGameInfo;
 import com.gamehub.gameservice.platform.ongoing.OngoingGameTracker;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -34,6 +37,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class GomokuServiceImpl implements GomokuService {
 
+    private static final Duration ROOM_TTL = Duration.ofHours(48);
+
 
     // ====== 内存房间表 ======
     private final Map<String, Room> rooms = new ConcurrentHashMap<>();
@@ -46,6 +51,12 @@ public class GomokuServiceImpl implements GomokuService {
     private final RoomRepository roomRepo;
     private final GameStateRepository gameRepo;
     private final TurnRepository turnRepo;
+    private ObjectProvider<TurnClockCoordinator> coordinatorProvider;
+
+    @Autowired
+    public void setCoordinatorProvider(ObjectProvider<TurnClockCoordinator> coordinatorProvider) {
+        this.coordinatorProvider = coordinatorProvider;
+    }
 
     /** 每回合默认倒计时时长（秒） */
     @Value("${gomoku.turn.seconds:30}")
@@ -77,7 +88,7 @@ public class GomokuServiceImpl implements GomokuService {
         meta.setWhiteWins(0);
         meta.setDraws(0);
         meta.setOwnerUserId(ownerUserId); // 保存房主用户ID
-        roomRepo.saveRoomMeta(roomId, meta, Duration.ofHours(48));
+        roomRepo.saveRoomMeta(roomId, meta, ROOM_TTL);
 
         // 3.1 记录用户正在进行中的房间，供前端“继续游戏”入口使用
         ongoingGameTracker.save(ownerUserId, OngoingGameInfo.gomoku(roomId));
@@ -94,10 +105,10 @@ public class GomokuServiceImpl implements GomokuService {
         rec.setWinner(null);
         rec.setOver(false);
         rec.setStep(0);
-        gameRepo.save(roomId,gameId,rec, Duration.ofHours(48));
+        gameRepo.save(roomId,gameId,rec, ROOM_TTL);
 
         // 5) Redis：清空座位（本步只初始化，不绑定）
-        roomRepo.saveSeats(roomId, new SeatsBinding(), Duration.ofHours(48));
+        roomRepo.saveSeats(roomId, new SeatsBinding(), ROOM_TTL);
         // TurnAnchor的创建交给TurnClockManager处理
 
         // 6) 内存快照：为现有控制器保留
@@ -293,7 +304,7 @@ public class GomokuServiceImpl implements GomokuService {
                 .orElseThrow(() -> new IllegalArgumentException("ROOM_NOT_FOUND: " + roomId));
         meta.setGameId(gameId);
         meta.setCurrentIndex(1); // 重开时重置为第1盘
-        roomRepo.saveRoomMeta(roomId, meta, Duration.ofHours(48));
+        roomRepo.saveRoomMeta(roomId, meta, ROOM_TTL);
         
         // 在Redis中创建新的GameStateRecord（空盘）
         String emptyBoard = String.valueOf(Board.EMPTY).repeat(Board.SIZE * Board.SIZE);
@@ -307,7 +318,7 @@ public class GomokuServiceImpl implements GomokuService {
         rec.setWinner(null);
         rec.setOver(false);
         rec.setStep(0);
-        gameRepo.save(roomId, gameId, rec, Duration.ofHours(48));
+        gameRepo.save(roomId, gameId, rec, ROOM_TTL);
         
         // TurnAnchor的创建交给TurnClockManager处理
         
@@ -456,7 +467,7 @@ public class GomokuServiceImpl implements GomokuService {
             seats.setSeatOSessionId(userId);
         }
         seats.getSeatBySession().put(userId, String.valueOf(side));
-        roomRepo.saveSeats(roomId, seats, Duration.ofHours(48));
+        roomRepo.saveSeats(roomId, seats, ROOM_TTL);
 
         // 4) 同步到内存快照（兼容现有逻辑）
         r.getSeatBySession().put(userId, side);
@@ -508,7 +519,7 @@ public class GomokuServiceImpl implements GomokuService {
                 .orElseThrow(() -> new IllegalArgumentException("ROOM_NOT_FOUND: " + roomId));
         meta.setGameId(gameId);
         meta.setCurrentIndex(index);
-        roomRepo.saveRoomMeta(roomId, meta, Duration.ofHours(48));
+        roomRepo.saveRoomMeta(roomId, meta, ROOM_TTL);
         
         // 4) 在Redis中创建新的GameStateRecord（空盘）
         String emptyBoard = String.valueOf(Board.EMPTY).repeat(Board.SIZE * Board.SIZE);
@@ -522,7 +533,7 @@ public class GomokuServiceImpl implements GomokuService {
         rec.setWinner(null);
         rec.setOver(false);
         rec.setStep(0);
-        gameRepo.save(roomId, gameId, rec, Duration.ofHours(48));
+        gameRepo.save(roomId, gameId, rec, ROOM_TTL);
         
         return g.getState();
     }
@@ -575,7 +586,7 @@ public class GomokuServiceImpl implements GomokuService {
             r.getSeatToSessionId().put(s, userId);
         }
         // === 写入 Redis，用于刷新重入 ===
-        roomRepo.setSeatKey(roomId, key, String.valueOf(s), Duration.ofHours(48));
+        roomRepo.setSeatKey(roomId, key, String.valueOf(s), ROOM_TTL);
         return key;
     }
 
@@ -607,7 +618,7 @@ public class GomokuServiceImpl implements GomokuService {
         // 2.2 相同 session → 短路返回：无需写 Redis（避免无意义 IO）
         if (java.util.Objects.equals(oldSessionId, userId)) {
             // —— 可选：如果你想做“滑动过期”，这里可以调用一个 touchSeats(roomId, ttl) 续期；
-            // roomRepo.touchSeats(roomId, Duration.ofHours(48));
+            // roomRepo.touchSeats(roomId, ROOM_TTL);
             // 内存快照幂等同步
             Room rSame = room(roomId);
 
@@ -625,7 +636,7 @@ public class GomokuServiceImpl implements GomokuService {
             seats.setSeatOSessionId(userId);
         }
         // TTL 视你的策略，目前与你现有实现一致：48 小时
-        roomRepo.saveSeats(roomId, seats, java.time.Duration.ofHours(48));
+        roomRepo.saveSeats(roomId, seats, ROOM_TTL);
 
         // 3) 同步到内存快照（幂等）
         Room r = room(roomId);
@@ -747,6 +758,69 @@ public class GomokuServiceImpl implements GomokuService {
         );
     }
 
+    @Override
+    public LeaveResult leaveRoom(String roomId, String userId) {
+        Objects.requireNonNull(userId, "userId must not be null");
+        RoomMeta meta = roomRepo.getRoomMeta(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("ROOM_NOT_FOUND: " + roomId));
+
+        Mode mode = Mode.valueOf(meta.getMode());
+        if (mode == Mode.PVE) {
+            destroyRoom(roomId);
+            ongoingGameTracker.clear(userId);
+            return new LeaveResult(true, null, null);
+        }
+
+        SeatsBinding seats = roomRepo.getSeats(roomId).orElseGet(SeatsBinding::new);
+        boolean isX = userId.equals(seats.getSeatXSessionId());
+        boolean isO = userId.equals(seats.getSeatOSessionId());
+
+        if (!isX && !isO) {
+            ongoingGameTracker.clear(userId);
+            return new LeaveResult(false, meta.getOwnerUserId(), null);
+        }
+
+        String opponentUserId = isX ? seats.getSeatOSessionId() : seats.getSeatXSessionId();
+        boolean opponentPresent = opponentUserId != null && !opponentUserId.isBlank();
+        char freedSeat = isX ? Board.BLACK : Board.WHITE;
+
+        if (!opponentPresent) {
+            destroyRoom(roomId);
+            ongoingGameTracker.clear(userId);
+            return new LeaveResult(true, null, freedSeat);
+        }
+
+        if (isX) {
+            seats.setSeatXSessionId(null);
+        } else {
+            seats.setSeatOSessionId(null);
+        }
+        if (seats.getSeatBySession() != null) {
+            seats.getSeatBySession().remove(userId);
+        }
+        roomRepo.saveSeats(roomId, seats, ROOM_TTL);
+
+        Room local = rooms.get(roomId);
+        if (local != null) {
+            local.getSeatBySession().remove(userId);
+            if (isX) {
+                local.setSeatXSessionId(null);
+            } else {
+                local.setSeatOSessionId(null);
+            }
+        }
+
+        String newOwner = meta.getOwnerUserId();
+        if (userId.equals(meta.getOwnerUserId())) {
+            newOwner = opponentUserId;
+            meta.setOwnerUserId(newOwner);
+            roomRepo.saveRoomMeta(roomId, meta, ROOM_TTL);
+        }
+
+        ongoingGameTracker.clear(userId);
+        return new LeaveResult(false, newOwner, freedSeat);
+    }
+
 
 
 
@@ -755,6 +829,24 @@ public class GomokuServiceImpl implements GomokuService {
         Room r = room(roomId); // ← 你已有的 Map<String, Room> rooms
         if (r == null) throw new IllegalArgumentException("Room not found: " + roomId);
         return r;
+    }
+
+    private void destroyRoom(String roomId) {
+        rooms.remove(roomId);
+        roomRepo.deleteRoom(roomId);
+        roomRepo.deleteSeats(roomId);
+        roomRepo.deleteSeatKeys(roomId);
+        roomRepo.deleteSeries(roomId);
+        gameRepo.deleteAll(roomId);
+        turnRepo.delete(roomId);
+        stopClock(roomId);
+    }
+
+    private void stopClock(String roomId) {
+        TurnClockCoordinator coordinator = coordinatorProvider.getIfAvailable();
+        if (coordinator != null) {
+            coordinator.stop(roomId);
+        }
     }
 
     /**

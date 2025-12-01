@@ -12,6 +12,7 @@ import com.gamehub.gameservice.games.gomoku.service.GomokuService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
@@ -42,6 +43,7 @@ import java.util.Map;
  * - 因此该类可安全归类为应用编排层（application），而非 controller/infrastructure。
  */
 @Component
+@Lazy
 @RequiredArgsConstructor
 public class TurnClockCoordinator {
 
@@ -50,7 +52,7 @@ public class TurnClockCoordinator {
     // 通用倒计时调度器（不懂业务）
     private final CountdownScheduler scheduler;
     // 五子棋业务服务（判负/局面/座位等）
-    private final GomokuService gomokuService;
+    private final @Lazy GomokuService gomokuService;
     // WebSocket 消息模板（推送到房间）
     private final SimpMessagingTemplate messaging;
     // 游戏状态仓储（用于保存状态到Redis）

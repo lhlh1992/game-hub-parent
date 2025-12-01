@@ -14,6 +14,7 @@ import org.springframework.stereotype.Repository;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 /**
  * RedisRoomRepository
  * -------------------------------------------------------
@@ -82,6 +83,14 @@ public class RedisRoomRepository implements RoomRepository {
     @Override
     public void deleteSeats(String roomId) {
         ops.del(RedisKeys.roomSeats(roomId));
+    }
+
+    @Override
+    public void deleteSeatKeys(String roomId) {
+        Set<String> keys = redisTemplate.keys(RedisKeys.roomSeatKeyPrefix(roomId) + "*");
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
     }
 
     /**
@@ -185,6 +194,11 @@ public class RedisRoomRepository implements RoomRepository {
         sv.setWhiteWins(owins);
         sv.setDraws(draws);
         return sv;
+    }
+
+    @Override
+    public void deleteSeries(String roomId) {
+        ops.del(RedisKeys.roomSeries(roomId));
     }
 
     // ===== 私有工具：安全解析 int =====

@@ -111,4 +111,14 @@ public interface GomokuService {
      * 注意：这里不要返回可变内部状态，避免被外部修改。
      */
     GomokuSnapshot snapshot(String roomId);
+
+    /**
+     * 玩家主动离开房间（手动点击退出）
+     * @param roomId 房间ID
+     * @param userId 当前用户ID
+     * @return 离开结果（是否销毁房间、新房主、释放的座位）
+     */
+    LeaveResult leaveRoom(String roomId, String userId);
+
+    record LeaveResult(boolean roomDestroyed, String newOwnerUserId, Character freedSeat) {}
 }

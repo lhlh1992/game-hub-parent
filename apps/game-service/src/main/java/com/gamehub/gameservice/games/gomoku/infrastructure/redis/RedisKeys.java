@@ -24,6 +24,10 @@ public final class RedisKeys {
         return PFX + "room:" + roomId + ":seatKey:" + seatKey;
     }
 
+    public static String roomSeatKeyPrefix(String roomId) {
+        return PFX + "room:" + roomId + ":seatKey:";
+    }
+
     // ---- 单盘对局状态 ----
     public static String gameState(String roomId, String gameId) {
         return PFX + "room:" + roomId + ":game:" + gameId + ":state";
