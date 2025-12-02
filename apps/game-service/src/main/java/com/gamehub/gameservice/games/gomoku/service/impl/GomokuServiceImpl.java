@@ -89,6 +89,7 @@ public class GomokuServiceImpl implements GomokuService {
         meta.setWhiteWins(0);
         meta.setDraws(0);
         meta.setOwnerUserId(ownerUserId); // 保存房主用户ID
+        meta.setCreatedAt(System.currentTimeMillis()); // 房间创建时间（统一在 Redis 中排序）
         roomRepo.saveRoomMeta(roomId, meta, ROOM_TTL);
 
         // 3.1 记录用户正在进行中的房间，供前端“继续游戏”入口使用

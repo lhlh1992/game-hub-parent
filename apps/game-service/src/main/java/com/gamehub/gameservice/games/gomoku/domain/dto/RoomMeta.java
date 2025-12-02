@@ -31,7 +31,10 @@ public class RoomMeta {
 
     /** 房主用户ID（创建房间的认证用户） */
     private String ownerUserId;
-    
+
+    /** 房间创建时间（epoch millis），用于排序和统计 */
+    private long createdAt;
+
     /** 房间状态：WAITING（等待开始）、PLAYING（对局中）、ENDED（已结束） */
     private String phase = "WAITING";
 }
