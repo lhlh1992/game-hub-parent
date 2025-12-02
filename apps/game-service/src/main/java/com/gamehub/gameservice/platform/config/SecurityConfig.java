@@ -35,6 +35,7 @@ public class SecurityConfig {
                         .requestMatchers("/*.html", "/css/**", "/js/**", "/static/**").permitAll()
                         .anyRequest().authenticated()
                 )
+                // 启用 JWT 验证：自动验证所有需要认证的请求的 JWT Token（从 Authorization: Bearer <token> header 提取）
                 .oauth2ResourceServer(oauth -> oauth.jwt());
         return http.build();
     }
