@@ -33,6 +33,8 @@ public class SecurityConfig {
                         // 放行静态资源（HTML/CSS/JS），这些文件本身不需要认证
                         // 但访问 REST API 和 WebSocket 时仍需要认证
                         .requestMatchers("/*.html", "/css/**", "/js/**", "/static/**").permitAll()
+                        .requestMatchers("/api/gomoku/rooms/**").permitAll()
+                        .requestMatchers("/api/gomoku/debug/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 // 启用 JWT 验证：自动验证所有需要认证的请求的 JWT Token（从 Authorization: Bearer <token> header 提取）

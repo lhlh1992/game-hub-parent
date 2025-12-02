@@ -59,6 +59,11 @@ public final class RedisKeys {
         return "gomoku:room:" + roomId + ":series";
     }
 
+    /** 在线房间索引（ZSET），score 使用 createdAt（epoch millis） */
+    public static String roomIndexKey() {
+        return PFX + "rooms:index";
+    }
+
     // ---- 用户维度：正在进行中的房间 ----
     public static String userOngoing(String userId) {
         return PFX + "user:" + userId + ":ongoing";

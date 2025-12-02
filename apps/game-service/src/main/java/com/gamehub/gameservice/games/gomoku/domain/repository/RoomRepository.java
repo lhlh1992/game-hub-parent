@@ -111,4 +111,20 @@ public interface RoomRepository {
      */
     void deleteSeries(String roomId);
 
+    // ===== 房间列表索引（按创建时间排序）=====
+
+    /**
+     * 将房间加入“在线房间索引”ZSET，用于列表按创建时间排序。
+     * @param roomId    房间ID
+     * @param createdAt 创建时间（epoch millis）
+     * @param ttl       TTL，与房间本身保持一致
+     */
+    void addRoomIndex(String roomId, long createdAt, Duration ttl);
+
+    /**
+     * 从“在线房间索引”中移除房间（销毁房间时调用）。
+     * @param roomId 房间ID
+     */
+    void removeRoomIndex(String roomId);
+
 }

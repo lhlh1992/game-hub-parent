@@ -201,6 +201,22 @@ public class RedisRoomRepository implements RoomRepository {
         ops.del(RedisKeys.roomSeries(roomId));
     }
 
+    // ===== 在线房间索引（ZSET，按创建时间排序） =====
+
+    @Override
+    public void addRoomIndex(String roomId, long createdAt, Duration ttl) {
+        String key = RedisKeys.roomIndexKey();
+        redisTemplate.opsForZSet().add(key, roomId, createdAt);
+        // 维持与房间一致的 TTL，避免僵尸索引
+        redisTemplate.expire(key, ttl);
+    }
+
+    @Override
+    public void removeRoomIndex(String roomId) {
+        String key = RedisKeys.roomIndexKey();
+        redisTemplate.opsForZSet().remove(key, roomId);
+    }
+
     // ===== 私有工具：安全解析 int =====
     private int parseInt(Object v, int def) {
         try { return v == null ? def : Integer.parseInt(v.toString()); }
