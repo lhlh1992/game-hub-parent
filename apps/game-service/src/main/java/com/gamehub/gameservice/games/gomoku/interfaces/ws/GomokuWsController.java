@@ -18,6 +18,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import java.util.Objects;
 import java.util.concurrent.*;
+import java.util.Map;
 import com.gamehub.gameservice.games.gomoku.application.TurnClockCoordinator;
 import org.apache.commons.lang3.StringUtils;
 
@@ -162,6 +163,50 @@ public class GomokuWsController {
         } catch (IllegalStateException e) {
             // 房间已满或不是玩家，拒绝操作
             sendError(roomId, "权限不足：只有房间内的玩家才能认输");
+        } catch (Exception e) {
+            sendError(roomId, e.getMessage());
+        }
+    }
+
+    // 准备/取消准备
+    @MessageMapping("/gomoku.ready")
+    public void ready(SimpleCmd cmd, SimpMessageHeaderAccessor sha) {
+        final String roomId = cmd.getRoomId();
+        final String userId = Objects.requireNonNull(sha.getUser(), "user is null").getName();
+        try {
+            if (cmd.getSeatKey() != null && !cmd.getSeatKey().isBlank()) {
+                gomokuService.bindBySeatKey(roomId, cmd.getSeatKey(), userId);
+            }
+            
+            // 切换准备状态
+            boolean newReady = gomokuService.toggleReady(roomId, userId);
+            
+            // 广播准备状态更新
+            sendReadyStatusUpdate(roomId);
+        } catch (Exception e) {
+            sendError(roomId, e.getMessage());
+        }
+    }
+
+    // 开始游戏（只有房主可以调用）
+    @MessageMapping("/gomoku.start")
+    public void startGame(SimpleCmd cmd, SimpMessageHeaderAccessor sha) {
+        final String roomId = cmd.getRoomId();
+        final String userId = Objects.requireNonNull(sha.getUser(), "user is null").getName();
+        try {
+            if (cmd.getSeatKey() != null && !cmd.getSeatKey().isBlank()) {
+                gomokuService.bindBySeatKey(roomId, cmd.getSeatKey(), userId);
+            }
+            
+            // 开始游戏（会检查房主权限和准备状态）
+            gomokuService.startGame(roomId, userId);
+            
+            // 广播房间状态更新
+            sendRoomStatusUpdate(roomId);
+            
+            // 发送当前游戏状态
+            GomokuState state = gomokuService.getState(roomId);
+            sendState(roomId, state);
         } catch (Exception e) {
             sendError(roomId, e.getMessage());
         }
@@ -375,7 +420,31 @@ public class GomokuWsController {
         messaging.convertAndSend(topic(roomId), err);
     }
 
+    /**
+     * 广播准备状态更新
+     */
+    private void sendReadyStatusUpdate(String roomId) {
+        Map<String, Boolean> readyStatus = gomokuService.getAllReadyStatus(roomId);
+        BroadcastEvent evt = new BroadcastEvent();
+        evt.setRoomId(roomId);
+        evt.setType("READY_STATUS");
+        evt.setPayload(readyStatus);
+        messaging.convertAndSend(topic(roomId), evt);
+    }
 
+    /**
+     * 广播房间状态更新
+     */
+    private void sendRoomStatusUpdate(String roomId) {
+        com.gamehub.gameservice.games.gomoku.domain.enums.RoomPhase phase = gomokuService.getRoomPhase(roomId);
+        Map<String, Object> status = new java.util.HashMap<>();
+        status.put("phase", phase.name());
+        BroadcastEvent evt = new BroadcastEvent();
+        evt.setRoomId(roomId);
+        evt.setType("ROOM_STATUS");
+        evt.setPayload(status);
+        messaging.convertAndSend(topic(roomId), evt);
+    }
 
     /** 拼接广播路径（示例：/topic/room.1234） */
     private String topic(String roomId) {

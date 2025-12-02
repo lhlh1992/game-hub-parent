@@ -42,8 +42,10 @@ public class Room {
         this.rule = rule;
         this.aiPiece = Character.toUpperCase(aiPiece);
         this.ai = ai;
-        // 构造即开第一盘（与原逻辑一致）
-        this.series.setCurrent(new Game(this.series.getNextIndex(),gameId));
+        // 构造即开第一盘（与原逻辑一致），并推进局号自增指针
+        int idx = this.series.getNextIndex();
+        this.series.setCurrent(new Game(idx, gameId));
+        this.series.setNextIndex(idx + 1);
     }
 
     public Character getSideBySession(String sessionId) {

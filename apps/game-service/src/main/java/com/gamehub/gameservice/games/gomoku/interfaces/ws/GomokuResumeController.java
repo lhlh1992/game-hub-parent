@@ -56,6 +56,7 @@ public class GomokuResumeController {
                 .mode(s.mode)
                 .aiSide(s.aiSide)
                 .rule(s.rule)
+                .phase(s.phase)
                 .seriesView(new FullSync.SeriesView(s.round, s.scoreX, s.scoreO))
                 .board(new FullSync.BoardView(s.boardSize, cellsCopy))
                 .sideToMove(s.sideToMove)            // 若当前项目没有该值，则为 null
@@ -63,6 +64,7 @@ public class GomokuResumeController {
                 .deadlineEpochMs(s.deadlineEpochMs)  // 若无倒计时集中存储，则为 null
                 .serverEpochMsWhenSent(clock.millis())
                 .outcome(s.outcome)                  // "X_WIN"|"O_WIN"|"DRAW"|null
+                .readyStatus(s.readyStatus)          // 玩家准备状态
                 .build();
     }
 
@@ -119,6 +121,7 @@ public class GomokuResumeController {
         private String mode;                 // PVP | PVE
         private Character aiSide;            // PVE 时 AI 执子；PVP 为 null
         private String rule;                 // STANDARD | RENJU
+        private String phase;                // WAITING | PLAYING | ENDED
 
         private SeriesView seriesView;       // 局数 / 比分
         private BoardView board;             // 棋盘
@@ -128,6 +131,7 @@ public class GomokuResumeController {
         private Long      deadlineEpochMs;   // 暂为 null（后续再补）
         private long      serverEpochMsWhenSent;
         private String    outcome;           // "X_WIN" | "O_WIN" | "DRAW" | null
+        private java.util.Map<String, Boolean> readyStatus; // userId -> ready 状态
 
         @Data @AllArgsConstructor
         public static class Seats { public boolean X; public boolean O; public int viewerCount; }

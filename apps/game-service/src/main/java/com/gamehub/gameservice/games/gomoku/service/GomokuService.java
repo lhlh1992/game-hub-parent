@@ -7,6 +7,8 @@ import com.gamehub.gameservice.games.gomoku.domain.model.GomokuState;
 import com.gamehub.gameservice.games.gomoku.domain.model.Move;
 import com.gamehub.gameservice.games.gomoku.domain.model.SeriesView;
 
+import java.util.Map;
+
 public interface GomokuService {
     /** 新开房间；PVE 时 aiPiece 可 null（默认 O=后手），rule 可 null（默认 STANDARD） */
     String newRoom(Mode mode, Character aiPiece, Rule rule, String ownerUserId);
@@ -121,4 +123,57 @@ public interface GomokuService {
     LeaveResult leaveRoom(String roomId, String userId);
 
     record LeaveResult(boolean roomDestroyed, String newOwnerUserId, Character freedSeat) {}
+
+    /**
+     * 玩家准备/取消准备
+     * @param roomId 房间ID
+     * @param userId 当前用户ID
+     * @return 新的准备状态（true=已准备，false=未准备）
+     */
+    boolean toggleReady(String roomId, String userId);
+
+    /**
+     * 获取玩家的准备状态
+     * @param roomId 房间ID
+     * @param userId 用户ID
+     * @return 准备状态（true=已准备，false=未准备），如果用户不在房间则返回false
+     */
+    boolean getReadyStatus(String roomId, String userId);
+
+    /**
+     * 获取所有玩家的准备状态
+     * @param roomId 房间ID
+     * @return Map<userId, readyStatus>
+     */
+    Map<String, Boolean> getAllReadyStatus(String roomId);
+
+    /**
+     * 重置房间内所有玩家的准备状态为未准备
+     * @param roomId 房间ID
+     */
+    void resetAllReady(String roomId);
+
+    /**
+     * 房主开始游戏（检查准备状态，切换房间状态从WAITING到PLAYING）
+     * PVE模式：AI默认已准备，只需检查房主是否准备
+     * PVP模式：需要所有真人玩家都准备
+     * @param roomId 房间ID
+     * @param userId 房主用户ID
+     * @throws IllegalStateException 如果不是房主、房间状态不是WAITING、或玩家未全部准备
+     */
+    void startGame(String roomId, String userId);
+
+    /**
+     * 获取房间状态（WAITING/PLAYING/ENDED）
+     * @param roomId 房间ID
+     * @return 房间状态
+     */
+    com.gamehub.gameservice.games.gomoku.domain.enums.RoomPhase getRoomPhase(String roomId);
+
+    /**
+     * 设置房间状态
+     * @param roomId 房间ID
+     * @param phase 房间状态
+     */
+    void setRoomPhase(String roomId, com.gamehub.gameservice.games.gomoku.domain.enums.RoomPhase phase);
 }

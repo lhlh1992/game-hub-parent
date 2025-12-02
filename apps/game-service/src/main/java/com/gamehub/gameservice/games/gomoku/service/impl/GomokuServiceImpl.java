@@ -9,6 +9,7 @@ import com.gamehub.gameservice.games.gomoku.domain.model.Game;
 import com.gamehub.gameservice.games.gomoku.domain.model.Room;
 import com.gamehub.gameservice.games.gomoku.domain.enums.Mode;
 import com.gamehub.gameservice.games.gomoku.domain.enums.Rule;
+import com.gamehub.gameservice.games.gomoku.domain.enums.RoomPhase;
 import com.gamehub.gameservice.games.gomoku.domain.model.*;
 import com.gamehub.gameservice.games.gomoku.domain.repository.GameStateRepository;
 import com.gamehub.gameservice.games.gomoku.domain.repository.RoomRepository;
@@ -230,7 +231,14 @@ public class GomokuServiceImpl implements GomokuService {
     @Override
     public GomokuState place(String roomId, int x, int y, char piece) {
         Room r = room(roomId);
-        GomokuState s = r.getSeries().getCurrent().getState();  // ✅ 必须落到“当前盘”
+        
+        // 检查房间状态：WAITING状态下不允许落子
+        RoomPhase phase = getRoomPhase(roomId);
+        if (phase == RoomPhase.WAITING) {
+            throw new IllegalStateException("游戏尚未开始，请先双方准备并由房主开始游戏");
+        }
+        
+        GomokuState s = r.getSeries().getCurrent().getState();  // ✅ 必须落到"当前盘"
 
         //已结束局直接返回
         if (s.over()) return s;
@@ -259,15 +267,18 @@ public class GomokuServiceImpl implements GomokuService {
         if (oc != Outcome.ONGOING) {
             if (oc == Outcome.BLACK_WIN) {
                 s.setOver(Board.BLACK); r.getSeries().incBlackWins();
-            }else if(
-                    oc == Outcome.WHITE_WIN) { s.setOver(Board.WHITE); r.getSeries().incWhiteWins();
-            }else {
+            } else if (oc == Outcome.WHITE_WIN) {
+                s.setOver(Board.WHITE); r.getSeries().incWhiteWins();
+            } else {
                 s.setOver(Board.EMPTY); r.getSeries().incDraws();
             }
             // 1) 统计：X/O 胜 或 和棋(null)
             roomRepo.incrSeriesOnFinish(roomId, s.getWinner());
             // 2) 清理回合计时锚点（第5步配套）
             turnRepo.delete(roomId);
+            // 3) 游戏结束：重置准备状态，房间状态回到 WAITING（下一局重新准备）
+            resetAllReady(roomId);
+            setRoomPhase(roomId, RoomPhase.WAITING);
             return s;
         }
         // 切换回合
@@ -508,8 +519,9 @@ public class GomokuServiceImpl implements GomokuService {
         var old = r.getSeries().getCurrent()!= null ? r.getSeries().getCurrent().getPendingAi() : null;
         if (old != null) old.cancel(false);
 
-        // 2) 创建新盘
-        Integer index = r.getSeries().getNextIndex();
+        // 2) 创建新盘，并推进局号（nextIndex 自增）
+        int index = r.getSeries().getNextIndex();
+        r.getSeries().setNextIndex(index + 1);
         String gameId = UUID.randomUUID().toString();
         Game g = new Game(index, gameId);
         r.getSeries().setCurrent(g);
@@ -554,6 +566,9 @@ public class GomokuServiceImpl implements GomokuService {
         //终局清理
         roomRepo.incrSeriesOnFinish(roomId, s.getWinner()); // X 或 O
         turnRepo.delete(roomId);
+        // 游戏结束：重置准备状态，房间状态回到 WAITING（下一局重新准备）
+        resetAllReady(roomId);
+        setRoomPhase(roomId, RoomPhase.WAITING);
         return s;
     }
 
@@ -661,7 +676,7 @@ public class GomokuServiceImpl implements GomokuService {
                 .orElseThrow(() -> new IllegalArgumentException("ROOM_NOT_FOUND: " + roomId));
 
 
-        // 1.2 座位绑定（X/O 是否被占）
+        // 1.2 座位绑定（X/O 是否被占）+ 准备状态
         SeatsBinding seats = roomRepo.getSeats(roomId).orElseGet(SeatsBinding::new);
         boolean seatXOccupied = seats.getSeatXSessionId() != null && !seats.getSeatXSessionId().isBlank();
         boolean seatOOccupied = seats.getSeatOSessionId() != null && !seats.getSeatOSessionId().isBlank();
@@ -733,10 +748,19 @@ public class GomokuServiceImpl implements GomokuService {
             aiSide = meta.getAiPiece().charAt(0); // 'X' 或 'O'
         }
 
-        // 2.4 系列统计（round/scoreX/scoreO）
-        int round  = Math.max(meta.getCurrentIndex(), rec.getIndex()); // 以较大者展示
-        int scoreX = meta.getBlackWins();
-        int scoreO = meta.getWhiteWins();
+        // 2.4 系列统计（round/scoreX/scoreO）——以 Room 中的 Series 为准，确保比分/局数实时
+        SeriesView sv = getSeries(roomId);
+        int round  = sv.getIndex();
+        int scoreX = sv.getBlackWins();
+        int scoreO = sv.getWhiteWins();
+
+        // 2.5 房间状态 + 准备状态
+        String phase = meta.getPhase();
+        if (phase == null || phase.isBlank()) {
+            phase = RoomPhase.WAITING.name();
+        }
+        java.util.Map<String, Boolean> readyStatus =
+                seats.getReadyByUserId() == null ? java.util.Collections.emptyMap() : seats.getReadyByUserId();
 
         // ========= 3) 构造不可变快照 =========
         return new GomokuSnapshot(
@@ -746,6 +770,7 @@ public class GomokuServiceImpl implements GomokuService {
                 modeStr,
                 aiSide,
                 ruleStr,
+                phase,
                 n,
                 cells,
                 sideToMove,                 // 可能为 null（终局或无锚点且无 current）
@@ -754,7 +779,8 @@ public class GomokuServiceImpl implements GomokuService {
                 round,
                 scoreX,
                 scoreO,
-                outcome
+                outcome,
+                readyStatus
         );
     }
 
@@ -815,6 +841,15 @@ public class GomokuServiceImpl implements GomokuService {
             newOwner = opponentUserId;
             meta.setOwnerUserId(newOwner);
             roomRepo.saveRoomMeta(roomId, meta, ROOM_TTL);
+        }
+
+        // 重置所有玩家的准备状态（体验优化：避免新玩家进入后立即开始）
+        resetAllReady(roomId);
+        
+        // 如果房间状态是PLAYING，切换回WAITING
+        RoomPhase currentPhase = getRoomPhase(roomId);
+        if (currentPhase == RoomPhase.PLAYING) {
+            setRoomPhase(roomId, RoomPhase.WAITING);
         }
 
         ongoingGameTracker.clear(userId);
@@ -907,7 +942,129 @@ public class GomokuServiceImpl implements GomokuService {
         return false;
     }
 
+    // ========== 准备状态管理 ==========
 
+    @Override
+    public boolean toggleReady(String roomId, String userId) {
+        SeatsBinding seats = roomRepo.getSeats(roomId).orElseGet(SeatsBinding::new);
+        if (seats.getReadyByUserId() == null) {
+            seats.setReadyByUserId(new HashMap<>());
+        }
+        boolean currentReady = seats.getReadyByUserId().getOrDefault(userId, false);
+        boolean newReady = !currentReady;
+        seats.getReadyByUserId().put(userId, newReady);
+        roomRepo.saveSeats(roomId, seats, ROOM_TTL);
+        return newReady;
+    }
 
+    @Override
+    public boolean getReadyStatus(String roomId, String userId) {
+        SeatsBinding seats = roomRepo.getSeats(roomId).orElseGet(SeatsBinding::new);
+        if (seats.getReadyByUserId() == null) {
+            return false;
+        }
+        return seats.getReadyByUserId().getOrDefault(userId, false);
+    }
+
+    @Override
+    public Map<String, Boolean> getAllReadyStatus(String roomId) {
+        SeatsBinding seats = roomRepo.getSeats(roomId).orElseGet(SeatsBinding::new);
+        if (seats.getReadyByUserId() == null) {
+            return new HashMap<>();
+        }
+        return new HashMap<>(seats.getReadyByUserId());
+    }
+
+    @Override
+    public void resetAllReady(String roomId) {
+        SeatsBinding seats = roomRepo.getSeats(roomId).orElseGet(SeatsBinding::new);
+        if (seats.getReadyByUserId() != null) {
+            seats.getReadyByUserId().replaceAll((k, v) -> false);
+            roomRepo.saveSeats(roomId, seats, ROOM_TTL);
+        }
+    }
+
+    @Override
+    public void startGame(String roomId, String userId) {
+        RoomMeta meta = roomRepo.getRoomMeta(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("ROOM_NOT_FOUND: " + roomId));
+        
+        // 检查是否是房主
+        if (!userId.equals(meta.getOwnerUserId())) {
+            throw new IllegalStateException("只有房主可以开始游戏");
+        }
+        
+        // 检查房间状态
+        RoomPhase currentPhase = getRoomPhase(roomId);
+        if (currentPhase != RoomPhase.WAITING) {
+            throw new IllegalStateException("房间状态不是WAITING，无法开始游戏");
+        }
+        
+        // 检查准备状态
+        Mode mode = Mode.valueOf(meta.getMode());
+        SeatsBinding seats = roomRepo.getSeats(roomId).orElseGet(SeatsBinding::new);
+        Map<String, Boolean> readyStatus = getAllReadyStatus(roomId);
+        
+        if (mode == Mode.PVE) {
+            // PVE模式：AI默认已准备，只需要房主准备即可
+            if (!readyStatus.getOrDefault(userId, false)) {
+                throw new IllegalStateException("请先准备");
+            }
+        } else {
+            // PVP模式：需要所有真人玩家都准备
+            // 获取所有在房间内的玩家（通过seatXSessionId和seatOSessionId）
+            Set<String> playersInRoom = new HashSet<>();
+            if (seats.getSeatXSessionId() != null && !seats.getSeatXSessionId().isBlank()) {
+                playersInRoom.add(seats.getSeatXSessionId());
+            }
+            if (seats.getSeatOSessionId() != null && !seats.getSeatOSessionId().isBlank()) {
+                playersInRoom.add(seats.getSeatOSessionId());
+            }
+            
+            // 检查是否有至少2个玩家
+            if (playersInRoom.size() < 2) {
+                throw new IllegalStateException("需要至少2名玩家才能开始游戏");
+            }
+            
+            // 检查是否所有玩家都已准备
+            for (String playerId : playersInRoom) {
+                if (!readyStatus.getOrDefault(playerId, false)) {
+                    throw new IllegalStateException("还有玩家未准备");
+                }
+            }
+        }
+        
+        // 若当前盘已经结束，则在系列中开启下一盘（新 gameId / index）
+        GomokuState currentState = getState(roomId);
+        if (currentState.over()) {
+            newGame(roomId);
+        }
+
+        // 切换房间状态为PLAYING
+        setRoomPhase(roomId, RoomPhase.PLAYING);
+    }
+
+    @Override
+    public RoomPhase getRoomPhase(String roomId) {
+        RoomMeta meta = roomRepo.getRoomMeta(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("ROOM_NOT_FOUND: " + roomId));
+        String phaseStr = meta.getPhase();
+        if (phaseStr == null || phaseStr.isBlank()) {
+            return RoomPhase.WAITING; // 默认WAITING
+        }
+        try {
+            return RoomPhase.valueOf(phaseStr);
+        } catch (IllegalArgumentException e) {
+            return RoomPhase.WAITING; // 无效值默认WAITING
+        }
+    }
+
+    @Override
+    public void setRoomPhase(String roomId, RoomPhase phase) {
+        RoomMeta meta = roomRepo.getRoomMeta(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("ROOM_NOT_FOUND: " + roomId));
+        meta.setPhase(phase.name());
+        roomRepo.saveRoomMeta(roomId, meta, ROOM_TTL);
+    }
 
 }

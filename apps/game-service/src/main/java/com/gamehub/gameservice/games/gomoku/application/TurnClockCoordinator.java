@@ -3,6 +3,7 @@ package com.gamehub.gameservice.games.gomoku.application;
 import com.gamehub.gameservice.clock.scheduler.CountdownScheduler;
 import com.gamehub.gameservice.games.gomoku.domain.dto.GameStateRecord;
 import com.gamehub.gameservice.games.gomoku.domain.enums.Mode;
+import com.gamehub.gameservice.games.gomoku.domain.enums.RoomPhase;
 import com.gamehub.gameservice.games.gomoku.domain.model.Board;
 import com.gamehub.gameservice.games.gomoku.domain.model.GomokuState;
 import com.gamehub.gameservice.games.gomoku.domain.model.SeriesView;
@@ -108,6 +109,13 @@ public class TurnClockCoordinator {
     public void syncFromState(String roomId, GomokuState state) {
         // 终局：停止计时
         if (state.over()) { stop(roomId); return; }
+
+        // 房间未开始（WAITING）或已结束（ENDED）时，不启动倒计时
+        RoomPhase phase = gomokuService.getRoomPhase(roomId);
+        if (phase != RoomPhase.PLAYING) {
+            stop(roomId);
+            return;
+        }
         // 是否人机模式
         boolean isPve = gomokuService.getMode(roomId) == Mode.PVE;
         // AI 的棋色

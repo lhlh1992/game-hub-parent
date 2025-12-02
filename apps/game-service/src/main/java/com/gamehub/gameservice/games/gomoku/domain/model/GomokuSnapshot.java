@@ -23,6 +23,9 @@ public final class GomokuSnapshot {
     /** 规则类型：STANDARD（普通）或 RENJU（连珠禁手） */
     public final String rule;        // STANDARD | RENJU
 
+    /** 房间状态：WAITING / PLAYING / ENDED */
+    public final String phase;
+
     /** 棋盘尺寸（一般为 15） */
     public final int boardSize;
 
@@ -46,6 +49,9 @@ public final class GomokuSnapshot {
     /** 当前对局结果：X_WIN、O_WIN、DRAW，未结束则为 null */
     public final String outcome;     // X_WIN | O_WIN | DRAW | null
 
+    /** 玩家准备状态快照：userId -> true(已准备)/false(未准备) */
+    public final java.util.Map<String, Boolean> readyStatus;
+
     /**
      * 构造函数：生成一个完整的不可变快照。
      */
@@ -55,6 +61,7 @@ public final class GomokuSnapshot {
                           String mode,
                           Character aiSide,
                           String rule,
+                          String phase,
                           int boardSize,
                           char[][] cells,
                           Character sideToMove,
@@ -63,13 +70,15 @@ public final class GomokuSnapshot {
                           int round,
                           int scoreX,
                           int scoreO,
-                          String outcome) {
+                          String outcome,
+                          java.util.Map<String, Boolean> readyStatus) {
         this.roomId = roomId;
         this.seatXOccupied = seatXOccupied;
         this.seatOOccupied = seatOOccupied;
         this.mode = mode;
         this.aiSide = aiSide;
         this.rule = rule;
+        this.phase = phase;
         this.boardSize = boardSize;
         this.cells = cells;
         this.sideToMove = sideToMove;
@@ -79,5 +88,9 @@ public final class GomokuSnapshot {
         this.scoreX = scoreX;
         this.scoreO = scoreO;
         this.outcome = outcome;
+        // 防御式拷贝，避免外部修改
+        this.readyStatus = (readyStatus == null)
+                ? java.util.Collections.emptyMap()
+                : java.util.Collections.unmodifiableMap(new java.util.HashMap<>(readyStatus));
     }
 }
