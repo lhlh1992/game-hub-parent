@@ -176,4 +176,12 @@ public interface GomokuService {
      * @param phase 房间状态
      */
     void setRoomPhase(String roomId, com.gamehub.gameservice.games.gomoku.domain.enums.RoomPhase phase);
+
+    /**
+     * 判断用户是否已经在房间内（已绑定座位）
+     * @param roomId 房间ID
+     * @param userId 用户ID
+     * @return true 表示用户已经在房间内
+     */
+    boolean isUserInRoom(String roomId, String userId);
 }

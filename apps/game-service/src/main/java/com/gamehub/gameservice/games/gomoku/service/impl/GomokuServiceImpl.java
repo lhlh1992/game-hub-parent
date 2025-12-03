@@ -113,8 +113,10 @@ public class GomokuServiceImpl implements GomokuService {
         rec.setStep(0);
         gameRepo.save(roomId,gameId,rec, ROOM_TTL);
 
-        // 5) Redis：清空座位（本步只初始化，不绑定）
-        roomRepo.saveSeats(roomId, new SeatsBinding(), ROOM_TTL);
+        // 5) Redis：初始化座位绑定，房主自动绑定黑方（先手）
+        SeatsBinding seats = new SeatsBinding();
+        seats.setSeatXSessionId(ownerUserId); // 房主默认绑定黑方（先手）
+        roomRepo.saveSeats(roomId, seats, ROOM_TTL);
         // TurnAnchor的创建交给TurnClockManager处理
 
         // 6) 内存快照：为现有控制器保留
@@ -1070,6 +1072,22 @@ public class GomokuServiceImpl implements GomokuService {
                 .orElseThrow(() -> new IllegalArgumentException("ROOM_NOT_FOUND: " + roomId));
         meta.setPhase(phase.name());
         roomRepo.saveRoomMeta(roomId, meta, ROOM_TTL);
+    }
+
+    @Override
+    public boolean isUserInRoom(String roomId, String userId) {
+        if (userId == null || userId.isBlank()) {
+            return false;
+        }
+        SeatsBinding seats = roomRepo.getSeats(roomId).orElse(null);
+        if (seats == null) {
+            return false;
+        }
+        if (userId.equals(seats.getSeatXSessionId()) || userId.equals(seats.getSeatOSessionId())) {
+            return true;
+        }
+        Map<String, String> seatBySession = seats.getSeatBySession();
+        return seatBySession != null && seatBySession.containsKey(userId);
     }
 
 }

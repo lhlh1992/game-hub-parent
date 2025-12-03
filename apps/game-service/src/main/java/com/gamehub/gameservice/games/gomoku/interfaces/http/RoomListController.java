@@ -50,17 +50,18 @@ public class RoomListController {
                 String roomId = String.valueOf(idObj);
                 var metaOpt = roomRepository.getRoomMeta(roomId);
                 if (metaOpt.isEmpty()) {
-                    // 房间已删除：仍返回一条“墓碑房间”，前端点击时提示“房间已不存在”
-                    items.add(RoomSummary.tombstone(roomId));
+                    // 房间已删除：跳过，不显示在列表中
                     continue;
                 }
                 var meta = metaOpt.get();
+                // 只返回未删除的房间
                 items.add(RoomSummary.from(meta));
                 if (meta.getCreatedAt() < minCreated) {
                     minCreated = meta.getCreatedAt();
                 }
             }
-            if (!items.isEmpty() && ids.size() == limit && minCreated != Long.MAX_VALUE) {
+            // 如果过滤后还有足够的房间，才设置 nextCursor
+            if (!items.isEmpty() && items.size() >= limit && minCreated != Long.MAX_VALUE) {
                 nextCursor = minCreated;
             }
         }

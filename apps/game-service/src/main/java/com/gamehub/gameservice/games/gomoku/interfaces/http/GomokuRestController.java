@@ -18,8 +18,13 @@ import org.springframework.web.bind.annotation.*;
 public class GomokuRestController {
 
     private final GomokuService svc;
+    private final com.gamehub.gameservice.platform.ongoing.OngoingGameTracker ongoingGameTracker;
 
-    public GomokuRestController(GomokuService svc) { this.svc = svc; }
+    public GomokuRestController(GomokuService svc, 
+                                 com.gamehub.gameservice.platform.ongoing.OngoingGameTracker ongoingGameTracker) {
+        this.svc = svc;
+        this.ongoingGameTracker = ongoingGameTracker;
+    }
 
     /**
      * 新建房间：
@@ -74,6 +79,36 @@ public class GomokuRestController {
     }
 
     /**
+     * 加入房间：玩家加入其他玩家创建的房间
+     * - 房主不能加入自己的房间（返回错误）
+     * - 其他玩家自动绑定座位
+     * 
+     * @param roomId 房间ID
+     * @param jwt JWT token
+     * @return 加入结果，包含分配的座位（'X' 或 'O'）
+     */
+    @PostMapping("/rooms/{roomId}/join")
+    public ResponseEntity<ApiResponse<JoinRoomResponse>> joinRoom(@PathVariable String roomId,
+                                                                   @AuthenticationPrincipal Jwt jwt) {
+        String userId = CurrentUserHelper.getUserId(jwt);
+        
+        // 0. 判断是否已经在房间内（已绑定座位）
+        if (svc.isUserInRoom(roomId, userId)) {
+            return ResponseEntity.status(409)
+                    .body(ApiResponse.conflict("您已经在该房间，请直接进入"));
+        }
+
+        // 1. 绑定座位（自动分配）
+        char side = svc.resolveAndBindSide(roomId, userId, null);
+        
+        // 2. 记录用户正在进行中的房间（供前端"继续游戏"入口使用）
+        ongoingGameTracker.save(userId, 
+                com.gamehub.gameservice.platform.ongoing.OngoingGameInfo.gomoku(roomId));
+        
+        return ResponseEntity.ok(ApiResponse.success(new JoinRoomResponse(side)));
+    }
+    
+    /**
      * 房间内玩家主动退出
      */
     @PostMapping("/rooms/{roomId}/leave")
@@ -83,4 +118,7 @@ public class GomokuRestController {
         var result = svc.leaveRoom(roomId, userId);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
+    
+    // -------- DTO --------
+    public record JoinRoomResponse(char side) {}
 }
