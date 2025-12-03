@@ -67,7 +67,7 @@ public class GomokuServiceImpl implements GomokuService {
 
 
     @Override
-    public String newRoom(Mode mode, Character aiPiece, Rule rule, String ownerUserId) {
+    public String newRoom(Mode mode, Character aiPiece, Rule rule, String ownerUserId, String ownerName) {
         // 1) 基本参数与默认值
         Mode m  = (mode == null ? Mode.PVE : mode);
         Rule ru = (rule == null ? Rule.STANDARD : rule);
@@ -89,6 +89,7 @@ public class GomokuServiceImpl implements GomokuService {
         meta.setWhiteWins(0);
         meta.setDraws(0);
         meta.setOwnerUserId(ownerUserId); // 保存房主用户ID
+        meta.setOwnerName(ownerName != null && !ownerName.isBlank() ? ownerName : ownerUserId);
         long now = System.currentTimeMillis();
         meta.setCreatedAt(now); // 房间创建时间（统一在 Redis 中排序）
         roomRepo.saveRoomMeta(roomId, meta, ROOM_TTL);

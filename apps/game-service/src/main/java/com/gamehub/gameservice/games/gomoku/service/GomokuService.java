@@ -11,7 +11,7 @@ import java.util.Map;
 
 public interface GomokuService {
     /** 新开房间；PVE 时 aiPiece 可 null（默认 O=后手），rule 可 null（默认 STANDARD） */
-    String newRoom(Mode mode, Character aiPiece, Rule rule, String ownerUserId);
+    String newRoom(Mode mode, Character aiPiece, Rule rule, String ownerUserId, String ownerName);
 
     GomokuState place(String roomId, int x, int y, char piece);
 

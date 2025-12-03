@@ -13,6 +13,7 @@ import lombok.Data;
 public class RoomSummary {
     private String roomId;
     private String ownerUserId;
+    private String ownerName;
     private String mode;
     private String rule;
     private String phase;
@@ -23,6 +24,7 @@ public class RoomSummary {
         return new RoomSummary(
                 meta.getRoomId(),
                 meta.getOwnerUserId(),
+                meta.getOwnerName(),
                 meta.getMode(),
                 meta.getRule(),
                 meta.getPhase(),
@@ -32,7 +34,7 @@ public class RoomSummary {
     }
 
     public static RoomSummary tombstone(String roomId) {
-        return new RoomSummary(roomId, null, null, null, null, 0L, true);
+        return new RoomSummary(roomId, null, null, null, null, null, 0L, true);
     }
 }
 

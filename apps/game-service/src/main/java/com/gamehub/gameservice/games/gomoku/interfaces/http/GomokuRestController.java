@@ -33,9 +33,16 @@ public class GomokuRestController {
                                                        @RequestParam(name = "rule", defaultValue="STANDARD") String rule,
                                                        @AuthenticationPrincipal Jwt jwt) {
         String ownerUserId = jwt.getSubject(); // 从 JWT 获取房主用户ID
+        // 昵称优先取 preferred_username / name，退化为 subject
+        String preferred = jwt.getClaimAsString("preferred_username");
+        String displayName = preferred != null && !preferred.isBlank()
+                ? preferred
+                : (jwt.getClaimAsString("name") != null && !jwt.getClaimAsString("name").isBlank()
+                    ? jwt.getClaimAsString("name")
+                    : ownerUserId);
         var m = "PVP".equalsIgnoreCase(mode) ? Mode.PVP : Mode.PVE;
         var r = "RENJU".equalsIgnoreCase(rule) ? Rule.RENJU : Rule.STANDARD;
-        String roomId = svc.newRoom(m, aiPiece, r, ownerUserId);
+        String roomId = svc.newRoom(m, aiPiece, r, ownerUserId, displayName);
         return ResponseEntity.ok(ApiResponse.success(roomId));
     }
 
@@ -49,7 +56,7 @@ public class GomokuRestController {
                                               @RequestParam int y,
                                               @RequestParam char piece,
                                               @AuthenticationPrincipal Jwt jwt) {
-        // 兼容：仍接受 piece 作为“意向”，实际执子由服务基于 userId+房间分配校验
+        // 兼容：仍接受 piece 作为"意向"，实际执子由服务基于 userId+房间分配校验
         String userId = jwt.getSubject();
         Character want = (piece == 'X' || piece == 'O') ? piece : null;
         char caller = svc.resolveAndBindSide(roomId, userId, want);

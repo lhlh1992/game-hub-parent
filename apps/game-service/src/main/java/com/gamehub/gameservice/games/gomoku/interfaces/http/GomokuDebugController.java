@@ -44,7 +44,7 @@ public class GomokuDebugController {
 
         List<String> roomIds = new ArrayList<>(safeCount);
         for (int i = 0; i < safeCount; i++) {
-            String roomId = gomokuService.newRoom(Mode.PVP, null, r, "abc");
+            String roomId = gomokuService.newRoom(Mode.PVP, null, r, "abc", "abc");
             roomIds.add(roomId);
         }
         return ApiResponse.success(roomIds);
