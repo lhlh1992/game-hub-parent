@@ -7,6 +7,7 @@ import com.gamehub.gameservice.games.gomoku.domain.model.GomokuState;
 import com.gamehub.gameservice.games.gomoku.domain.model.Move;
 import com.gamehub.gameservice.games.gomoku.service.GomokuService;
 import com.gamehub.web.common.ApiResponse;
+import com.gamehub.web.common.CurrentUserHelper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -32,17 +33,12 @@ public class GomokuRestController {
                                                        @RequestParam(name = "aiPiece", required = false) Character aiPiece,
                                                        @RequestParam(name = "rule", defaultValue="STANDARD") String rule,
                                                        @AuthenticationPrincipal Jwt jwt) {
-        String ownerUserId = jwt.getSubject(); // 从 JWT 获取房主用户ID
-        // 昵称优先取 preferred_username / name，退化为 subject
-        String preferred = jwt.getClaimAsString("preferred_username");
-        String displayName = preferred != null && !preferred.isBlank()
-                ? preferred
-                : (jwt.getClaimAsString("name") != null && !jwt.getClaimAsString("name").isBlank()
-                    ? jwt.getClaimAsString("name")
-                    : ownerUserId);
+        var user = CurrentUserHelper.from(jwt);
+        String ownerUserId = user.userId();
+        String ownerName = user.getDisplayName(); // 使用统一的显示名称（nickname > username > userId）
         var m = "PVP".equalsIgnoreCase(mode) ? Mode.PVP : Mode.PVE;
         var r = "RENJU".equalsIgnoreCase(rule) ? Rule.RENJU : Rule.STANDARD;
-        String roomId = svc.newRoom(m, aiPiece, r, ownerUserId, displayName);
+        String roomId = svc.newRoom(m, aiPiece, r, ownerUserId, ownerName);
         return ResponseEntity.ok(ApiResponse.success(roomId));
     }
 
@@ -57,7 +53,7 @@ public class GomokuRestController {
                                               @RequestParam char piece,
                                               @AuthenticationPrincipal Jwt jwt) {
         // 兼容：仍接受 piece 作为"意向"，实际执子由服务基于 userId+房间分配校验
-        String userId = jwt.getSubject();
+        String userId = CurrentUserHelper.getUserId(jwt);
         Character want = (piece == 'X' || piece == 'O') ? piece : null;
         char caller = svc.resolveAndBindSide(roomId, userId, want);
         GomokuState s = svc.place(roomId, x, y, caller);
@@ -83,7 +79,8 @@ public class GomokuRestController {
     @PostMapping("/rooms/{roomId}/leave")
     public ResponseEntity<ApiResponse<GomokuService.LeaveResult>> leaveRoom(@PathVariable String roomId,
                                                                             @AuthenticationPrincipal Jwt jwt) {
-        var result = svc.leaveRoom(roomId, jwt.getSubject());
+        String userId = CurrentUserHelper.getUserId(jwt);
+        var result = svc.leaveRoom(roomId, userId);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 }

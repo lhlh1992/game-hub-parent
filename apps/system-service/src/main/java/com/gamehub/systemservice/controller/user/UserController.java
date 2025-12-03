@@ -6,6 +6,7 @@ import com.gamehub.systemservice.dto.request.UpdateUserRequest;
 import com.gamehub.systemservice.entity.user.SysUser;
 import com.gamehub.systemservice.service.user.UserService;
 import com.gamehub.web.common.ApiResponse;
+import com.gamehub.web.common.CurrentUserHelper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,8 +34,8 @@ public class UserController {
      */
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<SysUser>> getCurrentUser(@AuthenticationPrincipal Jwt jwt) {
-        String sub = jwt.getSubject();
-        UUID keycloakUserId = UUID.fromString(sub);
+        String userId = CurrentUserHelper.getUserId(jwt);
+        UUID keycloakUserId = UUID.fromString(userId);
 
         Optional<SysUser> user = userService.findByKeycloakUserId(keycloakUserId);
         if (user.isEmpty()) {
@@ -63,10 +64,10 @@ public class UserController {
     @PostMapping("/sync")
     public Result<SysUser> syncUser(@AuthenticationPrincipal Jwt jwt) {
         // 从 JWT 中获取用户信息
-        String sub = jwt.getSubject();
-        UUID keycloakUserId = UUID.fromString(sub);
-        String username = jwt.getClaimAsString("preferred_username");
-        String email = jwt.getClaimAsString("email");
+        var userInfo = CurrentUserHelper.from(jwt);
+        UUID keycloakUserId = UUID.fromString(userInfo.userId());
+        String username = userInfo.username();
+        String email = userInfo.email();
 
         if (username == null || username.isBlank()) {
             return Result.error(400, "JWT 中缺少 preferred_username");

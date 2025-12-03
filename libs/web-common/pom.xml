@@ -31,6 +31,19 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         
+        <!-- OAuth2 资源服务器（JWT 支持，用于用户信息提取） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+        
+        <!-- Lombok（用于 @Slf4j 等注解） -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        
         <!-- 测试 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

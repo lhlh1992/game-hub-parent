@@ -2,6 +2,7 @@ package com.gamehub.gameservice.platform.transport;
 
 import com.gamehub.gameservice.platform.ongoing.OngoingGameTracker;
 import com.gamehub.web.common.ApiResponse;
+import com.gamehub.web.common.CurrentUserHelper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -31,7 +32,7 @@ public class OngoingGameController {
      */
     @GetMapping("/ongoing-game")
     public ResponseEntity<ApiResponse<Map<String, Object>>> ongoing(@AuthenticationPrincipal Jwt jwt) {
-        String userId = jwt.getSubject();
+        String userId = CurrentUserHelper.getUserId(jwt);
         return tracker.find(userId)
                 .map(info -> Map.<String, Object>of(
                         "hasOngoing", true,
@@ -53,7 +54,7 @@ public class OngoingGameController {
             @AuthenticationPrincipal Jwt jwt,
             @RequestBody(required = false) EndRequest request
     ) {
-        String userId = jwt.getSubject();
+        String userId = CurrentUserHelper.getUserId(jwt);
         tracker.find(userId).ifPresent(info -> {
             if (request == null || request.roomId() == null || info.getRoomId().equals(request.roomId())) {
                 tracker.clear(userId);
