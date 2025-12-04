@@ -1,6 +1,7 @@
 package com.gamehub.gameservice.games.gomoku.interfaces.ws;
 import com.gamehub.gameservice.games.gomoku.domain.dto.GameStateRecord;
 import com.gamehub.gameservice.games.gomoku.domain.enums.Mode;
+import com.gamehub.gameservice.games.gomoku.domain.model.GomokuSnapshot;
 import com.gamehub.gameservice.games.gomoku.domain.model.GomokuState;
 import com.gamehub.gameservice.games.gomoku.domain.model.Move;
 import com.gamehub.gameservice.games.gomoku.domain.model.SeriesView;
@@ -181,8 +182,8 @@ public class GomokuWsController {
             // 切换准备状态
             boolean newReady = gomokuService.toggleReady(roomId, userId);
             
-            // 广播准备状态更新
-            sendReadyStatusUpdate(roomId);
+            // 统一广播房间全貌快照（包含更新后的准备状态）
+            broadcastSnapshot(roomId);
         } catch (Exception e) {
             sendError(roomId, e.getMessage());
         }
@@ -198,13 +199,13 @@ public class GomokuWsController {
                 gomokuService.bindBySeatKey(roomId, cmd.getSeatKey(), userId);
             }
             
-            // 开始游戏（会检查房主权限和准备状态）
+            // 开始游戏（会检查房主权限和准备状态，并切换 phase: WAITING -> PLAYING）
             gomokuService.startGame(roomId, userId);
             
-            // 广播房间状态更新
-            sendRoomStatusUpdate(roomId);
+            // 统一广播房间全貌快照（包含更新后的 phase、棋盘状态、比分等）
+            broadcastSnapshot(roomId);
             
-            // 发送当前游戏状态
+            // 同时发送当前游戏状态（STATE 事件，用于增量更新棋盘）
             GomokuState state = gomokuService.getState(roomId);
             sendState(roomId, state);
         } catch (Exception e) {
@@ -390,9 +391,19 @@ public class GomokuWsController {
         }
     }
 
-    /** 统一广播最新局面 + 触发/停止回合计时 */
+    /**
+     * 统一广播最新局面 + 触发/停止回合计时
+     * ----------------------------------------------------
+     * 用途：
+     *  - 落子、认输、重开等会改变棋盘状态的操作调用此方法；
+     *  - 同时发送 STATE（增量棋盘状态）和 SNAPSHOT（房间全貌），前端可选择性使用。
+     * 
+     * 说明：
+     *  - STATE 事件：包含当前盘状态 + 系列比分，用于增量更新棋盘；
+     *  - SNAPSHOT 事件：包含房间全貌（座位、准备状态、phase、创建时间等），用于全量同步。
+     */
     private void sendState(String roomId, GomokuState state) {
-        // —— STATE 事件 ——
+        // —— STATE 事件（增量更新棋盘）——
         SeriesView sv = gomokuService.getSeries(roomId);
         BroadcastEvent evt = new BroadcastEvent();
         evt.setRoomId(roomId);
@@ -400,13 +411,8 @@ public class GomokuWsController {
         evt.setPayload(new StatePayload(state, sv));
         messaging.convertAndSend(topic(roomId), evt);
 
-        // 回读 Redis 快照并以 SNAPSHOT 事件广播（权威、幂等、可覆盖 UI）
-        Object snap = gomokuService.snapshot(roomId);
-        BroadcastEvent snapEvt = new BroadcastEvent();
-        snapEvt.setRoomId(roomId);
-        snapEvt.setType("SNAPSHOT");
-        snapEvt.setPayload(snap);
-        messaging.convertAndSend(topic(roomId), snapEvt);
+        // —— SNAPSHOT 事件（房间全貌，统一复用 broadcastSnapshot）——
+        broadcastSnapshot(roomId);
 
         // —— 回合倒计时逻辑 ——
         coordinator.syncFromState(roomId, state);
@@ -421,29 +427,47 @@ public class GomokuWsController {
     }
 
     /**
-     * 广播准备状态更新
+     * 统一广播房间全貌快照（SNAPSHOT 事件）
+     * ----------------------------------------------------
+     * 用途：
+     *  - 所有会改变房间“全貌”的操作（准备状态、房间状态、座位绑定等）统一调用此方法；
+     *  - 前端收到 SNAPSHOT 后，用这份完整快照覆盖本地状态，确保所有客户端看到一致的房间全貌。
+     * 
+     * 说明：
+     *  - 此方法会调用 gomokuService.snapshot(roomId) 从 Redis 聚合最新状态；
+     *  - 不依赖内存 Room 对象，支持多节点部署。
      */
-    private void sendReadyStatusUpdate(String roomId) {
-        Map<String, Boolean> readyStatus = gomokuService.getAllReadyStatus(roomId);
+    private void broadcastSnapshot(String roomId) {
+        GomokuSnapshot snap = gomokuService.snapshot(roomId);
         BroadcastEvent evt = new BroadcastEvent();
         evt.setRoomId(roomId);
-        evt.setType("READY_STATUS");
-        evt.setPayload(readyStatus);
+        evt.setType("SNAPSHOT");
+        evt.setPayload(snap);
         messaging.convertAndSend(topic(roomId), evt);
     }
 
     /**
-     * 广播房间状态更新
+     * 【已废弃】广播准备状态更新
+     * 
+     * @deprecated 请使用 broadcastSnapshot(roomId) 统一广播房间全貌。
+     *             此方法保留仅为向后兼容，新代码不应调用。
      */
+    @Deprecated
+    private void sendReadyStatusUpdate(String roomId) {
+        // 统一改为广播完整快照
+        broadcastSnapshot(roomId);
+    }
+
+    /**
+     * 【已废弃】广播房间状态更新
+     * 
+     * @deprecated 请使用 broadcastSnapshot(roomId) 统一广播房间全貌。
+     *             此方法保留仅为向后兼容，新代码不应调用。
+     */
+    @Deprecated
     private void sendRoomStatusUpdate(String roomId) {
-        com.gamehub.gameservice.games.gomoku.domain.enums.RoomPhase phase = gomokuService.getRoomPhase(roomId);
-        Map<String, Object> status = new java.util.HashMap<>();
-        status.put("phase", phase.name());
-        BroadcastEvent evt = new BroadcastEvent();
-        evt.setRoomId(roomId);
-        evt.setType("ROOM_STATUS");
-        evt.setPayload(status);
-        messaging.convertAndSend(topic(roomId), evt);
+        // 统一改为广播完整快照
+        broadcastSnapshot(roomId);
     }
 
     /** 拼接广播路径（示例：/topic/room.1234） */

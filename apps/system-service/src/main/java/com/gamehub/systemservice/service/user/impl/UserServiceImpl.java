@@ -1,5 +1,6 @@
 package com.gamehub.systemservice.service.user.impl;
 
+import com.gamehub.systemservice.dto.response.UserInfo;
 import com.gamehub.systemservice.entity.user.SysUser;
 import com.gamehub.systemservice.entity.user.SysUserProfile;
 import com.gamehub.systemservice.exception.BusinessException;
@@ -18,10 +19,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * 用户服务实现类
@@ -312,6 +310,87 @@ public class UserServiceImpl implements UserService {
         user.setStatus(0); // 设置为禁用状态，与 Keycloak 保持一致
         userRepository.save(user);
         log.info("软删除用户成功: userId={}, keycloakUserId={}, status=0", userId, user.getKeycloakUserId());
+    }
+
+    @Override
+    public List<UserInfo> findUserInfosByKeycloakUserIds(List<String> keycloakUserIds) {
+        if (keycloakUserIds == null || keycloakUserIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+
+        // 将 String 格式的 keycloakUserId 转换为 UUID
+        List<UUID> uuidList = keycloakUserIds.stream()
+                .filter(id -> id != null && !id.isBlank())
+                .map(id -> {
+                    try {
+                        return UUID.fromString(id);
+                    } catch (IllegalArgumentException e) {
+                        log.warn("无效的 Keycloak 用户ID格式: {}", id);
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .toList();
+
+        if (uuidList.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+
+        // 批量查询用户（需要自定义查询方法）
+        java.util.List<SysUser> users = userRepository.findByKeycloakUserIdInAndNotDeleted(uuidList);
+
+        if (users.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+
+        // 批量查询用户扩展信息（sys_user_profile），避免 N+1 查询
+        java.util.List<UUID> userIds = users.stream()
+                .map(SysUser::getId)
+                .filter(Objects::nonNull)
+                .toList();
+
+        java.util.Map<UUID, SysUserProfile> profileMap = userIds.isEmpty()
+                ? java.util.Collections.emptyMap()
+                : userProfileRepository.findAllById(userIds).stream()
+                    .collect(java.util.stream.Collectors.toMap(SysUserProfile::getUserId, p -> p));
+
+        // 转换为 UserInfo DTO（基础信息 + 扩展信息，游戏统计信息后续补充）
+        return users.stream()
+                .map(user -> {
+                    SysUserProfile profile = profileMap.get(user.getId());
+                    return com.gamehub.systemservice.dto.response.UserInfo.builder()
+                            // 用户基础信息（来自 sys_user 表）
+                            .userId(user.getKeycloakUserId().toString())
+                            .systemUserId(user.getId())
+                            .username(user.getUsername())
+                            .nickname(user.getNickname())
+                            .avatarUrl(user.getAvatarUrl())
+                            .email(user.getEmail())
+                            .phone(user.getPhone())
+                            .userType(user.getUserType() != null ? user.getUserType().name() : "NORMAL")
+                            .status(user.getStatus())
+                            // 用户扩展信息（来自 sys_user_profile 表，可能为 null）
+                            .bio(profile != null ? profile.getBio() : null)
+                            .locale(profile != null ? profile.getLocale() : null)
+                            .timezone(profile != null ? profile.getTimezone() : null)
+                            .settings(profile != null ? profile.getSettings() : null)
+                            // 游戏统计信息（来自 user_score 表，暂时为 null，等实体类创建后补充）
+                            .levelId(null)
+                            .levelName(null)
+                            .levelNumber(null)
+                            .totalScore(null)
+                            .currentScore(null)
+                            .frozenScore(null)
+                            .experiencePoints(null)
+                            .winCount(null)
+                            .loseCount(null)
+                            .drawCount(null)
+                            .totalMatches(null)
+                            .winRate(null)
+                            .highestScore(null)
+                            .build();
+                })
+                .toList();
     }
 }
 

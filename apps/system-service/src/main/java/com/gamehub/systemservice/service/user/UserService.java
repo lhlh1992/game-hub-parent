@@ -1,5 +1,6 @@
 package com.gamehub.systemservice.service.user;
 
+import com.gamehub.systemservice.dto.response.UserInfo;
 import com.gamehub.systemservice.entity.user.SysUser;
 
 import java.util.Optional;
@@ -56,4 +57,11 @@ public interface UserService {
      * @param userId 用户ID
      */
     void deleteUser(UUID userId);
+
+    /**
+     * 批量根据 Keycloak 用户ID查询用户信息
+     * @param keycloakUserIds Keycloak 用户ID列表（String 格式，对应 JWT 中的 sub）
+     * @return 用户信息列表，不存在的用户会被跳过
+     */
+    java.util.List<UserInfo> findUserInfosByKeycloakUserIds(java.util.List<String> keycloakUserIds);
 }
