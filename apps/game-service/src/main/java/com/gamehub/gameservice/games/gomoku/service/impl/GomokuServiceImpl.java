@@ -583,7 +583,8 @@ public class GomokuServiceImpl implements GomokuService {
      * 为座位签发 seatKey（无账号阶段的最小鉴权）
      * @param roomId    房间ID
      * @param seat      'X' 或 'O'
-     * @param sessionId 当前 WS 会话ID（用于“后连踢前”等策略；可记录持有者）
+     * @param userId   用户ID
+     * @param seatKey
      * @return
      */
     @Override
@@ -616,7 +617,7 @@ public class GomokuServiceImpl implements GomokuService {
      * 刷新/重连：用 seatKey 绑定当前会话为该座位
      * @param roomId       房间ID
      * @param seatKey      之前签发给该座位的 seatKey（浏览器在刷新后携带）
-     * @param newSessionId 当前 WS 会话ID（刷新/重连后的新会话）
+     * @param userId       用户ID
      * @return
      */
     @Override
@@ -675,56 +676,25 @@ public class GomokuServiceImpl implements GomokuService {
      * @param roomId
      * @return
      */
+
+
     @Override
     public GomokuSnapshot snapshot(String roomId) {
-        // ========= 1) 聚合读取 Redis =========
-        // 1.1 房间元信息（模式/规则/AI方/系列分数/当前盘index+gameId）
-        RoomMeta meta = roomRepo.getRoomMeta(roomId)
-                .orElseThrow(() -> new IllegalArgumentException("ROOM_NOT_FOUND: " + roomId));
+        RoomView view = assembleRoomView(roomId);
+        RoomMeta meta = view.getMeta();
+        SeatsBinding seats = view.getSeats();
+        GameStateRecord rec = view.getGame();
+        com.gamehub.gameservice.games.gomoku.domain.dto.TurnAnchor anchor = view.getTurnAnchor();
 
+        boolean seatXOccupied = view.isSeatXOccupied();
+        boolean seatOOccupied = view.isSeatOOccupied();
+        String seatXUserId = seats.getSeatXSessionId();
+        String seatOUserId = seats.getSeatOSessionId();
 
-        // 1.2 座位绑定（X/O 是否被占）+ 准备状态
-        SeatsBinding seats = roomRepo.getSeats(roomId).orElseGet(SeatsBinding::new);
-        boolean seatXOccupied = seats.getSeatXSessionId() != null && !seats.getSeatXSessionId().isBlank();
-        boolean seatOOccupied = seats.getSeatOSessionId() != null && !seats.getSeatOSessionId().isBlank();
+        Character sideToMove = view.getSideToMove();
+        Long turnSeq = anchor != null ? anchor.getTurnSeq() : 0L;
+        Long deadline = view.getDeadlineEpochMs();
 
-        // 1.3 当前盘棋局（board/current/lastMove/winner/over）
-        String gameId = meta.getGameId();
-
-        GameStateRecord rec = gameRepo.get(roomId, gameId)
-                .orElseGet(() -> {
-                    // 兜底：若不存在，返回一盘空局
-                    GameStateRecord r0 = new GameStateRecord();
-                    r0.setRoomId(roomId);
-                    r0.setGameId(gameId);
-                    r0.setIndex(Math.max(meta.getCurrentIndex(), 1));
-                    r0.setBoard(String.valueOf(Board.EMPTY).repeat(Board.SIZE * Board.SIZE));
-                    r0.setCurrent(String.valueOf(Board.BLACK)); // 黑先
-                    r0.setLastMove(null);
-                    r0.setWinner(null);
-                    r0.setOver(false);
-                    return r0;
-                });
-
-        // 1.4 回合计时锚点（deadlineEpochMs/side/turnSeq）
-        Long deadline = null;
-        Long turnSeq  = 0L;
-        Character sideToMove = null;
-        var anchorOpt = turnRepo.get(roomId);
-        if (anchorOpt.isPresent()) {
-            var a = anchorOpt.get();
-            deadline   = a.getDeadlineEpochMs();
-            turnSeq    = a.getTurnSeq();
-            sideToMove = (a.getSide() == null || a.getSide().isBlank()) ? null : a.getSide().charAt(0);
-        } else {
-            // 若无锚点：用棋局 current 补 sideToMove（终局则为 null）
-            if (!rec.isOver() && rec.getCurrent() != null && !rec.getCurrent().isBlank()) {
-                sideToMove = rec.getCurrent().charAt(0);
-            }
-        }
-
-        // ========= 2) 映射/拼装 =========
-        // 2.1 棋盘 String -> char[][]（按 Board.SIZE=15）
         final int n = Board.SIZE;
         char[][] cells = new char[n][n];
         String s = rec.getBoard();
@@ -735,33 +705,34 @@ public class GomokuServiceImpl implements GomokuService {
                 }
             }
         } else {
-            // 容错：缺失/长度不对，给空盘
-            for (int x = 0; x < n; x++) java.util.Arrays.fill(cells[x], Board.EMPTY);
+            for (int x = 0; x < n; x++) {
+                java.util.Arrays.fill(cells[x], Board.EMPTY);
+            }
         }
 
-        // 2.2 对局结果 outcome：X_WIN / O_WIN / DRAW / null
         String outcome = null;
         if (rec.isOver()) {
-            if ("DRAW".equals(rec.getWinner())) outcome = "DRAW";
-            else if ("X".equals(rec.getWinner())) outcome = "X_WIN";
-            else if ("O".equals(rec.getWinner())) outcome = "O_WIN";
+            if ("DRAW".equals(rec.getWinner())) {
+                outcome = "DRAW";
+            } else if ("X".equals(rec.getWinner())) {
+                outcome = "X_WIN";
+            } else if ("O".equals(rec.getWinner())) {
+                outcome = "O_WIN";
+            }
         }
 
-        // 2.3 模式/规则/AI 方
         String modeStr = meta.getMode();
         String ruleStr = meta.getRule();
         Character aiSide = null;
         if ("PVE".equalsIgnoreCase(modeStr) && meta.getAiPiece() != null && !meta.getAiPiece().isBlank()) {
-            aiSide = meta.getAiPiece().charAt(0); // 'X' 或 'O'
+            aiSide = meta.getAiPiece().charAt(0);
         }
 
-        // 2.4 系列统计（round/scoreX/scoreO）——以 Room 中的 Series 为准，确保比分/局数实时
         SeriesView sv = getSeries(roomId);
-        int round  = sv.getIndex();
+        int round = sv.getIndex();
         int scoreX = sv.getBlackWins();
         int scoreO = sv.getWhiteWins();
 
-        // 2.5 房间状态 + 准备状态
         String phase = meta.getPhase();
         if (phase == null || phase.isBlank()) {
             phase = RoomPhase.WAITING.name();
@@ -769,20 +740,22 @@ public class GomokuServiceImpl implements GomokuService {
         java.util.Map<String, Boolean> readyStatus =
                 seats.getReadyByUserId() == null ? java.util.Collections.emptyMap() : seats.getReadyByUserId();
 
-        // ========= 3) 构造不可变快照 =========
         return new GomokuSnapshot(
                 roomId,
                 seatXOccupied,
                 seatOOccupied,
+                seatXUserId,
+                seatOUserId,
+                meta.getCreatedAt(),
                 modeStr,
                 aiSide,
                 ruleStr,
                 phase,
                 n,
                 cells,
-                sideToMove,                 // 可能为 null（终局或无锚点且无 current）
+                sideToMove,
                 turnSeq == null ? 0L : turnSeq,
-                deadline,                   // 可能为 null（未开计时）
+                deadline,
                 round,
                 scoreX,
                 scoreO,
@@ -791,6 +764,50 @@ public class GomokuServiceImpl implements GomokuService {
         );
     }
 
+    private RoomView assembleRoomView(String roomId) {
+        RoomMeta meta = roomRepo.getRoomMeta(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("ROOM_NOT_FOUND: " + roomId));
+
+        SeatsBinding seats = roomRepo.getSeats(roomId).orElseGet(SeatsBinding::new);
+        boolean seatXOccupied = seats.getSeatXSessionId() != null && !seats.getSeatXSessionId().isBlank();
+        boolean seatOOccupied = seats.getSeatOSessionId() != null && !seats.getSeatOSessionId().isBlank();
+
+        String gameId = meta.getGameId();
+        GameStateRecord rec = gameRepo.get(roomId, gameId)
+                .orElseGet(() -> {
+                    GameStateRecord r0 = new GameStateRecord();
+                    r0.setRoomId(roomId);
+                    r0.setGameId(gameId);
+                    r0.setIndex(Math.max(meta.getCurrentIndex(), 1));
+                    r0.setBoard(String.valueOf(Board.EMPTY).repeat(Board.SIZE * Board.SIZE));
+                    r0.setCurrent(String.valueOf(Board.BLACK));
+                    r0.setLastMove(null);
+                    r0.setWinner(null);
+                    r0.setOver(false);
+                    return r0;
+                });
+
+        com.gamehub.gameservice.games.gomoku.domain.dto.TurnAnchor anchor = turnRepo.get(roomId).orElse(null);
+        Long deadline = null;
+        Character sideToMove = null;
+        if (anchor != null) {
+            deadline = anchor.getDeadlineEpochMs();
+            sideToMove = (anchor.getSide() == null || anchor.getSide().isBlank()) ? null : anchor.getSide().charAt(0);
+        } else if (!rec.isOver() && rec.getCurrent() != null && !rec.getCurrent().isBlank()) {
+            sideToMove = rec.getCurrent().charAt(0);
+        }
+
+        return new RoomView(
+                meta,
+                seats,
+                rec,
+                anchor,
+                seatXOccupied,
+                seatOOccupied,
+                sideToMove,
+                deadline
+        );
+    }
     @Override
     public LeaveResult leaveRoom(String roomId, String userId) {
         Objects.requireNonNull(userId, "userId must not be null");
