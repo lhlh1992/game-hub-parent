@@ -184,6 +184,18 @@ public class RedisRoomRepository implements RoomRepository {
         redisTemplate.opsForHash().delete(key, userId);
     }
 
+    /**
+     * 删除房间的所有用户资料缓存
+     */
+    @Override
+    public void deleteAllUserProfiles(String roomId) {
+        if (roomId == null || roomId.isBlank()) {
+            return;
+        }
+        String key = RedisKeys.roomUserProfiles(roomId);
+        redisTemplate.delete(key);
+    }
+
     // ===== 终局累计：round / blackWins / whiteWins / draws =====
     @Override
     public void incrSeriesOnFinish(String roomId, Character winner) {

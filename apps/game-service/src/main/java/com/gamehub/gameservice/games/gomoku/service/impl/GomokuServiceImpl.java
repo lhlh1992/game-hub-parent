@@ -928,6 +928,7 @@ public class GomokuServiceImpl implements GomokuService {
         roomRepo.deleteSeats(roomId);
         roomRepo.deleteSeatKeys(roomId);
         roomRepo.deleteSeries(roomId);
+        roomRepo.deleteAllUserProfiles(roomId);
         gameRepo.deleteAll(roomId);
         turnRepo.delete(roomId);
         stopClock(roomId);

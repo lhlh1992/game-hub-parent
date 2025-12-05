@@ -153,8 +153,10 @@ public class GomokuRestController {
                                                                             @AuthenticationPrincipal Jwt jwt) {
         String userId = CurrentUserHelper.getUserId(jwt);
         var result = svc.leaveRoom(roomId, userId);
-        // 离开房间同样可能改变座位占用/房主/房间状态，这里也广播一次 SNAPSHOT
-        broadcastSnapshot(roomId);
+        // 如果房间未被销毁，广播一次 SNAPSHOT 更新剩余玩家
+        if (!result.roomDestroyed()) {
+            broadcastSnapshot(roomId);
+        }
         return ResponseEntity.ok(ApiResponse.success(result));
     }
     

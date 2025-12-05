@@ -119,6 +119,12 @@ public interface RoomRepository {
      */
     void deleteUserProfile(String roomId, String userId);
 
+    /**
+     * 删除房间的所有用户资料缓存（销毁房间时调用）
+     * @param roomId 房间ID
+     */
+    void deleteAllUserProfiles(String roomId);
+
 
     // —— 系列统计（胜/负/和/局次） ——
     // === 系列比分统计 ===
