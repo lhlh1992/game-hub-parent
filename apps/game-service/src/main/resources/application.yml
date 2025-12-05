@@ -79,11 +79,12 @@ logging:
 system-service:
   url: http://127.0.0.1:8082
 
+# Resilience4j 熔断器配置（用于 Feign 调用 xxxx-service 的容错）
 resilience4j:
   circuitbreaker:
     instances:
-      systemUserClient:
-        slidingWindowSize: 20
-        failureRateThreshold: 50
-        waitDurationInOpenState: 10s
-        permittedNumberOfCallsInHalfOpenState: 3
+      systemUserClient:  # 对应 @CircuitBreaker(name = "systemUserClient")
+        slidingWindowSize: 20  # 滑动窗口大小（统计最近 N 次调用）
+        failureRateThreshold: 50  # 失败率阈值（超过 50% 触发熔断）
+        waitDurationInOpenState: 10s  # 熔断后等待时间（10秒后进入半开状态）
+        permittedNumberOfCallsInHalfOpenState: 3  # 半开状态允许的试探调用次数
