@@ -1,5 +1,7 @@
 package com.gamehub.gameservice.games.gomoku.service.impl;
 
+import com.gamehub.gameservice.application.user.UserDirectoryService;
+import com.gamehub.gameservice.application.user.UserProfileView;
 import com.gamehub.gameservice.games.gomoku.domain.ai.GomokuAI;
 import com.gamehub.gameservice.games.gomoku.domain.dto.GameStateRecord;
 import com.gamehub.gameservice.games.gomoku.domain.dto.RoomMeta;
@@ -52,6 +54,7 @@ public class GomokuServiceImpl implements GomokuService {
     private final RoomRepository roomRepo;
     private final GameStateRepository gameRepo;
     private final TurnRepository turnRepo;
+    private final UserDirectoryService userDirectoryService;
     private ObjectProvider<TurnClockCoordinator> coordinatorProvider;
 
     @Autowired
@@ -691,6 +694,29 @@ public class GomokuServiceImpl implements GomokuService {
         String seatXUserId = seats.getSeatXSessionId();
         String seatOUserId = seats.getSeatOSessionId();
 
+        // 查询两侧玩家的详细信息（昵称、头像、战绩等）
+        UserProfileView seatXUserInfo = null;
+        UserProfileView seatOUserInfo = null;
+        java.util.List<String> idsToQuery = new java.util.ArrayList<>();
+        if (seatXUserId != null && !seatXUserId.isBlank()) {
+            idsToQuery.add(seatXUserId);
+        }
+        if (seatOUserId != null && !seatOUserId.isBlank()
+                && !idsToQuery.contains(seatOUserId)) {
+            idsToQuery.add(seatOUserId);
+        }
+        if (!idsToQuery.isEmpty()) {
+            java.util.List<UserProfileView> profiles = userDirectoryService.getUserInfos(idsToQuery);
+            for (UserProfileView p : profiles) {
+                if (p == null || p.getUserId() == null) continue;
+                if (p.getUserId().equals(seatXUserId)) {
+                    seatXUserInfo = p;
+                } else if (p.getUserId().equals(seatOUserId)) {
+                    seatOUserInfo = p;
+                }
+            }
+        }
+
         Character sideToMove = view.getSideToMove();
         Long turnSeq = anchor != null ? anchor.getTurnSeq() : 0L;
         Long deadline = view.getDeadlineEpochMs();
@@ -746,6 +772,8 @@ public class GomokuServiceImpl implements GomokuService {
                 seatOOccupied,
                 seatXUserId,
                 seatOUserId,
+                seatXUserInfo,
+                seatOUserInfo,
                 meta.getCreatedAt(),
                 modeStr,
                 aiSide,

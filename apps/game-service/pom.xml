@@ -51,6 +51,12 @@
             <artifactId>spring-cloud-starter-openfeign</artifactId>
         </dependency>
 
+        <!-- 熔断 / 降级：Spring Cloud Circuit Breaker + Resilience4j -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
+        </dependency>
+
         <!-- Spring Security 基础 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

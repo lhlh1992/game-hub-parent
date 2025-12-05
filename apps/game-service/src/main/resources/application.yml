@@ -57,3 +57,16 @@ logging:
     org.springframework.security: INFO
     com.gamehub.gameservice.platform.ws: INFO  # WebSocket 断开检测日志
     com.gamehub.session: DEBUG  # SessionRegistry 日志（可选，用于调试）
+
+# 下游服务地址（本地开发环境）
+system-service:
+  url: http://127.0.0.1:8082
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      systemUserClient:
+        slidingWindowSize: 20
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3

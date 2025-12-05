@@ -1,5 +1,6 @@
 package com.gamehub.gameservice.games.gomoku.interfaces.ws.dto;
 
+import com.gamehub.gameservice.application.user.UserProfileView;
 import lombok.*;
 
 /**
@@ -47,6 +48,12 @@ public interface ResumeMessages {
 
         /** 白棋座位绑定的用户ID */
         private String seatOUserId;
+
+        /** 黑棋玩家的详细档案（头像、昵称、战绩等），可能为 null */
+        private UserProfileView seatXUserInfo;
+
+        /** 白棋玩家的详细档案，可能为 null */
+        private UserProfileView seatOUserInfo;
 
         /** 对局模式：PVP / PVE */
         private String mode;

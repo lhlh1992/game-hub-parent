@@ -1,5 +1,7 @@
 package com.gamehub.gameservice.games.gomoku.domain.model;
 
+import com.gamehub.gameservice.application.user.UserProfileView;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -14,6 +16,10 @@ public final class GomokuSnapshot {
     public final boolean seatOOccupied;
     public final String seatXUserId;
     public final String seatOUserId;
+    /** 黑棋座位对应的玩家信息（可能为 null） */
+    public final UserProfileView seatXUserInfo;
+    /** 白棋座位对应的玩家信息（可能为 null） */
+    public final UserProfileView seatOUserInfo;
     public final long createdAt;
     public final String mode;
     public final Character aiSide;
@@ -35,6 +41,8 @@ public final class GomokuSnapshot {
                           boolean seatOOccupied,
                           String seatXUserId,
                           String seatOUserId,
+                          UserProfileView seatXUserInfo,
+                          UserProfileView seatOUserInfo,
                           long createdAt,
                           String mode,
                           Character aiSide,
@@ -55,6 +63,8 @@ public final class GomokuSnapshot {
         this.seatOOccupied = seatOOccupied;
         this.seatXUserId = seatXUserId;
         this.seatOUserId = seatOUserId;
+        this.seatXUserInfo = seatXUserInfo;
+        this.seatOUserInfo = seatOUserInfo;
         this.createdAt = createdAt;
         this.mode = mode;
         this.aiSide = aiSide;

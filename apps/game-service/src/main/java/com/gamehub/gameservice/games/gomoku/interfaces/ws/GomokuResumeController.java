@@ -62,6 +62,8 @@ public class GomokuResumeController {
                 .mySide(mySide)
                 .seatXUserId(s.seatXUserId)
                 .seatOUserId(s.seatOUserId)
+                .seatXUserInfo(s.seatXUserInfo)
+                .seatOUserInfo(s.seatOUserInfo)
                 .mode(s.mode)
                 .aiSide(s.aiSide)
                 .rule(s.rule)

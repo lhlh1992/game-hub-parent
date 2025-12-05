@@ -37,6 +37,8 @@ public class SecurityConfig {
                         .requestMatchers("/internal/keycloak/events/**").permitAll()
                         // 会话监控接口（开发调试用，完全开放）
                         .requestMatchers("/internal/sessions/**").permitAll()
+                        // 游戏服通过 Feign 调用的用户档案查询接口（服务间调用，先放行，后续可引入服务间鉴权）
+                        .requestMatchers("/api/users/users/**").permitAll()
                         // 其他请求需要认证
                         .anyRequest().authenticated()
                 )
