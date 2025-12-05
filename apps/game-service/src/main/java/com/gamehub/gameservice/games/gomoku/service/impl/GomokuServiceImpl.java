@@ -3,10 +3,7 @@ package com.gamehub.gameservice.games.gomoku.service.impl;
 import com.gamehub.gameservice.application.user.UserDirectoryService;
 import com.gamehub.gameservice.application.user.UserProfileView;
 import com.gamehub.gameservice.games.gomoku.domain.ai.GomokuAI;
-import com.gamehub.gameservice.games.gomoku.domain.dto.GameStateRecord;
-import com.gamehub.gameservice.games.gomoku.domain.dto.RoomMeta;
-import com.gamehub.gameservice.games.gomoku.domain.dto.RoomMetaConverter;
-import com.gamehub.gameservice.games.gomoku.domain.dto.SeatsBinding;
+import com.gamehub.gameservice.games.gomoku.domain.dto.*;
 import com.gamehub.gameservice.games.gomoku.domain.model.Game;
 import com.gamehub.gameservice.games.gomoku.domain.model.Room;
 import com.gamehub.gameservice.games.gomoku.domain.enums.Mode;
@@ -73,6 +70,9 @@ public class GomokuServiceImpl implements GomokuService {
     private final OngoingGameTracker ongoingGameTracker;
 
 
+    /**
+     * 创建新房间
+     */
     @Override
     public String newRoom(Mode mode, Character aiPiece, Rule rule, String ownerUserId, String ownerName) {
         // 1) 基本参数与默认值
@@ -138,6 +138,9 @@ public class GomokuServiceImpl implements GomokuService {
         return roomId;
     }
 
+    /**
+     * 获取房间（内存优先，未命中则从 Redis 加载）
+     */
     private Room room(String roomId) {
         // 1) 内存命中
         Room cached = rooms.get(roomId);
@@ -245,6 +248,9 @@ public class GomokuServiceImpl implements GomokuService {
         return r;
     }
 
+    /**
+     * 落子
+     */
     @Override
     public GomokuState place(String roomId, int x, int y, char piece) {
         Room r = room(roomId);
@@ -307,6 +313,9 @@ public class GomokuServiceImpl implements GomokuService {
         return s;
     }
 
+    /**
+     * AI 建议落子位置
+     */
     @Override
     public Move suggest(String roomId, char side) {
         Room r = room(roomId);
@@ -314,9 +323,7 @@ public class GomokuServiceImpl implements GomokuService {
     }
 
     /**
-     * 重开游戏
-     * @param roomId
-     * @return
+     * 重开当前盘（重置棋盘，保留比分）
      */
     @Override
     public GomokuState restart(String roomId) {
@@ -353,6 +360,9 @@ public class GomokuServiceImpl implements GomokuService {
         return rooms.get(r.getId()).getSeries().getCurrent().getState();
     }
 
+    /**
+     * 获取当前盘状态
+     */
     @Override
     public GomokuState getState(String roomId) {
         // 若 GomokuState 可变，推荐返回副本；否则可直接返回
@@ -360,8 +370,9 @@ public class GomokuServiceImpl implements GomokuService {
     }
 
 
-    // 3) 一站式：必要时自动让 AI 走一步
-    // 此方法没验证，需要改
+    /**
+     * 落子并自动触发 AI 回手（PVE 模式）
+     */
     @Override
     public GomokuState placeAndAutoIfNeeded(String roomId, int x, int y, char piece) {
         Room r = getRoomOrThrow(roomId);
@@ -382,9 +393,7 @@ public class GomokuServiceImpl implements GomokuService {
     }
 
     /**
-     * 对控制器暴露只读方法
-     * @param roomId
-     * @return
+     * 获取房间模式（PVE/PVP）
      */
     @Override
     public Mode getMode(String roomId) {
@@ -393,6 +402,9 @@ public class GomokuServiceImpl implements GomokuService {
         return r.getMode();
     }
 
+    /**
+     * 获取 AI 棋子颜色
+     */
     @Override
     public char getAiPiece(String roomId) {
         Room r = room(roomId);
@@ -401,13 +413,7 @@ public class GomokuServiceImpl implements GomokuService {
     }
 
     /**
-     * 为当前会话分配或恢复执子方（X/O），并在房间内绑定。
-     * 逻辑：
-     * 1. 若该 session 已占座 → 直接返回；
-     * 2. 若 wantSide 明确且未被占 → 分配给当前会话；
-     * 3. PVE 模式：只给非 AI 的一方；
-     * 4. PVP 模式：优先给想要的，否则分配空位；
-     * 5. 两边都被占 → 抛异常。
+     * 分配或恢复座位（X/O）并绑定用户
      */
     @Override
     public char resolveAndBindSide(String roomId, String userId, Character wantSide) {
@@ -505,11 +511,17 @@ public class GomokuServiceImpl implements GomokuService {
         return side;
     }
 
+    /**
+     * 获取当前盘 gameId
+     */
     @Override
     public String getGameId(String roomId) {
         return room(roomId).getSeries().getCurrent().getGameId();
     }
 
+    /**
+     * 获取系列赛信息（当前盘号、比分等）
+     */
     @Override
     public SeriesView getSeries(String roomId) {
         roomRepo.getSeries(roomId);
@@ -525,9 +537,7 @@ public class GomokuServiceImpl implements GomokuService {
     }
 
     /**
-     * 新建游戏
-     * @param roomId
-     * @return
+     * 开启新盘（系列赛中）
      */
     @Override
     public GomokuState newGame(String roomId) {
@@ -568,10 +578,7 @@ public class GomokuServiceImpl implements GomokuService {
     }
 
     /**
-     * 超时/认输
-     * @param roomId
-     * @param side
-     * @return
+     * 认输
      */
     @Override
     public GomokuState resign(String roomId, char side) {
@@ -778,6 +785,9 @@ public class GomokuServiceImpl implements GomokuService {
         );
     }
 
+    /**
+     * 缓存用户信息到 Redis
+     */
     @Override
     public void cacheUserProfile(String roomId, String userId) {
         if (userId == null || userId.isBlank()) {
@@ -796,6 +806,9 @@ public class GomokuServiceImpl implements GomokuService {
         }
     }
 
+    /**
+     * 组装房间视图（用于 snapshot）
+     */
     private RoomView assembleRoomView(String roomId) {
         RoomMeta meta = roomRepo.getRoomMeta(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("ROOM_NOT_FOUND: " + roomId));
@@ -819,7 +832,7 @@ public class GomokuServiceImpl implements GomokuService {
                     return r0;
                 });
 
-        com.gamehub.gameservice.games.gomoku.domain.dto.TurnAnchor anchor = turnRepo.get(roomId).orElse(null);
+        TurnAnchor anchor = turnRepo.get(roomId).orElse(null);
         Long deadline = null;
         Character sideToMove = null;
         if (anchor != null) {
@@ -840,12 +853,16 @@ public class GomokuServiceImpl implements GomokuService {
                 deadline
         );
     }
+    /**
+     * 离开房间（PVE 模式会销毁房间，PVP 模式释放座位）
+     */
     @Override
     public LeaveResult leaveRoom(String roomId, String userId) {
         Objects.requireNonNull(userId, "userId must not be null");
         RoomMeta meta = roomRepo.getRoomMeta(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("ROOM_NOT_FOUND: " + roomId));
 
+        // PVE 模式：直接销毁房间
         Mode mode = Mode.valueOf(meta.getMode());
         if (mode == Mode.PVE) {
             destroyRoom(roomId);
@@ -853,6 +870,7 @@ public class GomokuServiceImpl implements GomokuService {
             return new LeaveResult(true, null, null);
         }
 
+        // 判断用户是否在房间内
         SeatsBinding seats = roomRepo.getSeats(roomId).orElseGet(SeatsBinding::new);
         boolean isX = userId.equals(seats.getSeatXSessionId());
         boolean isO = userId.equals(seats.getSeatOSessionId());
@@ -862,16 +880,19 @@ public class GomokuServiceImpl implements GomokuService {
             return new LeaveResult(false, meta.getOwnerUserId(), null);
         }
 
+        // 检查对手是否存在
         String opponentUserId = isX ? seats.getSeatOSessionId() : seats.getSeatXSessionId();
         boolean opponentPresent = opponentUserId != null && !opponentUserId.isBlank();
         char freedSeat = isX ? Board.BLACK : Board.WHITE;
 
+        // 对手不存在：销毁房间
         if (!opponentPresent) {
             destroyRoom(roomId);
             ongoingGameTracker.clear(userId);
             return new LeaveResult(true, null, freedSeat);
         }
 
+        // 释放座位（Redis）
         if (isX) {
             seats.setSeatXSessionId(null);
         } else {
@@ -882,6 +903,7 @@ public class GomokuServiceImpl implements GomokuService {
         }
         roomRepo.saveSeats(roomId, seats, ROOM_TTL);
 
+        // 释放座位（内存）
         Room local = rooms.get(roomId);
         if (local != null) {
             local.getSeatBySession().remove(userId);
@@ -892,6 +914,7 @@ public class GomokuServiceImpl implements GomokuService {
             }
         }
 
+        // 房主转移
         String newOwner = meta.getOwnerUserId();
         if (userId.equals(meta.getOwnerUserId())) {
             newOwner = opponentUserId;
@@ -899,10 +922,8 @@ public class GomokuServiceImpl implements GomokuService {
             roomRepo.saveRoomMeta(roomId, meta, ROOM_TTL);
         }
 
-        // 重置所有玩家的准备状态（体验优化：避免新玩家进入后立即开始）
+        // 重置准备状态和房间状态
         resetAllReady(roomId);
-        
-        // 如果房间状态是PLAYING，切换回WAITING
         RoomPhase currentPhase = getRoomPhase(roomId);
         if (currentPhase == RoomPhase.PLAYING) {
             setRoomPhase(roomId, RoomPhase.WAITING);
@@ -922,6 +943,9 @@ public class GomokuServiceImpl implements GomokuService {
         return r;
     }
 
+    /**
+     * 销毁房间（清理所有相关数据）
+     */
     private void destroyRoom(String roomId) {
         rooms.remove(roomId);
         roomRepo.deleteRoom(roomId);
@@ -934,6 +958,9 @@ public class GomokuServiceImpl implements GomokuService {
         stopClock(roomId);
     }
 
+    /**
+     * 停止回合计时器
+     */
     private void stopClock(String roomId) {
         TurnClockCoordinator coordinator = coordinatorProvider.getIfAvailable();
         if (coordinator != null) {
@@ -1001,6 +1028,9 @@ public class GomokuServiceImpl implements GomokuService {
 
     // ========== 准备状态管理 ==========
 
+    /**
+     * 切换准备状态
+     */
     @Override
     public boolean toggleReady(String roomId, String userId) {
         SeatsBinding seats = roomRepo.getSeats(roomId).orElseGet(SeatsBinding::new);
@@ -1014,6 +1044,9 @@ public class GomokuServiceImpl implements GomokuService {
         return newReady;
     }
 
+    /**
+     * 获取指定玩家的准备状态
+     */
     @Override
     public boolean getReadyStatus(String roomId, String userId) {
         SeatsBinding seats = roomRepo.getSeats(roomId).orElseGet(SeatsBinding::new);
@@ -1023,6 +1056,9 @@ public class GomokuServiceImpl implements GomokuService {
         return seats.getReadyByUserId().getOrDefault(userId, false);
     }
 
+    /**
+     * 获取所有玩家的准备状态
+     */
     @Override
     public Map<String, Boolean> getAllReadyStatus(String roomId) {
         SeatsBinding seats = roomRepo.getSeats(roomId).orElseGet(SeatsBinding::new);
@@ -1032,6 +1068,9 @@ public class GomokuServiceImpl implements GomokuService {
         return new HashMap<>(seats.getReadyByUserId());
     }
 
+    /**
+     * 重置所有玩家的准备状态
+     */
     @Override
     public void resetAllReady(String roomId) {
         SeatsBinding seats = roomRepo.getSeats(roomId).orElseGet(SeatsBinding::new);
@@ -1041,6 +1080,9 @@ public class GomokuServiceImpl implements GomokuService {
         }
     }
 
+    /**
+     * 开始游戏（房主操作，需所有玩家准备）
+     */
     @Override
     public void startGame(String roomId, String userId) {
         RoomMeta meta = roomRepo.getRoomMeta(roomId)
@@ -1101,6 +1143,9 @@ public class GomokuServiceImpl implements GomokuService {
         setRoomPhase(roomId, RoomPhase.PLAYING);
     }
 
+    /**
+     * 获取房间状态（WAITING/PLAYING）
+     */
     @Override
     public RoomPhase getRoomPhase(String roomId) {
         RoomMeta meta = roomRepo.getRoomMeta(roomId)
@@ -1116,6 +1161,9 @@ public class GomokuServiceImpl implements GomokuService {
         }
     }
 
+    /**
+     * 设置房间状态
+     */
     @Override
     public void setRoomPhase(String roomId, RoomPhase phase) {
         RoomMeta meta = roomRepo.getRoomMeta(roomId)
@@ -1124,6 +1172,9 @@ public class GomokuServiceImpl implements GomokuService {
         roomRepo.saveRoomMeta(roomId, meta, ROOM_TTL);
     }
 
+    /**
+     * 判断用户是否在房间内
+     */
     @Override
     public boolean isUserInRoom(String roomId, String userId) {
         if (userId == null || userId.isBlank()) {

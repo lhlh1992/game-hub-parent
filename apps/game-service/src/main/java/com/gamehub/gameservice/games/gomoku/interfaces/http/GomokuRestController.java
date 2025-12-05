@@ -4,8 +4,6 @@ package com.gamehub.gameservice.games.gomoku.interfaces.http;
 import com.gamehub.gameservice.games.gomoku.domain.enums.Mode;
 import com.gamehub.gameservice.games.gomoku.domain.enums.Rule;
 import com.gamehub.gameservice.games.gomoku.domain.model.GomokuSnapshot;
-import com.gamehub.gameservice.games.gomoku.domain.model.GomokuState;
-import com.gamehub.gameservice.games.gomoku.domain.model.Move;
 import com.gamehub.gameservice.games.gomoku.interfaces.ws.dto.GomokuMessages;
 import com.gamehub.gameservice.games.gomoku.service.GomokuService;
 import com.gamehub.web.common.ApiResponse;
@@ -16,6 +14,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 五子棋游戏http接口请求控制器
+ */
 @RestController
 @RequestMapping("/api/gomoku")
 public class GomokuRestController {
@@ -58,11 +59,8 @@ public class GomokuRestController {
      * 获取房间的“全量只读快照”（RoomView）
      * ----------------------------------------------------
      * 用途：
-     * <ul>
-     *     <li>页面首屏渲染：进入房间后的一次性全量拉取；</li>
-     *     <li>调试排查：后端/运维查看当前房间的整体状态。</li>
-     * </ul>
-     *
+     *     页面首屏渲染：进入房间后的一次性全量拉取；
+     *     调试排查：后端/运维查看当前房间的整体状态。
      * 说明：
      * - 返回值为 {@link GomokuSnapshot}，由服务层统一从 Redis 聚合生成；
      * - 不依赖内存 Room 对象，支持将来水平扩展/多节点部署。
@@ -73,36 +71,6 @@ public class GomokuRestController {
         return ResponseEntity.ok(ApiResponse.success(snapshot));
     }
 
-    /**
-     * 玩家落子：x,y,piece=X/O；必要时会触发AI同步下子
-     * 对外入参保持不变，但内部根据认证用户解析其实际执子，确保鉴权。
-     */
-    @PostMapping("/{roomId}/place")
-    public ResponseEntity<GameStateDTO> place(@PathVariable String roomId,
-                                              @RequestParam int x,
-                                              @RequestParam int y,
-                                              @RequestParam char piece,
-                                              @AuthenticationPrincipal Jwt jwt) {
-        // 兼容：仍接受 piece 作为"意向"，实际执子由服务基于 userId+房间分配校验
-        String userId = CurrentUserHelper.getUserId(jwt);
-        Character want = (piece == 'X' || piece == 'O') ? piece : null;
-        char caller = svc.resolveAndBindSide(roomId, userId, want);
-        GomokuState s = svc.place(roomId, x, y, caller);
-        return ResponseEntity.ok(GameStateDTO.from(s));
-    }
-
-    /** AI 辅助建议：不自动下，只返回推荐点 */
-    @GetMapping("/{roomId}/suggest")
-    public ResponseEntity<MoveDTO> suggest(@PathVariable String roomId,
-                                           @RequestParam(defaultValue="X") char side) {
-        Move m = svc.suggest(roomId, side);
-        return ResponseEntity.ok(new MoveDTO(m.x(), m.y(), m.piece()));
-    }
-    // -------- DTO --------
-    public record MoveDTO(int x,int y,char piece){}
-    public record GameStateDTO(char[][] board,char current,boolean over,Character winner){
-        static GameStateDTO from(GomokuState s){ return new GameStateDTO(s.board().view(), s.current(), s.over(), s.winner()); }
-    }
 
     /**
      * 加入房间：玩家加入其他玩家创建的房间
