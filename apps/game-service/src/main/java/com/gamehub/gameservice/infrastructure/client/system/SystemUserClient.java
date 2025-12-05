@@ -12,14 +12,14 @@ import java.util.List;
 
 /**
  * 调用 system-service 用户接口的统一 Feign Client。
- * 说明：
- *  - name 仅用于日志/度量；url 通过配置 system-service.url 注入，兼容本地 / Docker / K8s。
- *  - path 固定为 /api/users，对应 UserController 上的 @RequestMapping。
+ * 
+ * 使用 Spring Cloud LoadBalancer 实现服务发现与负载均衡。
+ * 本地开发通过配置文件指定服务地址，Docker Compose 通过容器 DNS 解析服务名，
+ * Kubernetes 环境会自动从 K8s API 获取服务实例并实现负载均衡。
  */
 @FeignClient(
-        name = "system-service",
-        url = "${system-service.url}",
-        path = "/api/users"
+        name = "system-service",  // 服务名，LoadBalancer 会根据此名称查找服务实例
+        path = "/api/users"       // 统一路径前缀，对应 UserController 上的 @RequestMapping
 )
 public interface SystemUserClient {
 

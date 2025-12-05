@@ -1,0 +1,27 @@
+# Docker Compose 环境配置
+# 说明：此文件只包含需要覆盖的配置，其他配置会从 application.yml 继承
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Docker 容器内，Keycloak 地址改为容器服务名
+          issuer-uri: http://keycloak:8180/realms/my-realm
+  data:
+    redis:
+      # Docker 容器内，Redis 地址改为容器服务名
+      host: redis
+  cloud:
+    discovery:
+      client:
+        simple:
+          instances:
+            system-service:
+              # Docker Compose 环境下，使用容器服务名（容器 DNS 自动解析）
+              - uri: http://system-service:8082
+
+# 兼容旧配置
+system-service:
+  url: http://system-service:8082
+

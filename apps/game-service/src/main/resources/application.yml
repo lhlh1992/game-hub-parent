@@ -26,7 +26,23 @@ spring:
           max-idle: 8
           min-idle: 0
           max-wait: 5s
-
+  # Spring Cloud LoadBalancer 配置（服务发现与负载均衡）
+  # 说明：
+  #  1. LoadBalancer 会根据 FeignClient 的 name 属性（"system-service"）查找对应的服务实例
+  #  2. 本地开发：通过 SimpleDiscoveryClient 配置服务实例地址
+  #  3. Docker Compose：容器 DNS 自动解析服务名（无需配置）
+  #  4. Kubernetes：K8s Service + DNS 自动解析服务名（无需配置）
+  cloud:
+    loadbalancer:
+      enabled: true
+    discovery:
+      client:
+        simple:
+          instances:
+            system-service:
+              - uri: http://127.0.0.1:8082
+              # 多实例示例（取消注释以启用）：
+              # - uri: http://127.0.0.1:8083
 
 # session会话管理redis（所有服务统一用 database 0）
 session:
@@ -58,7 +74,8 @@ logging:
     com.gamehub.gameservice.platform.ws: INFO  # WebSocket 断开检测日志
     com.gamehub.session: DEBUG  # SessionRegistry 日志（可选，用于调试）
 
-# 下游服务地址（本地开发环境）
+# 兼容旧配置（保留，用于向后兼容）
+# 注意：如果使用 LoadBalancer，优先使用上面的 spring.cloud.loadbalancer.clients 配置
 system-service:
   url: http://127.0.0.1:8082
 

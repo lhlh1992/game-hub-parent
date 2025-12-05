@@ -1,0 +1,23 @@
+# 本地开发环境 - 多实例测试配置（用于测试负载均衡）
+# 使用方式：启动多个 system-service 实例（不同端口），然后使用此配置
+# 例如：java -jar system-service.jar --server.port=8082 和 java -jar system-service.jar --server.port=8083
+
+spring:
+  cloud:
+    discovery:
+      client:
+        simple:
+          instances:
+            system-service:
+              # 配置多个实例地址，LoadBalancer 会自动轮询（Round Robin）
+              - uri: http://127.0.0.1:8082
+              - uri: http://127.0.0.1:8083
+              # 可选：自定义负载均衡策略
+              # 默认是 RoundRobinLoadBalancer（轮询）
+              # 也可以使用 RandomLoadBalancer（随机）
+              # 需要在配置类中注册自定义的 LoadBalancer 策略
+
+# 兼容旧配置（多实例测试时不再使用）
+# system-service:
+#   url: http://127.0.0.1:8082
+
