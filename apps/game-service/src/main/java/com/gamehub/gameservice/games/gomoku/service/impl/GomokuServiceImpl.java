@@ -25,6 +25,7 @@ import com.gamehub.gameservice.platform.ongoing.OngoingGameInfo;
 import com.gamehub.gameservice.platform.ongoing.OngoingGameTracker;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,11 +37,14 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GomokuServiceImpl implements GomokuService {
 
     private static final Duration ROOM_TTL = Duration.ofHours(48);
+    /** 用户信息缓存 TTL（30分钟，平衡一致性与性能） */
+    private static final Duration USER_PROFILE_CACHE_TTL = Duration.ofMinutes(30);
 
 
     // ====== 内存房间表 ======
@@ -121,6 +125,9 @@ public class GomokuServiceImpl implements GomokuService {
         seats.setSeatXSessionId(ownerUserId); // 房主默认绑定黑方（先手）
         roomRepo.saveSeats(roomId, seats, ROOM_TTL);
         // TurnAnchor的创建交给TurnClockManager处理
+
+        // 7) 缓存房主用户资料，供后续 snapshot 直接读取（避免 WS 场景调用 Feign）
+        cacheUserProfile(roomId, ownerUserId);
 
         // 6) 内存快照：为现有控制器保留
         rooms.put(roomId, new Room(
@@ -679,8 +686,6 @@ public class GomokuServiceImpl implements GomokuService {
      * @param roomId
      * @return
      */
-
-
     @Override
     public GomokuSnapshot snapshot(String roomId) {
         RoomView view = assembleRoomView(roomId);
@@ -694,28 +699,9 @@ public class GomokuServiceImpl implements GomokuService {
         String seatXUserId = seats.getSeatXSessionId();
         String seatOUserId = seats.getSeatOSessionId();
 
-        // 查询两侧玩家的详细信息（昵称、头像、战绩等）
-        UserProfileView seatXUserInfo = null;
-        UserProfileView seatOUserInfo = null;
-        java.util.List<String> idsToQuery = new java.util.ArrayList<>();
-        if (seatXUserId != null && !seatXUserId.isBlank()) {
-            idsToQuery.add(seatXUserId);
-        }
-        if (seatOUserId != null && !seatOUserId.isBlank()
-                && !idsToQuery.contains(seatOUserId)) {
-            idsToQuery.add(seatOUserId);
-        }
-        if (!idsToQuery.isEmpty()) {
-            java.util.List<UserProfileView> profiles = userDirectoryService.getUserInfos(idsToQuery);
-            for (UserProfileView p : profiles) {
-                if (p == null || p.getUserId() == null) continue;
-                if (p.getUserId().equals(seatXUserId)) {
-                    seatXUserInfo = p;
-                } else if (p.getUserId().equals(seatOUserId)) {
-                    seatOUserInfo = p;
-                }
-            }
-        }
+        // 查询两侧玩家的详细信息（优先读缓存，避免 WS 场景调用 Feign）
+        UserProfileView seatXUserInfo = roomRepo.getUserProfile(roomId, seatXUserId).orElse(null);
+        UserProfileView seatOUserInfo = roomRepo.getUserProfile(roomId, seatOUserId).orElse(null);
 
         Character sideToMove = view.getSideToMove();
         Long turnSeq = anchor != null ? anchor.getTurnSeq() : 0L;
@@ -790,6 +776,24 @@ public class GomokuServiceImpl implements GomokuService {
                 outcome,
                 readyStatus
         );
+    }
+
+    @Override
+    public void cacheUserProfile(String roomId, String userId) {
+        if (userId == null || userId.isBlank()) {
+            return;
+        }
+        try {
+            UserProfileView profile = userDirectoryService.getUserInfo(userId);
+            if (profile != null) {
+                roomRepo.saveUserProfile(roomId, userId, profile, USER_PROFILE_CACHE_TTL);
+            } else {
+                log.warn("获取用户信息为空: roomId={}, userId={}", roomId, userId);
+            }
+        } catch (Exception e) {
+            log.warn("缓存用户信息失败: roomId={}, userId={}", roomId, userId, e);
+            // 保底：出现异常时忽略，不影响主流程
+        }
     }
 
     private RoomView assembleRoomView(String roomId) {

@@ -1,5 +1,6 @@
 package com.gamehub.gameservice.games.gomoku.infrastructure.redis.repo;
 
+import com.gamehub.gameservice.application.user.UserProfileView;
 import com.gamehub.gameservice.games.gomoku.domain.model.SeriesView;
 import com.gamehub.gameservice.games.gomoku.domain.repository.RoomRepository;
 import com.gamehub.gameservice.games.gomoku.infrastructure.redis.RedisKeys;
@@ -85,6 +86,9 @@ public class RedisRoomRepository implements RoomRepository {
         ops.del(RedisKeys.roomSeats(roomId));
     }
 
+    /**
+     * 删除房间的所有 seatKey
+     */
     @Override
     public void deleteSeatKeys(String roomId) {
         Set<String> keys = redisTemplate.keys(RedisKeys.roomSeatKeyPrefix(roomId) + "*");
@@ -132,6 +136,52 @@ public class RedisRoomRepository implements RoomRepository {
     @Override
     public void deleteSeatKey(String roomId, String seatKey) {
         ops.del(RedisKeys.roomSeatKey(roomId, seatKey));
+    }
+
+    /**
+     * 保存用户档案到房间缓存（Hash 结构）
+     */
+    @Override
+    public void saveUserProfile(String roomId, String userId, UserProfileView profile, Duration ttl) {
+        if (roomId == null || roomId.isBlank() || userId == null || userId.isBlank() || profile == null) {
+            return;
+        }
+        String key = RedisKeys.roomUserProfiles(roomId);
+        redisTemplate.opsForHash().put(key, userId, profile);
+        if (ttl != null) {
+            redisTemplate.expire(key, ttl);
+        }
+    }
+
+    /**
+     * 从房间缓存获取用户档案
+     */
+    @Override
+    public Optional<UserProfileView> getUserProfile(String roomId, String userId) {
+        if (roomId == null || roomId.isBlank() || userId == null || userId.isBlank()) {
+            return Optional.empty();
+        }
+        String key = RedisKeys.roomUserProfiles(roomId);
+        Object val = redisTemplate.opsForHash().get(key, userId);
+        if (val == null) {
+            return Optional.empty();
+        }
+        if (val instanceof UserProfileView up) {
+            return Optional.of(up);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * 从房间缓存删除用户档案
+     */
+    @Override
+    public void deleteUserProfile(String roomId, String userId) {
+        if (roomId == null || roomId.isBlank() || userId == null || userId.isBlank()) {
+            return;
+        }
+        String key = RedisKeys.roomUserProfiles(roomId);
+        redisTemplate.opsForHash().delete(key, userId);
     }
 
     // ===== 终局累计：round / blackWins / whiteWins / draws =====
@@ -196,6 +246,9 @@ public class RedisRoomRepository implements RoomRepository {
         return sv;
     }
 
+    /**
+     * 删除系列比分缓存
+     */
     @Override
     public void deleteSeries(String roomId) {
         ops.del(RedisKeys.roomSeries(roomId));

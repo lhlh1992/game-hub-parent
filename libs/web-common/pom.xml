@@ -37,6 +37,12 @@
             <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
         </dependency>
         
+        <!-- OpenFeign（用于 Feign 客户端鉴权配置） -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+        
         <!-- Lombok（用于 @Slf4j 等注解） -->
         <dependency>
             <groupId>org.projectlombok</groupId>

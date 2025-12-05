@@ -129,6 +129,9 @@ public class GomokuRestController {
 
         // 1. 绑定座位（自动分配）
         char side = svc.resolveAndBindSide(roomId, userId, null);
+
+        // 1.1 缓存当前加入者的用户资料，后续 snapshot 直接读取
+        svc.cacheUserProfile(roomId, userId);
         
         // 2. 记录用户正在进行中的房间（供前端"继续游戏"入口使用）
         ongoingGameTracker.save(userId, 

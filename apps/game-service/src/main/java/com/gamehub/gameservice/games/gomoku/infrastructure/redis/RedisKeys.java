@@ -59,6 +59,11 @@ public final class RedisKeys {
         return "gomoku:room:" + roomId + ":series";
     }
 
+    /** 房间内玩家资料缓存（Hash：userId -> UserProfileView 序列化） */
+    public static String roomUserProfiles(String roomId) {
+        return PFX + "room:" + roomId + ":users";
+    }
+
     /** 在线房间索引（ZSET），score 使用 createdAt（epoch millis） */
     public static String roomIndexKey() {
         return PFX + "rooms:index";

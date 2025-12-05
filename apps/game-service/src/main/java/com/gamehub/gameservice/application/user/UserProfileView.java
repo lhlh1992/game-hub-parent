@@ -1,5 +1,6 @@
 package com.gamehub.gameservice.application.user;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,6 +17,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true) // 兼容 system-service 返回的额外字段（如 enabled）
 public class UserProfileView {
 
     // ===== 基础信息（sys_user）=====

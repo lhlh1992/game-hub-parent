@@ -114,6 +114,9 @@ public interface GomokuService {
      */
     GomokuSnapshot snapshot(String roomId);
 
+    /** 缓存房间内指定用户的资料（从用户域获取后写入房间缓存） */
+    void cacheUserProfile(String roomId, String userId);
+
     /**
      * 玩家主动离开房间（手动点击退出）
      * @param roomId 房间ID

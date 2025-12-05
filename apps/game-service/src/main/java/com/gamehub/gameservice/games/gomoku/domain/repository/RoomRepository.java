@@ -1,5 +1,6 @@
 package com.gamehub.gameservice.games.gomoku.domain.repository;
 
+import com.gamehub.gameservice.application.user.UserProfileView;
 import com.gamehub.gameservice.games.gomoku.domain.dto.RoomMeta;
 import com.gamehub.gameservice.games.gomoku.domain.dto.SeatsBinding;
 import com.gamehub.gameservice.games.gomoku.domain.model.SeriesView;
@@ -92,6 +93,31 @@ public interface RoomRepository {
      * @param seatKey seatKey
      */
     void deleteSeatKey(String roomId, String seatKey);
+
+    // ---- 房间内玩家资料缓存（userId -> UserProfileView） ----
+    /**
+     * 缓存房间内某个玩家的资料。
+     * @param roomId 房间ID
+     * @param userId 玩家ID
+     * @param profile 玩家资料
+     * @param ttl 与房间生命周期保持一致
+     */
+    void saveUserProfile(String roomId, String userId, UserProfileView profile, Duration ttl);
+
+    /**
+     * 获取房间内某个玩家的资料。
+     * @param roomId 房间ID
+     * @param userId 玩家ID
+     * @return 资料，不存在返回 empty
+     */
+    Optional<UserProfileView> getUserProfile(String roomId, String userId);
+
+    /**
+     * 删除房间内某个玩家的资料。
+     * @param roomId 房间ID
+     * @param userId 玩家ID
+     */
+    void deleteUserProfile(String roomId, String userId);
 
 
     // —— 系列统计（胜/负/和/局次） ——
