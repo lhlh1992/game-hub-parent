@@ -928,6 +928,19 @@ public class GomokuServiceImpl implements GomokuService {
         if (userId.equals(meta.getOwnerUserId())) {
             newOwner = opponentUserId;
             meta.setOwnerUserId(newOwner);
+            // 获取新房主的用户信息并更新 ownerName
+            try {
+                UserProfileView newOwnerProfile = userDirectoryService.getUserInfo(newOwner);
+                if (newOwnerProfile != null) {
+                    String newOwnerName = newOwnerProfile.getDisplayName();
+                    meta.setOwnerName(newOwnerName != null && !newOwnerName.isBlank() ? newOwnerName : newOwner);
+                } else {
+                    meta.setOwnerName(newOwner);
+                }
+            } catch (Exception e) {
+                log.warn("获取新房主信息失败，使用 userId 作为 ownerName: {}", newOwner, e);
+                meta.setOwnerName(newOwner);
+            }
             roomRepo.saveRoomMeta(roomId, meta, ROOM_TTL);
         }
 
