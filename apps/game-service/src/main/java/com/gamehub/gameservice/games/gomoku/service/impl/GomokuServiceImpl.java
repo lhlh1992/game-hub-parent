@@ -800,7 +800,8 @@ public class GomokuServiceImpl implements GomokuService {
                 outcome,
                 readyStatus,
                 seatXConnected,
-                seatOConnected
+                seatOConnected,
+                meta.getOwnerUserId()
         );
     }
 

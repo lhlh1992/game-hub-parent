@@ -24,6 +24,8 @@ public final class GomokuSnapshot {
     public final boolean seatXConnected;
     /** 白棋座位玩家是否在线 */
     public final boolean seatOConnected;
+    /** 房主用户ID */
+    public final String ownerUserId;
     public final long createdAt;
     public final String mode;
     public final Character aiSide;
@@ -63,7 +65,8 @@ public final class GomokuSnapshot {
                           String outcome,
                           Map<String, Boolean> readyStatus,
                           boolean seatXConnected,
-                          boolean seatOConnected) {
+                          boolean seatOConnected,
+                          String ownerUserId) {
         this.roomId = roomId;
         this.seatXOccupied = seatXOccupied;
         this.seatOOccupied = seatOOccupied;
@@ -71,6 +74,7 @@ public final class GomokuSnapshot {
         this.seatOUserId = seatOUserId;
         this.seatXUserInfo = seatXUserInfo;
         this.seatOUserInfo = seatOUserInfo;
+        this.ownerUserId = ownerUserId;
         this.createdAt = createdAt;
         this.mode = mode;
         this.aiSide = aiSide;
