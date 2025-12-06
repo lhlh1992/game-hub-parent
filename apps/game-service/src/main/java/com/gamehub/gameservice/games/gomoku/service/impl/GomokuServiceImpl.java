@@ -150,6 +150,15 @@ public class GomokuServiceImpl implements GomokuService {
         RoomMeta meta = roomRepo.getRoomMeta(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("ROOM_NOT_FOUND: " + roomId));
 
+        // 2.1) 从 Redis series hash 读取最新比分（比分以 series hash 为准）
+        SeriesView seriesView = roomRepo.getSeries(roomId);
+        if (seriesView != null) {
+            meta.setBlackWins(seriesView.getBlackWins());
+            meta.setWhiteWins(seriesView.getWhiteWins());
+            meta.setDraws(seriesView.getDraws());
+            meta.setCurrentIndex(seriesView.getIndex());
+        }
+
         // 3) 用已有转换器还原 Room（其中 series.current 已用 meta 构造）
         Room r = RoomMetaConverter.toRoom(meta);
 
