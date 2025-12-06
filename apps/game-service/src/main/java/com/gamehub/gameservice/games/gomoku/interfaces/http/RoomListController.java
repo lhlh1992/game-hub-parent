@@ -60,7 +60,26 @@ public class RoomListController {
                     continue;
                 }
                 var meta = metaOpt.get();
-                // 只返回未删除的房间
+                
+                // 过滤PVE房间
+                if ("PVE".equalsIgnoreCase(meta.getMode())) {
+                    continue;
+                }
+                
+                // 检查玩家数量：如果已有2个玩家，不显示在列表中
+                var seatsOpt = roomRepository.getSeats(roomId);
+                if (seatsOpt.isPresent()) {
+                    var seats = seatsOpt.get();
+                    boolean hasTwoPlayers = seats.getSeatXSessionId() != null 
+                            && !seats.getSeatXSessionId().isBlank()
+                            && seats.getSeatOSessionId() != null 
+                            && !seats.getSeatOSessionId().isBlank();
+                    if (hasTwoPlayers) {
+                        continue;
+                    }
+                }
+                
+                // 只返回未删除、非PVE、未满员的房间
                 items.add(RoomSummary.from(meta));
                 if (meta.getCreatedAt() < minCreated) {
                     minCreated = meta.getCreatedAt();
