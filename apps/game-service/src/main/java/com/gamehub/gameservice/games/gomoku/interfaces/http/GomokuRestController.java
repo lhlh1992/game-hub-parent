@@ -1,11 +1,12 @@
 package com.gamehub.gameservice.games.gomoku.interfaces.http;
 
-
 import com.gamehub.gameservice.games.gomoku.domain.enums.Mode;
 import com.gamehub.gameservice.games.gomoku.domain.enums.Rule;
 import com.gamehub.gameservice.games.gomoku.domain.model.GomokuSnapshot;
 import com.gamehub.gameservice.games.gomoku.interfaces.ws.dto.GomokuMessages;
 import com.gamehub.gameservice.games.gomoku.service.GomokuService;
+import com.gamehub.gameservice.platform.ongoing.OngoingGameInfo;
+import com.gamehub.gameservice.platform.ongoing.OngoingGameTracker;
 import com.gamehub.web.common.ApiResponse;
 import com.gamehub.web.common.CurrentUserHelper;
 import org.springframework.http.ResponseEntity;
@@ -22,12 +23,12 @@ import org.springframework.web.bind.annotation.*;
 public class GomokuRestController {
 
     private final GomokuService svc;
-    private final com.gamehub.gameservice.platform.ongoing.OngoingGameTracker ongoingGameTracker;
+    private final OngoingGameTracker ongoingGameTracker;
     /** 用于从 HTTP 层主动广播房间 SNAPSHOT（例如加入/退出房间） */
     private final SimpMessagingTemplate messagingTemplate;
 
     public GomokuRestController(GomokuService svc,
-                                 com.gamehub.gameservice.platform.ongoing.OngoingGameTracker ongoingGameTracker,
+                                 OngoingGameTracker ongoingGameTracker,
                                  SimpMessagingTemplate messagingTemplate) {
         this.svc = svc;
         this.ongoingGameTracker = ongoingGameTracker;
@@ -40,6 +41,8 @@ public class GomokuRestController {
      *  aiPiece=X 或 O（PVE时有效，默认 O=后手）
      *  rule 禁手规则
      *  需要认证用户，创建者作为房主
+     *  
+     *  限制：如果玩家已有正在进行的游戏房间，不允许创建新房间
      */
     @PostMapping("/new")
     public ResponseEntity<ApiResponse<String>> newRoom(@RequestParam(name = "mode", defaultValue="PVE") String mode,
@@ -48,6 +51,14 @@ public class GomokuRestController {
                                                        @AuthenticationPrincipal Jwt jwt) {
         var user = CurrentUserHelper.from(jwt);
         String ownerUserId = user.userId();
+        
+        // 检查玩家是否已有正在进行的游戏房间
+        var ongoingOpt = ongoingGameTracker.find(ownerUserId);
+        if (ongoingOpt.isPresent()) {
+            return ResponseEntity.status(409)
+                    .body(ApiResponse.conflict("您已有正在进行的游戏房间，请先完成或退出当前房间后再创建新房间"));
+        }
+        
         String ownerName = user.getDisplayName(); // 使用统一的显示名称（nickname > username > userId）
         var m = "PVP".equalsIgnoreCase(mode) ? Mode.PVP : Mode.PVE;
         var r = "RENJU".equalsIgnoreCase(rule) ? Rule.RENJU : Rule.STANDARD;
@@ -77,6 +88,7 @@ public class GomokuRestController {
      * ----------------------------------------------------
      * 语义：
      * - 已经在房间内（任意座位）则返回 409，前端直接跳转进入房间；
+     * - 如果玩家已有正在进行的其他游戏房间，不允许加入新房间；
      * - 否则自动为玩家分配一个座位并绑定到 Redis；
      * - 成功后通过 WebSocket 广播最新 SNAPSHOT，让房主等人立刻看到新玩家。
      * 
@@ -95,6 +107,18 @@ public class GomokuRestController {
                     .body(ApiResponse.conflict("您已经在该房间，请直接进入"));
         }
 
+        // 0.1 检查玩家是否已有正在进行的其他游戏房间
+        var ongoingOpt = ongoingGameTracker.find(userId);
+        if (ongoingOpt.isPresent()) {
+            var ongoing = ongoingOpt.get();
+            // 如果正在进行的房间不是当前要加入的房间，则拒绝
+            if (!roomId.equals(ongoing.getRoomId())) {
+                return ResponseEntity.status(409)
+                        .body(ApiResponse.conflict("您已有正在进行的游戏房间，请先完成或退出当前房间后再加入其他房间"));
+            }
+            // 如果正在进行的房间就是当前房间，说明可能是状态不同步，允许继续
+        }
+
         // 1. 绑定座位（自动分配）
         char side = svc.resolveAndBindSide(roomId, userId, null);
 
@@ -102,8 +126,7 @@ public class GomokuRestController {
         svc.cacheUserProfile(roomId, userId);
         
         // 2. 记录用户正在进行中的房间（供前端"继续游戏"入口使用）
-        ongoingGameTracker.save(userId, 
-                com.gamehub.gameservice.platform.ongoing.OngoingGameInfo.gomoku(roomId));
+        ongoingGameTracker.save(userId, OngoingGameInfo.gomoku(roomId));
 
         // 3. 广播一次最新房间快照（SNAPSHOT），告知房间内所有订阅者：
         //    - 座位已被占用
