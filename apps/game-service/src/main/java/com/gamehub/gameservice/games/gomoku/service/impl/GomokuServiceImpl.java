@@ -20,6 +20,7 @@ import com.gamehub.gameservice.games.gomoku.service.GomokuService;
 import com.gamehub.gameservice.games.gomoku.application.TurnClockCoordinator;
 import com.gamehub.gameservice.platform.ongoing.OngoingGameInfo;
 import com.gamehub.gameservice.platform.ongoing.OngoingGameTracker;
+import com.gamehub.session.SessionRegistry;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,6 +57,7 @@ public class GomokuServiceImpl implements GomokuService {
     private final GameStateRepository gameRepo;
     private final TurnRepository turnRepo;
     private final UserDirectoryService userDirectoryService;
+    private final SessionRegistry sessionRegistry;
     private ObjectProvider<TurnClockCoordinator> coordinatorProvider;
 
     @Autowired
@@ -719,6 +721,12 @@ public class GomokuServiceImpl implements GomokuService {
         UserProfileView seatXUserInfo = roomRepo.getUserProfile(roomId, seatXUserId).orElse(null);
         UserProfileView seatOUserInfo = roomRepo.getUserProfile(roomId, seatOUserId).orElse(null);
 
+        // 查询两侧玩家的WebSocket连接状态
+        boolean seatXConnected = seatXUserId != null && !seatXUserId.isBlank() 
+                && !sessionRegistry.getWebSocketSessions(seatXUserId).isEmpty();
+        boolean seatOConnected = seatOUserId != null && !seatOUserId.isBlank() 
+                && !sessionRegistry.getWebSocketSessions(seatOUserId).isEmpty();
+
         Character sideToMove = view.getSideToMove();
         Long turnSeq = anchor != null ? anchor.getTurnSeq() : 0L;
         Long deadline = view.getDeadlineEpochMs();
@@ -790,7 +798,9 @@ public class GomokuServiceImpl implements GomokuService {
                 scoreX,
                 scoreO,
                 outcome,
-                readyStatus
+                readyStatus,
+                seatXConnected,
+                seatOConnected
         );
     }
 

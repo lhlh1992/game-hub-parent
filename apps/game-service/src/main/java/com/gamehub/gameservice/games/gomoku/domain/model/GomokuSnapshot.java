@@ -20,6 +20,10 @@ public final class GomokuSnapshot {
     public final UserProfileView seatXUserInfo;
     /** 白棋座位对应的玩家信息（可能为 null） */
     public final UserProfileView seatOUserInfo;
+    /** 黑棋座位玩家是否在线 */
+    public final boolean seatXConnected;
+    /** 白棋座位玩家是否在线 */
+    public final boolean seatOConnected;
     public final long createdAt;
     public final String mode;
     public final Character aiSide;
@@ -57,7 +61,9 @@ public final class GomokuSnapshot {
                           int scoreX,
                           int scoreO,
                           String outcome,
-                          Map<String, Boolean> readyStatus) {
+                          Map<String, Boolean> readyStatus,
+                          boolean seatXConnected,
+                          boolean seatOConnected) {
         this.roomId = roomId;
         this.seatXOccupied = seatXOccupied;
         this.seatOOccupied = seatOOccupied;
@@ -82,5 +88,7 @@ public final class GomokuSnapshot {
         this.readyStatus = readyStatus == null
                 ? Collections.emptyMap()
                 : Collections.unmodifiableMap(new HashMap<>(readyStatus));
+        this.seatXConnected = seatXConnected;
+        this.seatOConnected = seatOConnected;
     }
 }

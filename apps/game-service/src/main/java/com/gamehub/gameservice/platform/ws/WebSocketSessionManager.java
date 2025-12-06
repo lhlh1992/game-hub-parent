@@ -1,9 +1,16 @@
 package com.gamehub.gameservice.platform.ws;
 
+import com.gamehub.gameservice.games.gomoku.domain.model.GomokuSnapshot;
+import com.gamehub.gameservice.games.gomoku.interfaces.ws.dto.GomokuMessages;
 import com.gamehub.session.SessionRegistry;
 import com.gamehub.session.model.WebSocketSessionInfo;
+import com.gamehub.gameservice.games.gomoku.domain.repository.RoomRepository;
+import com.gamehub.gameservice.games.gomoku.infrastructure.redis.RedisKeys;
+import com.gamehub.gameservice.games.gomoku.service.GomokuService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -14,6 +21,7 @@ import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
 import java.security.Principal;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 监听 STOMP 连接/断开事件，结合 session-common 实现 WS 单点登录与踢旧。
@@ -28,10 +36,30 @@ public class WebSocketSessionManager {
     /** WebSocket 断连工具类，提供统一的断连方法 */
     private final WebSocketDisconnectHelper disconnectHelper;
 
+    /** 房间仓储，用于查询玩家所在房间 */
+    private final RoomRepository roomRepository;
+
+    /** 游戏服务，用于广播房间快照 */
+    private final GomokuService gomokuService;
+
+    /** 消息模板，用于广播到房间 */
+    private final SimpMessagingTemplate messagingTemplate;
+
+    /** Redis模板，用于查询房间索引 */
+    private final RedisTemplate<String, Object> redisTemplate;
+
     public WebSocketSessionManager(SessionRegistry sessionRegistry,
-                                   WebSocketDisconnectHelper disconnectHelper) {
+                                   WebSocketDisconnectHelper disconnectHelper,
+                                   RoomRepository roomRepository,
+                                   GomokuService gomokuService,
+                                   SimpMessagingTemplate messagingTemplate,
+                                   RedisTemplate<String, Object> redisTemplate) {
         this.sessionRegistry = sessionRegistry;
         this.disconnectHelper = disconnectHelper;
+        this.roomRepository = roomRepository;
+        this.gomokuService = gomokuService;
+        this.messagingTemplate = messagingTemplate;
+        this.redisTemplate = redisTemplate;
     }
 
     /**
@@ -154,22 +182,74 @@ public class WebSocketSessionManager {
             }
         }
         
-        // 2. 记录断开信息（用于测试和调试）
+        // 2. 先清理 WebSocket 会话注册（确保后续查询连接状态时不会误判为在线）
+        sessionRegistry.unregisterWebSocketSession(sessionId);
+        log.debug("【WebSocket断开检测】已清理会话注册: sessionId={}", sessionId);
+        
+        // 3. 查询玩家所在房间并广播连接状态变化（在清理会话之后，确保快照中的连接状态正确）
         if (userId != null) {
             log.info("【WebSocket断开检测】玩家断开连接详情: userId={}, sessionId={}, loginSessionId={}, 断开时间={}", 
                     userId, sessionId, loginSessionId, java.time.Instant.now());
             
-            // TODO: 后续实现玩家-房间绑定后，这里可以查询玩家所在房间
-            // String roomId = roomRepository.getUserRoom(userId);
-            // if (roomId != null) {
-            //     log.info("【WebSocket断开检测】玩家所在房间: userId={}, roomId={}", userId, roomId);
-            //     // 标记玩家为断开状态，但不立即清理绑定
-            // }
+            // 查询玩家所在房间并广播连接状态变化
+            String roomId = findRoomByUserId(userId);
+            if (roomId != null) {
+                log.info("【WebSocket断开检测】玩家所在房间: userId={}, roomId={}", userId, roomId);
+                // 广播房间快照，让房间内其他在线玩家知道该玩家已断开
+                // 注意：此时 SessionRegistry 已清理，snapshot() 查询连接状态时会正确返回"离线"
+                try {
+                    GomokuSnapshot snap = gomokuService.snapshot(roomId);
+                    GomokuMessages.BroadcastEvent evt =
+                            new GomokuMessages.BroadcastEvent();
+                    evt.setRoomId(roomId);
+                    evt.setType("SNAPSHOT");
+                    evt.setPayload(snap);
+                    messagingTemplate.convertAndSend("/topic/room." + roomId, evt);
+                    log.debug("【WebSocket断开检测】已广播房间快照: roomId={}, userId={}", roomId, userId);
+                } catch (Exception e) {
+                    log.warn("【WebSocket断开检测】广播房间快照失败: roomId={}, userId={}", roomId, userId, e);
+                }
+            }
         }
-        
-        // 3. 清理 WebSocket 会话注册
-        sessionRegistry.unregisterWebSocketSession(sessionId);
-        log.debug("【WebSocket断开检测】已清理会话注册: sessionId={}", sessionId);
+    }
+
+    /**
+     * 根据userId查询玩家所在房间
+     * 遍历房间索引，检查每个房间的SeatsBinding
+     */
+    private String findRoomByUserId(String userId) {
+        if (userId == null || userId.isBlank()) {
+            return null;
+        }
+        try {
+            // 获取所有房间ID（从房间索引ZSET）
+            Set<Object> roomIds = redisTemplate.opsForZSet()
+                    .range(RedisKeys.roomIndexKey(), 0, -1);
+            
+            if (roomIds == null || roomIds.isEmpty()) {
+                return null;
+            }
+            
+            // 遍历房间，查找包含该userId的房间
+            for (Object roomIdObj : roomIds) {
+                String roomId = String.valueOf(roomIdObj);
+                try {
+                    var seatsOpt = roomRepository.getSeats(roomId);
+                    if (seatsOpt.isPresent()) {
+                        var seats = seatsOpt.get();
+                        if (userId.equals(seats.getSeatXSessionId()) || userId.equals(seats.getSeatOSessionId())) {
+                            return roomId;
+                        }
+                    }
+                } catch (Exception e) {
+                    // 忽略单个房间查询失败，继续查找
+                    log.debug("查询房间座位信息失败: roomId={}", roomId, e);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("查询玩家所在房间失败: userId={}", userId, e);
+        }
+        return null;
     }
 
 }
