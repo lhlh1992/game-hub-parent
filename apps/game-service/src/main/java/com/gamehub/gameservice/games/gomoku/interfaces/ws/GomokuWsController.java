@@ -11,6 +11,7 @@ import com.gamehub.gameservice.games.gomoku.service.GomokuService;
 import com.gamehub.gameservice.games.gomoku.domain.model.Board;
 import lombok.RequiredArgsConstructor;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -35,6 +36,7 @@ import org.apache.commons.lang3.StringUtils;
  */
 @Controller
 @RequiredArgsConstructor
+@Slf4j
 public class GomokuWsController {
     /** 游戏逻辑服务层（包含房间、棋盘状态、AI） */
     private final GomokuService gomokuService;
@@ -243,6 +245,52 @@ public class GomokuWsController {
             sendError(roomId, "权限不足：只有房间内的玩家才能重开");
         } catch (Exception e) {
             sendError(roomId, e.getMessage());
+        }
+    }
+
+    /**
+     * 房主踢出玩家
+     * 路径：/app/gomoku.kick
+     */
+    @MessageMapping("/gomoku.kick")
+    public void kickPlayer(KickCmd cmd, SimpMessageHeaderAccessor sha) {
+        final String roomId = cmd.getRoomId();
+        final String userId = Objects.requireNonNull(sha.getUser(), "user is null").getName();
+        final String targetUserId = cmd.getTargetUserId();
+
+        try {
+            // 身份绑定
+            bindSeatIfProvided(roomId, cmd.getSeatKey(), userId);
+
+            // 先向被踢玩家发送踢人事件（在断开连接之前发送，确保能收到）
+            BroadcastEvent kickEvent = new BroadcastEvent();
+            kickEvent.setRoomId(roomId);
+            kickEvent.setGameId(gomokuService.getGameId(roomId));
+            kickEvent.setType("KICKED");
+            kickEvent.setPayload(Map.of("reason", "你已被房主踢出房间"));
+            messaging.convertAndSendToUser(targetUserId, "/queue/gomoku.kicked", kickEvent);
+            
+            // 等待一小段时间，确保消息发送完成
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
+            // 调用Service踢人（会断开连接）
+            GomokuService.KickResult result = gomokuService.kickPlayer(roomId, userId, targetUserId);
+
+            if (result.success()) {
+                // 广播SNAPSHOT给房间内剩余玩家
+                broadcastSnapshot(roomId);
+            } else {
+                sendError(roomId, result.reason());
+            }
+        } catch (IllegalStateException e) {
+            sendError(roomId, e.getMessage());
+        } catch (Exception e) {
+            log.error("踢人失败: roomId={}, targetUserId={}", roomId, targetUserId, e);
+            sendError(roomId, "踢人失败，请稍后再试");
         }
     }
 

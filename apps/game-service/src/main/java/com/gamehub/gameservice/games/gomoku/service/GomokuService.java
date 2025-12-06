@@ -187,4 +187,21 @@ public interface GomokuService {
      * @return true 表示用户已经在房间内
      */
     boolean isUserInRoom(String roomId, String userId);
+
+    /**
+     * 房主踢出玩家
+     * @param roomId 房间ID
+     * @param ownerUserId 房主用户ID（调用者）
+     * @param targetUserId 被踢玩家用户ID
+     * @return 踢人结果
+     * @throws IllegalStateException 如果不是房主、房间状态不是WAITING、目标不在房间、或目标是自己
+     */
+    KickResult kickPlayer(String roomId, String ownerUserId, String targetUserId);
+
+    record KickResult(
+        boolean success,           // 是否成功
+        String reason,            // 失败原因（成功时为null）
+        Character freedSeat,      // 释放的座位（'X'或'O'）
+        String newOwnerUserId      // 房主用户ID（被踢的永远不可能是房主，所以始终是原房主）
+    ) {}
 }

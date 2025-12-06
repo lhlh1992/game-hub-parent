@@ -21,6 +21,8 @@ import com.gamehub.gameservice.games.gomoku.application.TurnClockCoordinator;
 import com.gamehub.gameservice.platform.ongoing.OngoingGameInfo;
 import com.gamehub.gameservice.platform.ongoing.OngoingGameTracker;
 import com.gamehub.session.SessionRegistry;
+import com.gamehub.session.model.WebSocketSessionInfo;
+import com.gamehub.gameservice.platform.ws.WebSocketDisconnectHelper;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -58,6 +60,7 @@ public class GomokuServiceImpl implements GomokuService {
     private final TurnRepository turnRepo;
     private final UserDirectoryService userDirectoryService;
     private final SessionRegistry sessionRegistry;
+    private final WebSocketDisconnectHelper disconnectHelper;
     private ObjectProvider<TurnClockCoordinator> coordinatorProvider;
 
     @Autowired
@@ -1061,6 +1064,160 @@ public class GomokuServiceImpl implements GomokuService {
         RoomMeta meta = roomRepo.getRoomMeta(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("ROOM_NOT_FOUND: " + roomId));
         return meta.getOwnerUserId();
+    }
+
+    /**
+     * 房主踢出玩家
+     * @param roomId 房间ID
+     * @param ownerUserId 房主用户ID（调用者）
+     * @param targetUserId 被踢玩家用户ID
+     * @return 踢人结果
+     * @throws IllegalStateException 如果不是房主、房间状态不是WAITING、目标不在房间、或目标是自己
+     */
+    @Override
+    public KickResult kickPlayer(String roomId, String ownerUserId, String targetUserId) {
+        Objects.requireNonNull(roomId, "roomId must not be null");
+        Objects.requireNonNull(ownerUserId, "ownerUserId must not be null");
+        Objects.requireNonNull(targetUserId, "targetUserId must not be null");
+
+        // 1. 权限检查：必须是房主
+        RoomMeta meta = roomRepo.getRoomMeta(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("ROOM_NOT_FOUND: " + roomId));
+        String actualOwner = meta.getOwnerUserId();
+        if (!ownerUserId.equals(actualOwner)) {
+            throw new IllegalStateException("只有房主可以踢人");
+        }
+
+        // 2. 不能踢自己
+        if (targetUserId.equals(ownerUserId)) {
+            throw new IllegalStateException("不能踢自己");
+        }
+
+        // 3. 房间状态检查：必须是WAITING状态
+        RoomPhase phase = getRoomPhase(roomId);
+        if (phase != RoomPhase.WAITING) {
+            throw new IllegalStateException("游戏进行中不可踢人");
+        }
+
+        // 4. 模式检查：必须是PVP模式
+        Mode mode = Mode.valueOf(meta.getMode());
+        if (mode == Mode.PVE) {
+            throw new IllegalStateException("PVE模式不支持踢人");
+        }
+
+        // 5. 目标玩家检查：必须在房间内
+        if (!isUserInRoom(roomId, targetUserId)) {
+            throw new IllegalStateException("目标玩家不在房间内");
+        }
+
+        // 6. 确定目标座位
+        SeatsBinding seats = roomRepo.getSeats(roomId).orElseGet(SeatsBinding::new);
+        boolean isX = targetUserId.equals(seats.getSeatXSessionId());
+        boolean isO = targetUserId.equals(seats.getSeatOSessionId());
+        if (!isX && !isO) {
+            throw new IllegalStateException("目标玩家不在房间内");
+        }
+        char freedSeat = isX ? Board.BLACK : Board.WHITE;
+
+        // 7. 检查对手是否存在
+        String opponentUserId = isX ? seats.getSeatOSessionId() : seats.getSeatXSessionId();
+        boolean opponentPresent = opponentUserId != null && !opponentUserId.isBlank();
+        
+        // 8. 如果对手不存在，销毁房间
+        if (!opponentPresent) {
+            destroyRoom(roomId);
+            ongoingGameTracker.clear(targetUserId);
+            return new KickResult(true, null, freedSeat, null);
+        }
+
+        // 9. 释放座位（Redis）
+        if (isX) {
+            seats.setSeatXSessionId(null);
+        } else {
+            seats.setSeatOSessionId(null);
+        }
+        if (seats.getSeatBySession() != null) {
+            seats.getSeatBySession().remove(targetUserId);
+        }
+        roomRepo.saveSeats(roomId, seats, ROOM_TTL);
+
+        // 10. 释放座位（内存）
+        Room local = rooms.get(roomId);
+        if (local != null) {
+            local.getSeatBySession().remove(targetUserId);
+            if (isX) {
+                local.setSeatXSessionId(null);
+            } else {
+                local.setSeatOSessionId(null);
+            }
+        }
+
+        // 11. 房主保持不变（被踢的永远不可能是房主，因为房主不能踢自己）
+        String newOwner = meta.getOwnerUserId();
+
+        // 12. 清空对局状态（比分、轮数、当前局棋盘）
+        roomRepo.deleteSeries(roomId);
+        meta.setBlackWins(0);
+        meta.setWhiteWins(0);
+        meta.setDraws(0);
+        meta.setCurrentIndex(1);
+        
+        // 13. 创建新的空棋盘
+        String newGameId = UUID.randomUUID().toString();
+        meta.setGameId(newGameId);
+        roomRepo.saveRoomMeta(roomId, meta, ROOM_TTL);
+        
+        // 14. 清空当前局的棋盘状态
+        String emptyBoard = String.valueOf(Board.EMPTY).repeat(Board.SIZE * Board.SIZE);
+        GameStateRecord emptyRec = new GameStateRecord();
+        emptyRec.setRoomId(roomId);
+        emptyRec.setGameId(newGameId);
+        emptyRec.setIndex(1);
+        emptyRec.setBoard(emptyBoard);
+        emptyRec.setCurrent(String.valueOf(Board.BLACK));
+        emptyRec.setLastMove(null);
+        emptyRec.setWinner(null);
+        emptyRec.setOver(false);
+        emptyRec.setStep(0);
+        gameRepo.save(roomId, newGameId, emptyRec, ROOM_TTL);
+        
+        // 15. 更新内存中的 Room 对象
+        if (local != null) {
+            local.getSeries().setBlackWins(0);
+            local.getSeries().setWhiteWins(0);
+            local.getSeries().setDraws(0);
+            local.getSeries().setNextIndex(1);
+            Game newGame = new Game(1, newGameId);
+            local.getSeries().setCurrent(newGame);
+        }
+        
+        // 16. 重置房间状态为WAITING（确保状态正确）
+        setRoomPhase(roomId, RoomPhase.WAITING);
+
+        // 17. 重置准备状态
+        resetAllReady(roomId);
+
+        // 18. 强制断开被踢玩家的WebSocket连接
+        try {
+            java.util.List<WebSocketSessionInfo> sessions = sessionRegistry.getWebSocketSessions(targetUserId);
+            if (sessions != null && !sessions.isEmpty()) {
+                for (WebSocketSessionInfo session : sessions) {
+                    // 发送踢人通知
+                    disconnectHelper.sendKickMessage(targetUserId, session.getSessionId(), "你已被房主踢出房间");
+                    // 强制断开连接
+                    disconnectHelper.forceDisconnect(session.getSessionId());
+                }
+                log.info("已断开被踢玩家的WebSocket连接: targetUserId={}, sessionCount={}", targetUserId, sessions.size());
+            }
+        } catch (Exception e) {
+            log.warn("断开被踢玩家WebSocket连接失败: targetUserId={}", targetUserId, e);
+            // 不影响踢人流程，继续执行
+        }
+
+        // 19. 清理被踢玩家的ongoing-game
+        ongoingGameTracker.clear(targetUserId);
+
+        return new KickResult(true, null, freedSeat, newOwner);
     }
 
     /**

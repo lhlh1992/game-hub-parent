@@ -68,4 +68,20 @@ public class GomokuMessages {
         private String seatKey;   //可空；刷新后轻绑定
         // 可按需扩展字段，比如想带 side/备注等再加
     }
+
+    /**
+     * 踢人命令（客户端 → 服务端）
+     * ---------------------------------------------
+     * 房主踢出指定玩家。
+     * 字段：
+     *   - roomId ：房间编号；
+     *   - targetUserId：被踢玩家用户ID；
+     *   - seatKey：座位令牌，可空（刷新重入绑定用）。
+     */
+    @Data
+    public static class KickCmd {
+        private String roomId;
+        private String targetUserId;
+        private String seatKey;   //可空；刷新后轻绑定
+    }
 }
