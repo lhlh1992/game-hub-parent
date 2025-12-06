@@ -30,6 +30,12 @@ public class RoomListController {
     private final RedisTemplate<String, Object> redisTemplate;
     private final RoomRepository roomRepository;
 
+    /**
+     * 分页查询房间列表
+     * @param cursor 游标（时间戳），用于分页
+     * @param limit 每页数量，默认4
+     * @return 房间列表及下一页游标
+     */
     @GetMapping
     public ApiResponse<RoomListResponse> list(
             @RequestParam(value = "cursor", required = false) Long cursor,
