@@ -944,12 +944,52 @@ public class GomokuServiceImpl implements GomokuService {
             roomRepo.saveRoomMeta(roomId, meta, ROOM_TTL);
         }
 
-        // 重置准备状态和房间状态
-        resetAllReady(roomId);
+        // 清空对局状态（比分、轮数、当前局棋盘）
+        // 因为玩家组合变了，之前的比分不再有效
+        roomRepo.deleteSeries(roomId);
+        meta.setBlackWins(0);
+        meta.setWhiteWins(0);
+        meta.setDraws(0);
+        meta.setCurrentIndex(1);
+        
+        // 创建新的空棋盘
+        String newGameId = UUID.randomUUID().toString();
+        meta.setGameId(newGameId);
+        roomRepo.saveRoomMeta(roomId, meta, ROOM_TTL);
+        
+        // 清空当前局的棋盘状态（创建新的空棋盘记录）
+        String emptyBoard = String.valueOf(Board.EMPTY).repeat(Board.SIZE * Board.SIZE);
+        GameStateRecord emptyRec = new GameStateRecord();
+        emptyRec.setRoomId(roomId);
+        emptyRec.setGameId(newGameId);
+        emptyRec.setIndex(1);
+        emptyRec.setBoard(emptyBoard);
+        emptyRec.setCurrent(String.valueOf(Board.BLACK));
+        emptyRec.setLastMove(null);
+        emptyRec.setWinner(null);
+        emptyRec.setOver(false);
+        emptyRec.setStep(0);
+        gameRepo.save(roomId, newGameId, emptyRec, ROOM_TTL);
+        
+        // 更新内存中的 Room 对象（如果存在）
+        if (local != null) {
+            local.getSeries().setBlackWins(0);
+            local.getSeries().setWhiteWins(0);
+            local.getSeries().setDraws(0);
+            local.getSeries().setNextIndex(1);
+            // 重新创建空棋盘（通过创建新的 Game 对象）
+            Game newGame = new Game(1, newGameId);
+            local.getSeries().setCurrent(newGame);
+        }
+        
+        // 重置房间状态
         RoomPhase currentPhase = getRoomPhase(roomId);
         if (currentPhase == RoomPhase.PLAYING) {
             setRoomPhase(roomId, RoomPhase.WAITING);
         }
+
+        // 重置准备状态
+        resetAllReady(roomId);
 
         ongoingGameTracker.clear(userId);
         return new LeaveResult(false, newOwner, freedSeat);
