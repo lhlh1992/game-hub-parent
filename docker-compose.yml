@@ -154,6 +154,30 @@ services:
     networks:
       pgnet:
         ipv4_address: 172.30.0.13
+        
+        
+  # ========================================
+  # MinIO 对象存储服务（带 Web Console）
+  # ========================================
+  minio:
+    image: minio/minio:RELEASE.2023-04-28T18-11-17Z
+    container_name: minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: admin123
+      TZ: Asia/Shanghai
+    ports:
+      - "9000:9000"      # S3 API
+      - "9001:9001"      # Web 控制台
+    volumes:
+      - D:/DockerData/minio/data:/data
+      - D:/DockerData/minio/config:/root/.minio
+    networks:
+      pgnet:
+        ipv4_address: 172.30.0.14       # 固定 IP（按你当前段落递增）
+
 
   # ========================================
   # 【2025-01-XX 新增】Gateway 网关服务
@@ -183,7 +207,7 @@ services:
         condition: service_healthy
     networks:
       pgnet:
-        ipv4_address: 172.30.0.14          # 固定 IP
+        ipv4_address: 172.30.0.15          # 固定 IP
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
       interval: 30s
