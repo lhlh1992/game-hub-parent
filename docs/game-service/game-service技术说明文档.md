@@ -312,14 +312,23 @@ game-hub-web/src/
 1. 用户调用 `POST /api/gomoku/rooms/{roomId}/join`
 2. 检查是否已在房间内（已绑定座位）
 3. 检查是否已有其他进行中的房间
-4. 调用 `resolveAndBindSide()` 分配座位：
+4. 调用 `resolveAndBindSide()` 分配座位并做并发占座保护：
    - **PVE模式**：玩家自动分配到与AI相反的一方
-   - **PVP模式**：自动分配空位，或用户指定座位（如果空位）
+   - **PVP模式**：自动分配空位（先黑后白），不再支持意向座位
+   - **并发占座**：对“房间+座位”加轻量级 SETNX 锁（TTL 2 分钟），写入成功后立即释放。锁只用于互斥，实际占座数据以 Redis `SeatsBinding` 为准。
 5. 缓存用户信息
 6. 记录到 `OngoingGameTracker`
 7. 广播 `SNAPSHOT` 事件（通知房间内其他玩家）
 
 **关键代码**：`GomokuServiceImpl.resolveAndBindSide()`
+
+实现要点（并发占座）：
+- Redis 键：`gomoku:room:{roomId}:seatLock:{X|O}`，用 SETNX+TTL 保护写入。
+- 入口：`resolveAndBindSide` 先 `tryLockSeat`，写入 `SeatsBinding` 后立即 `releaseSeatLock`。
+- 锁 TTL：2 分钟兜底，正常流程写完即释放，不阻塞后续进房。
+- 位置：`game-service/src/main/java/com/gamehub/gameservice/games/gomoku/service/impl/GomokuServiceImpl.java`  
+  `tryLockSeat/releaseSeatLock`：`.../infrastructure/redis/repo/RedisRoomRepository.java`  
+  SETNX 封装：`.../infrastructure/redis/RedisOps.java`
 
 #### 4.1.3 离开房间
 **流程**：
