@@ -28,6 +28,11 @@ public final class RedisKeys {
         return PFX + "room:" + roomId + ":seatKey:";
     }
 
+    /** 房间座位占用锁：X / O，用于并发占座互斥 */
+    public static String roomSeatLock(String roomId, char seat) {
+        return PFX + "room:" + roomId + ":seatLock:" + Character.toUpperCase(seat);
+    }
+
     // ---- 单盘对局状态 ----
     public static String gameState(String roomId, String gameId) {
         return PFX + "room:" + roomId + ":game:" + gameId + ":state";

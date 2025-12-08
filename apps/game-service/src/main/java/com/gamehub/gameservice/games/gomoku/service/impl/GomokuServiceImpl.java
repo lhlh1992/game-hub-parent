@@ -43,6 +43,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class GomokuServiceImpl implements GomokuService {
 
     private static final Duration ROOM_TTL = Duration.ofHours(48);
+    /** 座位锁 TTL：短时锁，防止并发抢座；释放/过期后可重试 */
+    private static final Duration SEAT_LOCK_TTL = Duration.ofMinutes(2);
     /** 用户信息缓存 TTL（30分钟，平衡一致性与性能） */
     private static final Duration USER_PROFILE_CACHE_TTL = Duration.ofMinutes(30);
 
@@ -469,53 +471,34 @@ public class GomokuServiceImpl implements GomokuService {
                 side = playerSide;
             }
         } else {
-            // PVP：若用户有意向且空位则尊重；否则自动分配
-            char want = (wantSide == null ? 0 : Character.toUpperCase(wantSide));
-            
-            if (want == Board.BLACK) {
-                // 用户想要黑方
-                if (curX == null || curX.isBlank()) {
-                    // 黑方空闲，可以绑定
-                    side = Board.BLACK;
-                } else if (curX.equals(userId)) {
-                    // 已经是自己占用的，直接返回
-                    side = Board.BLACK;
-                } else {
-                    // 黑方已被其他人占用，拒绝绑定
-                    throw new IllegalStateException("黑方座位已被占用");
-                }
-            } else if (want == Board.WHITE) {
-                // 用户想要白方
-                if (curO == null || curO.isBlank()) {
-                    // 白方空闲，可以绑定
-                    side = Board.WHITE;
-                } else if (curO.equals(userId)) {
-                    // 已经是自己占用的，直接返回
-                    side = Board.WHITE;
-                } else {
-                    // 白方已被其他人占用，拒绝绑定
-                    throw new IllegalStateException("白方座位已被占用");
-                }
+            // PVP：不再支持意向座位，统一按顺序自动分配（先黑后白），已被占用则抛错
+            if (curX == null || curX.isBlank()) {
+                side = Board.BLACK;
+            } else if (curO == null || curO.isBlank()) {
+                side = Board.WHITE;
             } else {
-                // 用户没有指定意向，自动分配空位
-                if (curX == null || curX.isBlank()) {
-                    side = Board.BLACK;
-                } else if (curO == null || curO.isBlank()) {
-                    side = Board.WHITE;
-                } else {
-                    throw new IllegalStateException("房间已满");
-                }
+                throw new IllegalStateException("房间已满");
             }
         }
 
-        // 3) 回写 Redis 绑定（同 sessionId 覆盖）
-        if (side == Board.BLACK) {
-            seats.setSeatXSessionId(userId);
-        } else {
-            seats.setSeatOSessionId(userId);
+        // 3) 并发占座保护：先占用座位锁，确保同一时刻只能有一人写入
+        boolean locked = roomRepo.tryLockSeat(roomId, side, userId, SEAT_LOCK_TTL);
+        if (!locked) {
+            throw new IllegalStateException("座位已被占用");
         }
-        seats.getSeatBySession().put(userId, String.valueOf(side));
-        roomRepo.saveSeats(roomId, seats, ROOM_TTL);
+        try {
+            // 回写 Redis 绑定（同 sessionId 覆盖）
+            if (side == Board.BLACK) {
+                seats.setSeatXSessionId(userId);
+            } else {
+                seats.setSeatOSessionId(userId);
+            }
+            seats.getSeatBySession().put(userId, String.valueOf(side));
+            roomRepo.saveSeats(roomId, seats, ROOM_TTL);
+        } finally {
+            // 占座完成后即释放锁，避免短期重复进入被误判
+            roomRepo.releaseSeatLock(roomId, side, userId);
+        }
 
         // 4) 同步到内存快照（兼容现有逻辑）
         r.getSeatBySession().put(userId, side);
@@ -924,7 +907,9 @@ public class GomokuServiceImpl implements GomokuService {
         if (seats.getSeatBySession() != null) {
             seats.getSeatBySession().remove(userId);
         }
+        // 回写座位绑定并释放座位锁
         roomRepo.saveSeats(roomId, seats, ROOM_TTL);
+        roomRepo.releaseSeatLock(roomId, freedSeat, userId);
 
         // 释放座位（内存）
         Room local = rooms.get(roomId);
@@ -1027,6 +1012,7 @@ public class GomokuServiceImpl implements GomokuService {
         roomRepo.deleteRoom(roomId);
         roomRepo.deleteSeats(roomId);
         roomRepo.deleteSeatKeys(roomId);
+        roomRepo.deleteSeatLocks(roomId);
         roomRepo.deleteSeries(roomId);
         roomRepo.deleteAllUserProfiles(roomId);
         gameRepo.deleteAll(roomId);

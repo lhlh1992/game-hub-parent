@@ -173,6 +173,14 @@ public class RedisOps {
         return true;
     }
     /**
+     * 仅当不存在时写入字符串键值（SETNX），带 TTL。
+     * @return true 表示写入成功，false 表示已存在
+     */
+    public boolean setStringNx(String key, String val, Duration ttl) {
+        Boolean ok = strRedis.opsForValue().setIfAbsent(key, val, ttl);
+        return Boolean.TRUE.equals(ok);
+    }
+    /**
      * 获取简单字符串值
      */
     public String getString(String key) {

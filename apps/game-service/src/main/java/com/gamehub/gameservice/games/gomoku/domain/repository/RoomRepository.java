@@ -143,6 +143,24 @@ public interface RoomRepository {
      */
     void deleteSeries(String roomId);
 
+    // ---- 座位占用互斥（原子占座/释放）----
+    /**
+     * 尝试占用座位（原子 SETNX）：
+     * - 若座位已被他人占用返回 false；
+     * - 若已是当前用户占用则续期并返回 true。
+     */
+    boolean tryLockSeat(String roomId, char seat, String userId, Duration ttl);
+
+    /**
+     * 释放座位锁（仅当当前锁持有者为空或等于该用户时删除）。
+     */
+    void releaseSeatLock(String roomId, char seat, String userId);
+
+    /**
+     * 删除房间的所有座位锁（销毁房间时清理）。
+     */
+    void deleteSeatLocks(String roomId);
+
     // ===== 房间列表索引（按创建时间排序）=====
 
     /**

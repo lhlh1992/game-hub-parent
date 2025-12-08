@@ -139,6 +139,48 @@ public class RedisRoomRepository implements RoomRepository {
     }
 
     /**
+     * 尝试占用座位锁（原子）：本人占用则续期，其他人占用则返回 false。
+     */
+    @Override
+    public boolean tryLockSeat(String roomId, char seat, String userId, Duration ttl) {
+        // 座位锁 key：按房间+座位隔离
+        String key = RedisKeys.roomSeatLock(roomId, seat);
+        // 已是本人占用：续期并视为成功
+        String existing = ops.getString(key);
+        if (existing != null && existing.equals(userId)) {
+            ops.expire(key, ttl);
+            return true;
+        }
+        // 尝试占用（SETNX 语义）
+        return ops.setStringNx(key, userId, ttl);
+    }
+
+    /**
+     * 释放座位锁：仅在锁为空或持有者为当前用户时删除，避免误删他人锁。
+     */
+    @Override
+    public void releaseSeatLock(String roomId, char seat, String userId) {
+        // 仅在锁空或持有者为当前用户时释放，避免误删他人锁
+        String key = RedisKeys.roomSeatLock(roomId, seat);
+        String existing = ops.getString(key);
+        if (existing == null || existing.equals(userId)) {
+            ops.del(key);
+        }
+    }
+
+    /**
+     * 删除房间的座位锁（销毁房间时清理）。
+     */
+    @Override
+    public void deleteSeatLocks(String roomId) {
+        // 销毁房间时清理座位锁
+        ops.del(
+                RedisKeys.roomSeatLock(roomId, 'X'),
+                RedisKeys.roomSeatLock(roomId, 'O')
+        );
+    }
+
+    /**
      * 保存用户档案到房间缓存（Hash 结构）
      */
     @Override
