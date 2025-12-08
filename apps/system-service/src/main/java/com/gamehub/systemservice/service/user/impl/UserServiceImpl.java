@@ -6,6 +6,7 @@ import com.gamehub.systemservice.entity.user.SysUserProfile;
 import com.gamehub.systemservice.exception.BusinessException;
 import com.gamehub.systemservice.repository.user.SysUserProfileRepository;
 import com.gamehub.systemservice.repository.user.SysUserRepository;
+import com.gamehub.systemservice.service.file.FileStorageService;
 import com.gamehub.systemservice.service.user.UserService;
 import jakarta.ws.rs.core.Response;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ public class UserServiceImpl implements UserService {
     private final SysUserRepository userRepository;
     private final SysUserProfileRepository userProfileRepository;
     private final Keycloak keycloak;
+    private final FileStorageService fileStorageService;
     
     @Value("${keycloak.realm:my-realm}")
     private String realm;
@@ -391,6 +393,109 @@ public class UserServiceImpl implements UserService {
                             .build();
                 })
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public UserInfo updateProfile(String keycloakUserId, String nickname, String email, String phone,
+                                  String avatarUrl, String bio, String locale, String timezone,
+                                  Map<String, Object> settings) {
+        // 1. 查找用户
+        UUID keycloakUserIdUuid = UUID.fromString(keycloakUserId);
+        SysUser user = userRepository.findByKeycloakUserIdAndNotDeleted(keycloakUserIdUuid)
+                .orElseThrow(() -> new BusinessException("用户不存在"));
+
+        // 2. 处理头像（如果有临时URL，移动到正式目录）
+        String finalAvatarUrl = null;
+        String avatarNameId = user.getKeycloakUserId() != null ? user.getKeycloakUserId().toString() : user.getId().toString();
+        if (avatarUrl != null && !avatarUrl.isBlank()) {
+            try {
+                // 1) 临时URL -> 移动到 avatars，并强制命名为 userId
+                if (avatarUrl.contains("/temp/")) {
+                    finalAvatarUrl = fileStorageService.moveAvatarFromTemp(avatarUrl, avatarNameId);
+                } else if (avatarUrl.contains("/avatars/")) {
+                    // 2) 已在 avatars，但文件名可能是 UUID，规范化为 userId.xxx
+                    finalAvatarUrl = fileStorageService.normalizeAvatarInAvatars(avatarUrl, avatarNameId);
+                } else {
+                    // 其他路径，直接使用
+                    finalAvatarUrl = avatarUrl;
+                }
+            } catch (Exception e) {
+                log.error("处理头像失败: userId={}, avatarUrl={}", user.getId(), avatarUrl, e);
+                throw new BusinessException("处理头像失败: " + e.getMessage());
+            }
+        }
+
+        // 3. 更新 sys_user 表
+        boolean userUpdated = false;
+        if (nickname != null && !nickname.isBlank() && !nickname.equals(user.getNickname())) {
+            user.setNickname(nickname);
+            userUpdated = true;
+        }
+        if (email != null && !email.isBlank() && !email.equals(user.getEmail())) {
+            user.setEmail(email);
+            userUpdated = true;
+        }
+        if (phone != null && !phone.isBlank() && !phone.equals(user.getPhone())) {
+            user.setPhone(phone);
+            userUpdated = true;
+        }
+        if (finalAvatarUrl != null && !finalAvatarUrl.equals(user.getAvatarUrl())) {
+            user.setAvatarUrl(finalAvatarUrl);
+            userUpdated = true;
+        }
+        if (userUpdated) {
+            user = userRepository.save(user);
+            log.info("更新用户基础信息: userId={}", user.getId());
+        }
+
+        // 4. 更新或创建 sys_user_profile 表
+        SysUserProfile profile = userProfileRepository.findById(user.getId())
+                .orElse(SysUserProfile.builder()
+                        .userId(user.getId())
+                        .locale("zh-CN")
+                        .timezone("Asia/Shanghai")
+                        .settings(Map.of())
+                        .build());
+
+        boolean profileUpdated = false;
+        if (bio != null && !bio.equals(profile.getBio())) {
+            profile.setBio(bio);
+            profileUpdated = true;
+        }
+        if (locale != null && !locale.isBlank() && !locale.equals(profile.getLocale())) {
+            profile.setLocale(locale);
+            profileUpdated = true;
+        }
+        if (timezone != null && !timezone.isBlank() && !timezone.equals(profile.getTimezone())) {
+            profile.setTimezone(timezone);
+            profileUpdated = true;
+        }
+        if (settings != null && !settings.equals(profile.getSettings())) {
+            profile.setSettings(settings);
+            profileUpdated = true;
+        }
+        if (profileUpdated || profile.getUserId() == null) {
+            profile = userProfileRepository.save(profile);
+            log.info("更新用户扩展信息: userId={}", user.getId());
+        }
+
+        // 5. 返回完整的用户信息
+        return UserInfo.builder()
+                .userId(user.getKeycloakUserId().toString())
+                .systemUserId(user.getId())
+                .username(user.getUsername())
+                .nickname(user.getNickname())
+                .avatarUrl(user.getAvatarUrl())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .userType(user.getUserType() != null ? user.getUserType().name() : "NORMAL")
+                .status(user.getStatus())
+                .bio(profile.getBio())
+                .locale(profile.getLocale())
+                .timezone(profile.getTimezone())
+                .settings(profile.getSettings())
+                .build();
     }
 }
 

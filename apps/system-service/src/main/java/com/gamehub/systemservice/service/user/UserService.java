@@ -4,6 +4,7 @@ import com.gamehub.systemservice.dto.response.UserInfo;
 import com.gamehub.systemservice.entity.user.SysUser;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -67,6 +68,24 @@ public interface UserService {
      * 返回的 UserInfo 聚合了 sys_user + sys_user_profile（游戏统计后续可扩展）。
      */
     List<UserInfo> findUserInfosByKeycloakUserIds(List<String> keycloakUserIds);
+
+    /**
+     * 更新当前用户资料（包括 sys_user 和 sys_user_profile）
+     * 
+     * @param keycloakUserId Keycloak 用户ID（从JWT获取）
+     * @param nickname 昵称（可选）
+     * @param email 邮箱（可选）
+     * @param phone 手机号（可选）
+     * @param avatarUrl 头像URL（临时URL，需要移动到正式目录）
+     * @param bio 个人简介（可选）
+     * @param locale 语言偏好（可选）
+     * @param timezone 时区（可选）
+     * @param settings 用户设置（可选）
+     * @return 更新后的完整用户信息
+     */
+    UserInfo updateProfile(String keycloakUserId, String nickname, String email, String phone,
+                          String avatarUrl, String bio, String locale, String timezone,
+                          Map<String, Object> settings);
 }
 
 

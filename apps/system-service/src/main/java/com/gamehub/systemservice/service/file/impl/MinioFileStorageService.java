@@ -1,8 +1,7 @@
 package com.gamehub.systemservice.service.file.impl;
 
 import com.gamehub.systemservice.service.file.FileStorageService;
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
+import io.minio.*;
 import io.minio.errors.MinioException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,23 +31,161 @@ public class MinioFileStorageService implements FileStorageService {
     @Value("${minio.bucket.materials}")
     private String materialsBucket;
 
+    @Value("${minio.bucket.temp}")
+    private String tempBucket;
+
     @Value("${minio.public-url-prefix}")
     private String publicUrlPrefix;
 
     @Override
-    public String uploadAvatar(MultipartFile file) throws Exception {
+    public String uploadAvatarToTemp(MultipartFile file, String userId) throws Exception {
         // 验证文件
         validateImageFile(file);
 
-        // 生成文件名（UUID + 扩展名）
+        // 生成文件名（userId + 扩展名）
+        String extension = getFileExtension(file.getOriginalFilename());
+        String objectName = userId + extension;
+
+        // 上传到临时目录
+        uploadFile(tempBucket, objectName, file.getInputStream(), file.getContentType(), file.getSize());
+
+        // 返回临时文件访问 URL
+        return publicUrlPrefix + "/temp/" + objectName;
+    }
+
+    @Override
+    @Deprecated
+    public String uploadAvatar(MultipartFile file) throws Exception {
+        // 旧方法，使用UUID作为文件名，上传到正式目录（兼容旧接口）
+        validateImageFile(file);
         String extension = getFileExtension(file.getOriginalFilename());
         String objectName = UUID.randomUUID() + extension;
-
-        // 上传到 MinIO
         uploadFile(avatarsBucket, objectName, file.getInputStream(), file.getContentType(), file.getSize());
-
-        // 返回公共访问 URL
         return publicUrlPrefix + "/avatars/" + objectName;
+    }
+
+    @Override
+    public String normalizeAvatarInAvatars(String avatarUrl, String userId) throws Exception {
+        if (avatarUrl == null || avatarUrl.isBlank()) {
+            return avatarUrl;
+        }
+        // 仅处理 avatars 路径
+        if (!avatarUrl.contains("/avatars/")) {
+            return avatarUrl;
+        }
+        String objectName = extractObjectNameFromUrl(avatarUrl, "avatars");
+        String extension = getFileExtension(objectName);
+        String finalObjectName = userId + extension;
+
+        // 如果已经是 userId 命名则直接返回
+        if (objectName.equals(finalObjectName)) {
+            return avatarUrl;
+        }
+
+        try {
+            // 复制并覆盖为 userId.xxx
+            minioClient.copyObject(
+                    CopyObjectArgs.builder()
+                            .bucket(avatarsBucket)
+                            .object(finalObjectName)
+                            .source(
+                                    CopySource.builder()
+                                            .bucket(avatarsBucket)
+                                            .object(objectName)
+                                            .build()
+                            )
+                            .build()
+            );
+            log.info("头像规范化: {} -> {}", objectName, finalObjectName);
+
+            // 删除旧文件（不影响主流程）
+            try {
+                minioClient.removeObject(
+                        RemoveObjectArgs.builder()
+                                .bucket(avatarsBucket)
+                                .object(objectName)
+                                .build()
+                );
+            } catch (Exception e) {
+                log.warn("删除旧头像失败（忽略）: {}", objectName, e);
+            }
+
+            return publicUrlPrefix + "/avatars/" + finalObjectName;
+        } catch (MinioException e) {
+            log.error("头像规范化失败: avatarUrl={}", avatarUrl, e);
+            throw new Exception("头像规范化失败: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public String moveAvatarFromTemp(String tempUrl, String userId) throws Exception {
+        // 从URL中提取文件名
+        // URL格式：http://files.localhost/files/temp/{userId}.jpg
+        String tempObjectName = extractObjectNameFromUrl(tempUrl, "temp");
+        String extension = getFileExtension(tempObjectName);
+        String finalObjectName = userId + extension;
+
+        try {
+            // 检查临时文件是否存在
+            StatObjectResponse stat = minioClient.statObject(
+                    StatObjectArgs.builder()
+                            .bucket(tempBucket)
+                            .object(tempObjectName)
+                            .build()
+            );
+
+            // 复制文件从 temp 到 avatars（覆盖同名文件）
+            minioClient.copyObject(
+                    CopyObjectArgs.builder()
+                            .bucket(avatarsBucket)
+                            .object(finalObjectName)
+                            .source(
+                                    CopySource.builder()
+                                            .bucket(tempBucket)
+                                            .object(tempObjectName)
+                                            .build()
+                            )
+                            .build()
+            );
+
+            log.info("头像从临时目录移动到正式目录: temp={}, final={}", tempObjectName, finalObjectName);
+
+            // 删除临时文件
+            try {
+                minioClient.removeObject(
+                        RemoveObjectArgs.builder()
+                                .bucket(tempBucket)
+                                .object(tempObjectName)
+                                .build()
+                );
+                log.info("临时文件已删除: {}", tempObjectName);
+            } catch (Exception e) {
+                log.warn("删除临时文件失败（不影响主流程）: {}", tempObjectName, e);
+            }
+
+            // 返回正式文件访问 URL
+            return publicUrlPrefix + "/avatars/" + finalObjectName;
+        } catch (MinioException e) {
+            log.error("移动头像文件失败: tempUrl={}", tempUrl, e);
+            throw new Exception("移动头像文件失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 从URL中提取对象名称
+     */
+    private String extractObjectNameFromUrl(String url, String bucketPrefix) {
+        // URL格式：http://files.localhost/files/{bucketPrefix}/{objectName}
+        String prefix = publicUrlPrefix + "/" + bucketPrefix + "/";
+        if (url.startsWith(prefix)) {
+            return url.substring(prefix.length());
+        }
+        // 如果URL格式不对，尝试直接使用文件名部分
+        int lastSlash = url.lastIndexOf('/');
+        if (lastSlash >= 0 && lastSlash < url.length() - 1) {
+            return url.substring(lastSlash + 1);
+        }
+        throw new IllegalArgumentException("无法从URL中提取对象名称: " + url);
     }
 
     @Override

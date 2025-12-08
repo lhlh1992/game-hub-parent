@@ -111,8 +111,10 @@ minio:
     game-replays: game-replays
     materials: materials
     temp: temp
-  # 公共访问 URL 前缀（通过 Nginx）
-  public-url-prefix: http://files.localhost/files
+  # 临时文件过期时间（小时）
+  temp-expire-hours: 24
+  # 公共访问 URL 前缀（直连 MinIO，无 Nginx）
+  public-url-prefix: http://127.0.0.1:9000
 
 # 日志配置
 logging:
