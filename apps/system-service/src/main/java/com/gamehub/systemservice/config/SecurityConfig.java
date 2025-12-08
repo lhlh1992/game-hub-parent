@@ -37,6 +37,8 @@ public class SecurityConfig {
                         .requestMatchers("/internal/keycloak/events/**").permitAll()
                         // 会话监控接口（开发调试用，完全开放）
                         .requestMatchers("/internal/sessions/**").permitAll()
+                        // 文件上传接口（暂时放开，方便测试）
+                        .requestMatchers("/api/files/**").permitAll()
                         // 其他请求需要认证
                         .anyRequest().authenticated()
                 )

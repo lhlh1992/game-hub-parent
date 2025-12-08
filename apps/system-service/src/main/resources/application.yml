@@ -101,6 +101,19 @@ session:
     database: ${SESSION_REDIS_DATABASE:0}
     password: ${SESSION_REDIS_PASSWORD:zaqxsw} 
 
+# MinIO 配置
+minio:
+  endpoint: http://127.0.0.1:9000
+  access-key: NnwqpqOuwiSWkS5J
+  secret-key: UN55tffJZvRSAa65lwbYZphMC23TOvWh
+  bucket:
+    avatars: avatars
+    game-replays: game-replays
+    materials: materials
+    temp: temp
+  # 公共访问 URL 前缀（通过 Nginx）
+  public-url-prefix: http://files.localhost/files
+
 # 日志配置
 logging:
   level:
