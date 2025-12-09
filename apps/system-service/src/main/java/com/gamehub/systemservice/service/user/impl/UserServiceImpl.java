@@ -7,6 +7,7 @@ import com.gamehub.systemservice.exception.BusinessException;
 import com.gamehub.systemservice.repository.user.SysUserProfileRepository;
 import com.gamehub.systemservice.repository.user.SysUserRepository;
 import com.gamehub.systemservice.service.file.FileStorageService;
+import com.gamehub.systemservice.service.user.UserProfileCacheService;
 import com.gamehub.systemservice.service.user.UserService;
 import jakarta.ws.rs.core.Response;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ public class UserServiceImpl implements UserService {
     private final SysUserProfileRepository userProfileRepository;
     private final Keycloak keycloak;
     private final FileStorageService fileStorageService;
+    private final UserProfileCacheService userProfileCacheService;
     
     @Value("${keycloak.realm:my-realm}")
     private String realm;
@@ -320,8 +322,21 @@ public class UserServiceImpl implements UserService {
             return java.util.Collections.emptyList();
         }
 
-        // 将 String 格式的 keycloakUserId 转换为 UUID
-        List<UUID> uuidList = keycloakUserIds.stream()
+        // 先尝试缓存命中，保留顺序
+        Map<String, UserInfo> hitCache = new java.util.LinkedHashMap<>();
+        List<String> misses = new java.util.ArrayList<>();
+        for (String id : keycloakUserIds) {
+            if (id == null || id.isBlank()) {
+                continue;
+            }
+            userProfileCacheService.get(id).ifPresentOrElse(
+                    info -> hitCache.put(id, info),
+                    () -> misses.add(id)
+            );
+        }
+
+        // 将 String 格式的 keycloakUserId 转换为 UUID（仅对 miss 查询 DB）
+        List<UUID> uuidList = misses.stream()
                 .filter(id -> id != null && !id.isBlank())
                 .map(id -> {
                     try {
@@ -334,34 +349,24 @@ public class UserServiceImpl implements UserService {
                 .filter(Objects::nonNull)
                 .toList();
 
-        if (uuidList.isEmpty()) {
-            return java.util.Collections.emptyList();
-        }
+        Map<String, UserInfo> dbResultMap = new java.util.LinkedHashMap<>();
+        if (!uuidList.isEmpty()) {
+            java.util.List<SysUser> users = userRepository.findByKeycloakUserIdInAndNotDeleted(uuidList);
 
-        // 批量查询用户（需要自定义查询方法）
-        java.util.List<SysUser> users = userRepository.findByKeycloakUserIdInAndNotDeleted(uuidList);
+            if (!users.isEmpty()) {
+                java.util.List<UUID> userIds = users.stream()
+                        .map(SysUser::getId)
+                        .filter(Objects::nonNull)
+                        .toList();
 
-        if (users.isEmpty()) {
-            return java.util.Collections.emptyList();
-        }
+                java.util.Map<UUID, SysUserProfile> profileMap = userIds.isEmpty()
+                        ? java.util.Collections.emptyMap()
+                        : userProfileRepository.findAllById(userIds).stream()
+                            .collect(java.util.stream.Collectors.toMap(SysUserProfile::getUserId, p -> p));
 
-        // 批量查询用户扩展信息（sys_user_profile），避免 N+1 查询
-        java.util.List<UUID> userIds = users.stream()
-                .map(SysUser::getId)
-                .filter(Objects::nonNull)
-                .toList();
-
-        java.util.Map<UUID, SysUserProfile> profileMap = userIds.isEmpty()
-                ? java.util.Collections.emptyMap()
-                : userProfileRepository.findAllById(userIds).stream()
-                    .collect(java.util.stream.Collectors.toMap(SysUserProfile::getUserId, p -> p));
-
-        // 转换为 UserInfo DTO（基础信息 + 扩展信息，游戏统计信息后续补充）
-        return users.stream()
-                .map(user -> {
+                users.forEach(user -> {
                     SysUserProfile profile = profileMap.get(user.getId());
-                    return com.gamehub.systemservice.dto.response.UserInfo.builder()
-                            // 用户基础信息（来自 sys_user 表）
+                    UserInfo info = com.gamehub.systemservice.dto.response.UserInfo.builder()
                             .userId(user.getKeycloakUserId().toString())
                             .systemUserId(user.getId())
                             .username(user.getUsername())
@@ -371,12 +376,10 @@ public class UserServiceImpl implements UserService {
                             .phone(user.getPhone())
                             .userType(user.getUserType() != null ? user.getUserType().name() : "NORMAL")
                             .status(user.getStatus())
-                            // 用户扩展信息（来自 sys_user_profile 表，可能为 null）
                             .bio(profile != null ? profile.getBio() : null)
                             .locale(profile != null ? profile.getLocale() : null)
                             .timezone(profile != null ? profile.getTimezone() : null)
                             .settings(profile != null ? profile.getSettings() : null)
-                            // 游戏统计信息（来自 user_score 表，暂时为 null，等实体类创建后补充）
                             .levelId(null)
                             .levelName(null)
                             .levelNumber(null)
@@ -391,8 +394,23 @@ public class UserServiceImpl implements UserService {
                             .winRate(null)
                             .highestScore(null)
                             .build();
-                })
-                .toList();
+                    dbResultMap.put(info.getUserId(), info);
+                    // 写回缓存
+                    userProfileCacheService.put(info);
+                });
+            }
+        }
+
+        // 组装结果：按请求顺序返回命中 + DB 结果
+        List<UserInfo> result = new java.util.ArrayList<>();
+        for (String id : keycloakUserIds) {
+            if (hitCache.containsKey(id)) {
+                result.add(hitCache.get(id));
+            } else if (dbResultMap.containsKey(id)) {
+                result.add(dbResultMap.get(id));
+            }
+        }
+        return result;
     }
 
     @Override
@@ -480,8 +498,8 @@ public class UserServiceImpl implements UserService {
             log.info("更新用户扩展信息: userId={}", user.getId());
         }
 
-        // 5. 返回完整的用户信息
-        return UserInfo.builder()
+        // 5. 返回并刷新缓存
+        UserInfo updated = UserInfo.builder()
                 .userId(user.getKeycloakUserId().toString())
                 .systemUserId(user.getId())
                 .username(user.getUsername())
@@ -496,6 +514,8 @@ public class UserServiceImpl implements UserService {
                 .timezone(profile.getTimezone())
                 .settings(profile.getSettings())
                 .build();
+        userProfileCacheService.put(updated);
+        return updated;
     }
 }
 
