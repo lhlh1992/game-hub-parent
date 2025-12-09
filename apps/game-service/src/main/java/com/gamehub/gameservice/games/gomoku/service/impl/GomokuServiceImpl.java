@@ -1189,7 +1189,7 @@ public class GomokuServiceImpl implements GomokuService {
             if (sessions != null && !sessions.isEmpty()) {
                 for (WebSocketSessionInfo session : sessions) {
                     // 发送踢人通知
-                    disconnectHelper.sendKickMessage(targetUserId, session.getSessionId(), "你已被房主踢出房间");
+                    disconnectHelper.sendKickMessage(targetUserId, session.getSessionId(), "可返回大厅加入其他房间或创建新房间");
                     // 强制断开连接
                     disconnectHelper.forceDisconnect(session.getSessionId());
                 }

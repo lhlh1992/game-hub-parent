@@ -267,7 +267,7 @@ public class GomokuWsController {
             kickEvent.setRoomId(roomId);
             kickEvent.setGameId(gomokuService.getGameId(roomId));
             kickEvent.setType("KICKED");
-            kickEvent.setPayload(Map.of("reason", "你已被房主踢出房间"));
+            kickEvent.setPayload(Map.of("reason", "可返回大厅加入其他房间或创建新房间"));
             messaging.convertAndSendToUser(targetUserId, "/queue/gomoku.kicked", kickEvent);
             
             // 等待一小段时间，确保消息发送完成
