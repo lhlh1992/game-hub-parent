@@ -1,7 +1,7 @@
 package com.gamehub.chatservice.service.impl;
 
-import com.gamehub.chatservice.infrastructure.client.SystemUserClient;
 import com.gamehub.chatservice.service.ChatMessagingService;
+import com.gamehub.chatservice.service.UserProfileCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -17,7 +17,7 @@ import java.time.Instant;
 public class ChatMessagingServiceImpl implements ChatMessagingService {
 
     private final SimpMessagingTemplate messagingTemplate;
-    private final SystemUserClient systemUserClient;
+    private final UserProfileCacheService userProfileCacheService;
 
     @Override
     public void sendLobbyMessage(String userId, String content) {
@@ -60,19 +60,18 @@ public class ChatMessagingServiceImpl implements ChatMessagingService {
 
     private String resolveDisplayName(String userId) {
         try {
-            SystemUserClient.UserInfo info = systemUserClient.getUserInfo(userId);
-            if (info != null) {
-                if (StringUtils.hasText(info.nickname())) {
-                    return info.nickname();
-                }
-                if (StringUtils.hasText(info.username())) {
-                    return info.username();
-                }
-            }
+            return userProfileCacheService.get(userId)
+                    .map(info -> {
+                        if (StringUtils.hasText(info.nickname())) return info.nickname();
+                        if (StringUtils.hasText(info.username())) return info.username();
+                        return info.userId();
+                    })
+                    // 缓存未命中，不做远程调用，交给前端兜底
+                    .orElse(userId);
         } catch (Exception e) {
             log.warn("resolveDisplayName failed for userId={}", userId, e);
+            return userId;
         }
-        return userId;
     }
 
     private record BroadcastPayload(

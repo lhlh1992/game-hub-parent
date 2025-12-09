@@ -20,6 +20,7 @@ import java.util.List;
 public class UserDirectoryService {
 
     private final SystemUserClient systemUserClient;
+    private final UserProfileCacheService userProfileCacheService;
 
     /**
      * 批量按 Keycloak 用户ID 查询用户档案。
@@ -32,12 +33,41 @@ public class UserDirectoryService {
         if (userIds == null || userIds.isEmpty()) {
             return Collections.emptyList();
         }
-        ApiResponse<List<UserProfileView>> resp = systemUserClient.getUserInfos(userIds);
-        if (resp == null || resp.code() != 200 || resp.data() == null) {
-            log.warn("获取用户信息失败: userIds={}, response={}", userIds, resp);
-            return Collections.emptyList();
+        // 先尝试缓存命中
+        java.util.Map<String, UserProfileView> hit = new java.util.LinkedHashMap<>();
+        java.util.List<String> misses = new java.util.ArrayList<>();
+        for (String id : userIds) {
+            if (id == null || id.isBlank()) continue;
+            userProfileCacheService.get(id).ifPresentOrElse(
+                    info -> hit.put(id, info),
+                    () -> misses.add(id)
+            );
         }
-        return resp.data();
+
+        // 对未命中调用远程
+        java.util.Map<String, UserProfileView> remote = new java.util.LinkedHashMap<>();
+        if (!misses.isEmpty()) {
+            ApiResponse<List<UserProfileView>> resp = systemUserClient.getUserInfos(misses);
+            if (resp == null || resp.code() != 200 || resp.data() == null) {
+                log.warn("获取用户信息失败: userIds={}, response={}", misses, resp);
+            } else {
+                resp.data().forEach(u -> {
+                    remote.put(u.getUserId(), u);
+                    userProfileCacheService.put(u);
+                });
+            }
+        }
+
+        // 按请求顺序返回
+        java.util.List<UserProfileView> result = new java.util.ArrayList<>();
+        for (String id : userIds) {
+            if (hit.containsKey(id)) {
+                result.add(hit.get(id));
+            } else if (remote.containsKey(id)) {
+                result.add(remote.get(id));
+            }
+        }
+        return result;
     }
 
     /**

@@ -314,6 +314,10 @@ public class UserServiceImpl implements UserService {
         user.setStatus(0); // 设置为禁用状态，与 Keycloak 保持一致
         userRepository.save(user);
         log.info("软删除用户成功: userId={}, keycloakUserId={}, status=0", userId, user.getKeycloakUserId());
+        // 清理缓存
+        if (user.getKeycloakUserId() != null) {
+            userProfileCacheService.evict(user.getKeycloakUserId().toString());
+        }
     }
 
     @Override
