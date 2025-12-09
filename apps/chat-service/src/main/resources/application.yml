@@ -16,7 +16,7 @@ spring:
       host: ${REDIS_HOST:127.0.0.1} # Redis 主机
       port: ${REDIS_PORT:6379} # Redis 端口
       password: ${REDIS_PASSWORD:zaqxsw} # Redis 密码
-      database: ${REDIS_DATABASE:3} # chat-service 专用 DB
+      database: ${REDIS_DATABASE:4} # chat-service 专用 DB
       timeout: 2s # 连接超时
       lettuce:
         pool:
@@ -60,3 +60,14 @@ game-service:
 logging:
   level:
     org.springframework.security: INFO # 安全日志级别
+
+# session-common 开关：供会话/WS 单设备登录使用
+session:
+  redis:
+    host: ${SESSION_REDIS_HOST:127.0.0.1}
+    port: ${SESSION_REDIS_PORT:6379}
+    database: ${SESSION_REDIS_DATABASE:0}
+    password: ${SESSION_REDIS_PASSWORD:zaqxsw}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    topic: session-invalidated
