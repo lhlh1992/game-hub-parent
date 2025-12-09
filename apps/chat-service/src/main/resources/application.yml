@@ -1,0 +1,62 @@
+server:
+  port: 8083 # chat-service http/ws 端口
+
+spring:
+  application:
+    name: chat-service
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://127.0.0.1:8180/realms/my-realm} # Keycloak 发行人
+
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1} # Redis 主机
+      port: ${REDIS_PORT:6379} # Redis 端口
+      password: ${REDIS_PASSWORD:zaqxsw} # Redis 密码
+      database: ${REDIS_DATABASE:3} # chat-service 专用 DB
+      timeout: 2s # 连接超时
+      lettuce:
+        pool:
+          max-active: 32 # 最大连接
+          max-idle: 16 # 最大空闲
+          min-idle: 0 # 最小空闲
+          max-wait: 5s # 获取连接等待
+  # PostgreSQL 连接串
+  datasource:
+    url: ${DATASOURCE_URL:jdbc:postgresql://127.0.0.1:5432/gamehub_db}
+    username: ${DATASOURCE_USERNAME:postgres} # DB 用户
+    password: ${DATASOURCE_PASSWORD:postgres} # DB 密码
+    hikari:
+      maximum-pool-size: 10 # 连接池上限
+      minimum-idle: 2 # 最小空闲
+
+  jpa:
+    hibernate:
+      ddl-auto: none # 生产禁用自动建表
+    properties:
+      hibernate:
+        format_sql: true # SQL 格式化
+    show-sql: false # 控制台不打印 SQL
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092} # Kafka 地址
+    consumer:
+      group-id: chat-service-group # 消费组
+      auto-offset-reset: latest # 偏移策略
+
+feign:
+  circuitbreaker:
+    enabled: true # 启用熔断
+
+system-service:
+  url: http://system-service:8082 # 用户/权限服务地址
+
+game-service:
+  url: http://game-service:8081 # 游戏/房间服务地址
+
+logging:
+  level:
+    org.springframework.security: INFO # 安全日志级别

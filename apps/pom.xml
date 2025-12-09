@@ -20,6 +20,7 @@
         <module>gateway</module>
         <module>game-service</module>
         <module>system-service</module>
+        <module>chat-service</module>
     </modules>
 
 </project>
