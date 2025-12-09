@@ -23,6 +23,7 @@ import com.gamehub.gameservice.platform.ongoing.OngoingGameTracker;
 import com.gamehub.session.SessionRegistry;
 import com.gamehub.session.model.WebSocketSessionInfo;
 import com.gamehub.gameservice.platform.ws.WebSocketDisconnectHelper;
+import com.gamehub.gameservice.games.gomoku.domain.constants.GameMessages;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -274,7 +275,7 @@ public class GomokuServiceImpl implements GomokuService {
         // 检查房间状态：WAITING状态下不允许落子
         RoomPhase phase = getRoomPhase(roomId);
         if (phase == RoomPhase.WAITING) {
-            throw new IllegalStateException("游戏尚未开始，请先双方准备并由房主开始游戏");
+            throw new IllegalStateException(GameMessages.GAME_NOT_STARTED);
         }
         
         GomokuState s = r.getSeries().getCurrent().getState();  // ✅ 必须落到"当前盘"
@@ -283,18 +284,18 @@ public class GomokuServiceImpl implements GomokuService {
         if (s.over()) return s;
         //回合锁：必须是当前执子
         if (s.current() != piece) {
-            throw new IllegalStateException("未轮到该方走棋（当前应为 " + s.current() + "）");
+            throw new IllegalStateException(GameMessages.formatNotYourTurn(String.valueOf(s.current())));
         }
         //合法性：坐标合法 & 未被占用
         if (!GomokuJudge.isLegal(s.board(), x, y)) {
-            throw new IllegalArgumentException("落点非法或已占用");
+            throw new IllegalArgumentException(GameMessages.ILLEGAL_MOVE);
         }
         // 【已移除】边界限制已移除，允许在 0-14 的所有交叉点落子
         // 15x15 棋盘有 15 个交叉点（0-14），都可以落子
         // 黑方禁手（仅在 RENJU 模式判断）
         if (r.getRule() == Rule.RENJU && piece == Board.BLACK
                 && GomokuJudgeRenju.isForbiddenMove(s.board(), x, y)) {
-            throw new IllegalArgumentException("黑方禁手（长连 / 四四 / 三三）");
+            throw new IllegalArgumentException(GameMessages.FORBIDDEN_MOVE_DETAIL);
         }
 
         // 玩家下子
@@ -1068,32 +1069,32 @@ public class GomokuServiceImpl implements GomokuService {
 
         // 1. 权限检查：必须是房主
         RoomMeta meta = roomRepo.getRoomMeta(roomId)
-                .orElseThrow(() -> new IllegalArgumentException("ROOM_NOT_FOUND: " + roomId));
+                .orElseThrow(() -> new IllegalArgumentException(GameMessages.ROOM_NOT_FOUND + ": " + roomId));
         String actualOwner = meta.getOwnerUserId();
         if (!ownerUserId.equals(actualOwner)) {
-            throw new IllegalStateException("只有房主可以踢人");
+            throw new IllegalStateException(GameMessages.ONLY_OWNER_CAN_KICK);
         }
 
         // 2. 不能踢自己
         if (targetUserId.equals(ownerUserId)) {
-            throw new IllegalStateException("不能踢自己");
+            throw new IllegalStateException(GameMessages.CANNOT_KICK_SELF);
         }
 
         // 3. 房间状态检查：必须是WAITING状态
         RoomPhase phase = getRoomPhase(roomId);
         if (phase != RoomPhase.WAITING) {
-            throw new IllegalStateException("游戏进行中不可踢人");
+            throw new IllegalStateException(GameMessages.CANNOT_KICK_IN_GAME);
         }
 
         // 4. 模式检查：必须是PVP模式
         Mode mode = Mode.valueOf(meta.getMode());
         if (mode == Mode.PVE) {
-            throw new IllegalStateException("PVE模式不支持踢人");
+            throw new IllegalStateException(GameMessages.PVE_MODE_NO_KICK);
         }
 
         // 5. 目标玩家检查：必须在房间内
         if (!isUserInRoom(roomId, targetUserId)) {
-            throw new IllegalStateException("目标玩家不在房间内");
+            throw new IllegalStateException(GameMessages.TARGET_NOT_IN_ROOM);
         }
 
         // 6. 确定目标座位
@@ -1101,7 +1102,7 @@ public class GomokuServiceImpl implements GomokuService {
         boolean isX = targetUserId.equals(seats.getSeatXSessionId());
         boolean isO = targetUserId.equals(seats.getSeatOSessionId());
         if (!isX && !isO) {
-            throw new IllegalStateException("目标玩家不在房间内");
+            throw new IllegalStateException(GameMessages.TARGET_NOT_IN_ROOM);
         }
         char freedSeat = isX ? Board.BLACK : Board.WHITE;
 
@@ -1189,7 +1190,7 @@ public class GomokuServiceImpl implements GomokuService {
             if (sessions != null && !sessions.isEmpty()) {
                 for (WebSocketSessionInfo session : sessions) {
                     // 发送踢人通知
-                    disconnectHelper.sendKickMessage(targetUserId, session.getSessionId(), "可返回大厅加入其他房间或创建新房间");
+                    disconnectHelper.sendKickMessage(targetUserId, session.getSessionId(), GameMessages.KICKED_OUT_REASON);
                     // 强制断开连接
                     disconnectHelper.forceDisconnect(session.getSessionId());
                 }

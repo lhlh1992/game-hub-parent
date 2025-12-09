@@ -7,6 +7,7 @@ import com.gamehub.gameservice.games.gomoku.domain.model.Move;
 import com.gamehub.gameservice.games.gomoku.domain.model.SeriesView;
 import com.gamehub.gameservice.games.gomoku.domain.repository.GameStateRepository;
 import com.gamehub.gameservice.games.gomoku.interfaces.ws.dto.GomokuMessages.*;
+import com.gamehub.gameservice.games.gomoku.domain.constants.GameMessages;
 import com.gamehub.gameservice.games.gomoku.service.GomokuService;
 import com.gamehub.gameservice.games.gomoku.domain.model.Board;
 import lombok.RequiredArgsConstructor;
@@ -267,7 +268,7 @@ public class GomokuWsController {
             kickEvent.setRoomId(roomId);
             kickEvent.setGameId(gomokuService.getGameId(roomId));
             kickEvent.setType("KICKED");
-            kickEvent.setPayload(Map.of("reason", "可返回大厅加入其他房间或创建新房间"));
+            kickEvent.setPayload(Map.of("reason", GameMessages.KICKED_OUT_REASON));
             messaging.convertAndSendToUser(targetUserId, "/queue/gomoku.kicked", kickEvent);
             
             // 等待一小段时间，确保消息发送完成
@@ -290,7 +291,7 @@ public class GomokuWsController {
             sendError(roomId, e.getMessage());
         } catch (Exception e) {
             log.error("踢人失败: roomId={}, targetUserId={}", roomId, targetUserId, e);
-            sendError(roomId, "踢人失败，请稍后再试");
+            sendError(roomId, GameMessages.KICK_FAILED + "，请稍后再试");
         }
     }
 
