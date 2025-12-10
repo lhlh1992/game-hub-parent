@@ -1,7 +1,9 @@
 package com.gamehub.chatservice.service.impl;
 
+import com.gamehub.chatservice.service.ChatHistoryService;
 import com.gamehub.chatservice.service.ChatMessagingService;
 import com.gamehub.chatservice.service.UserProfileCacheService;
+import com.gamehub.chatservice.service.dto.ChatMessagePayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -18,6 +20,7 @@ public class ChatMessagingServiceImpl implements ChatMessagingService {
 
     private final SimpMessagingTemplate messagingTemplate;
     private final UserProfileCacheService userProfileCacheService;
+    private final ChatHistoryService chatHistoryService;
 
     @Override
     public void sendLobbyMessage(String userId, String content) {
@@ -26,7 +29,14 @@ public class ChatMessagingServiceImpl implements ChatMessagingService {
         if (body == null) {
             return;
         }
-        BroadcastPayload payload = new BroadcastPayload("LOBBY", null, userId, resolveDisplayName(userId), body, Instant.now().toEpochMilli());
+        ChatMessagePayload payload = ChatMessagePayload.builder()
+                .type("LOBBY")
+                .roomId(null)
+                .senderId(userId)
+                .senderName(resolveDisplayName(userId))
+                .content(body)
+                .timestamp(Instant.now().toEpochMilli())
+                .build();
         messagingTemplate.convertAndSend("/topic/chat.lobby", payload);
     }
 
@@ -38,8 +48,18 @@ public class ChatMessagingServiceImpl implements ChatMessagingService {
         if (body == null) {
             return;
         }
-        BroadcastPayload payload = new BroadcastPayload("ROOM", roomId, userId, resolveDisplayName(userId), body, Instant.now().toEpochMilli());
+        ChatMessagePayload payload = ChatMessagePayload.builder()
+                .type("ROOM")
+                .roomId(roomId)
+                .senderId(userId)
+                .senderName(resolveDisplayName(userId))
+                .content(body)
+                .timestamp(Instant.now().toEpochMilli())
+                .build();
+        // 1) 推送实时消息
         messagingTemplate.convertAndSend("/topic/chat.room." + roomId, payload);
+        // 2) 记录房间历史（保持最近 50 条）
+        chatHistoryService.appendRoomMessage(payload, 50);
     }
 
     /**
@@ -74,14 +94,5 @@ public class ChatMessagingServiceImpl implements ChatMessagingService {
         }
     }
 
-    private record BroadcastPayload(
-            String type,
-            String roomId,
-            String senderId,
-            String senderName,
-            String content,
-            Long timestamp
-    ) {
-    }
 }
 
