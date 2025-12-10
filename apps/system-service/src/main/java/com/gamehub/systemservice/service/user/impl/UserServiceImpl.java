@@ -448,24 +448,77 @@ public class UserServiceImpl implements UserService {
             }
         }
 
-        // 3. 更新 sys_user 表
+        // 3. 更新 sys_user 表（同时同步 Keycloak）
         boolean userUpdated = false;
+        boolean needUpdateKeycloak = false;
+        boolean nicknameChanged = false;
+        boolean emailChanged = false;
+        
+        // 3.1 更新昵称（需要同时更新 Keycloak 的 firstname 和系统数据库）
         if (nickname != null && !nickname.isBlank() && !nickname.equals(user.getNickname())) {
             user.setNickname(nickname);
             userUpdated = true;
+            needUpdateKeycloak = true;
+            nicknameChanged = true;
         }
+        
+        // 3.2 更新邮箱（需要同时更新 Keycloak 和系统数据库）
         if (email != null && !email.isBlank() && !email.equals(user.getEmail())) {
+            // 检查邮箱是否被其他用户使用
+            Optional<SysUser> existingUser = userRepository.findByEmailAndNotDeleted(email);
+            if (existingUser.isPresent() && !existingUser.get().getId().equals(user.getId())) {
+                throw new BusinessException("邮箱已被其他用户使用: " + email);
+            }
+            
+            // 更新系统数据库
             user.setEmail(email);
             userUpdated = true;
+            needUpdateKeycloak = true;
+            emailChanged = true;
         }
+        
+        // 3.3 同步更新 Keycloak
+        if (needUpdateKeycloak) {
+            try {
+                RealmResource realmResource = keycloak.realm(realm);
+                UserRepresentation keycloakUser = realmResource.users()
+                        .get(user.getKeycloakUserId().toString())
+                        .toRepresentation();
+                
+                // 如果昵称已更新，同步更新 Keycloak 的 firstname
+                if (nicknameChanged) {
+                    keycloakUser.setFirstName(nickname);
+                }
+                
+                // 如果邮箱已更新，同步更新 Keycloak 的 email
+                if (emailChanged) {
+                    keycloakUser.setEmail(email);
+                }
+                
+                // 一次更新 Keycloak
+                realmResource.users().get(user.getKeycloakUserId().toString()).update(keycloakUser);
+                log.info("更新 Keycloak 用户信息成功: keycloakUserId={}, nickname={}, email={}", 
+                        user.getKeycloakUserId(), 
+                        nicknameChanged ? nickname : "未更新",
+                        emailChanged ? email : "未更新");
+            } catch (Exception e) {
+                log.error("更新 Keycloak 用户信息失败: keycloakUserId={}", user.getKeycloakUserId(), e);
+                throw new BusinessException("更新 Keycloak 用户信息失败: " + e.getMessage());
+            }
+        }
+        
+        // 3.3 更新手机号（只更新系统数据库，Keycloak 不存储手机号）
         if (phone != null && !phone.isBlank() && !phone.equals(user.getPhone())) {
             user.setPhone(phone);
             userUpdated = true;
         }
+        
+        // 3.4 更新头像（只更新系统数据库，Keycloak 不存储头像）
         if (finalAvatarUrl != null && !finalAvatarUrl.equals(user.getAvatarUrl())) {
             user.setAvatarUrl(finalAvatarUrl);
             userUpdated = true;
         }
+        
         if (userUpdated) {
             user = userRepository.save(user);
             log.info("更新用户基础信息: userId={}", user.getId());
