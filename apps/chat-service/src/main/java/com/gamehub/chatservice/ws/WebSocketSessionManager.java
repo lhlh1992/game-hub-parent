@@ -22,9 +22,12 @@ import java.util.List;
 public class WebSocketSessionManager {
 
     private final SessionRegistry sessionRegistry;
+    private final WebSocketDisconnectHelper disconnectHelper;
 
-    public WebSocketSessionManager(SessionRegistry sessionRegistry) {
+    public WebSocketSessionManager(SessionRegistry sessionRegistry,
+                                   WebSocketDisconnectHelper disconnectHelper) {
         this.sessionRegistry = sessionRegistry;
+        this.disconnectHelper = disconnectHelper;
     }
 
     @EventListener
@@ -45,6 +48,18 @@ public class WebSocketSessionManager {
         List<WebSocketSessionInfo> kicked = sessionRegistry.registerWebSocketSessionEnforceSingle(info, 0);
         log.info("WS connected: service=chat-service, user={}, loginSessionId={}, session={}, kicked={}",
                 principal.getName(), loginSessionId, sessionId, kicked.size());
+
+        // 与 game-service 保持一致：如果存在旧连接，逐一发送踢人通知并强制断开
+        if (kicked != null && !kicked.isEmpty()) {
+            kicked.forEach(old -> {
+                try {
+                    disconnectHelper.sendKickMessage(principal.getName(), old.getSessionId(), "账号已在其他终端登录");
+                    disconnectHelper.forceDisconnect(old.getSessionId());
+                } catch (Exception e) {
+                    log.warn("force disconnect old chat ws failed: user={}, oldSession={}", principal.getName(), old.getSessionId(), e);
+                }
+            });
+        }
     }
 
     @EventListener
