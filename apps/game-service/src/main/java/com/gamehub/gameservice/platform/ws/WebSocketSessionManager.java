@@ -91,17 +91,29 @@ public class WebSocketSessionManager {
                 .loginSessionId(loginSessionId) // 可能为 null（向后兼容）
                 .service("game-service")
                 .build();
-        //注册 WebSocket 会话,清理旧ws会话并返回旧ws会话集合
-        List<WebSocketSessionInfo> kicked = sessionRegistry.registerWebSocketSessionEnforceSingle(info, 0);
-        if (!CollectionUtils.isEmpty(kicked)) {
-            log.info("用户 {} WebSocket 单点登录，新连接 {} 踢掉旧连接 {} 个, loginSessionId={}", 
-                    userId, sessionId, kicked.size(), loginSessionId);
-            kicked.forEach(old -> {
+
+        // 仅踢掉同 service 的旧 WS，保留其他 service（如 chat-service）
+        List<WebSocketSessionInfo> existing = sessionRegistry.getWebSocketSessions(userId);
+        List<WebSocketSessionInfo> sameService = existing == null ? List.of() :
+                existing.stream()
+                        .filter(ws -> "game-service".equals(ws.getService()))
+                        .toList();
+        // 先移除同 service 的旧连接
+        if (!CollectionUtils.isEmpty(sameService)) {
+            sameService.forEach(old -> sessionRegistry.unregisterWebSocketSession(old.getSessionId()));
+        }
+        // 注册当前连接
+        sessionRegistry.registerWebSocketSession(info, 0);
+
+        if (!CollectionUtils.isEmpty(sameService)) {
+            log.info("用户 {} WebSocket(game-service) 单点，新连接 {} 踢掉旧连接 {} 个, loginSessionId={}",
+                    userId, sessionId, sameService.size(), loginSessionId);
+            sameService.forEach(old -> {
                 disconnectHelper.sendKickMessage(userId, old.getSessionId(), "账号已在其他终端登录");
                 disconnectHelper.forceDisconnect(old.getSessionId());
             });
         } else {
-            log.info("用户 {} WebSocket 连接 {} 注册完成，无旧连接, loginSessionId={}",
+            log.info("用户 {} WebSocket(game-service) 连接 {} 注册完成，无旧连接, loginSessionId={}",
                     userId, sessionId, loginSessionId);
         }
     }

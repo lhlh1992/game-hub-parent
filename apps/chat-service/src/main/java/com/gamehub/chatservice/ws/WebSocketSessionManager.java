@@ -45,13 +45,23 @@ public class WebSocketSessionManager {
                 .loginSessionId(loginSessionId)
                 .service("chat-service")
                 .build();
-        List<WebSocketSessionInfo> kicked = sessionRegistry.registerWebSocketSessionEnforceSingle(info, 0);
-        log.info("WS connected: service=chat-service, user={}, loginSessionId={}, session={}, kicked={}",
-                principal.getName(), loginSessionId, sessionId, kicked.size());
 
-        // 与 game-service 保持一致：如果存在旧连接，逐一发送踢人通知并强制断开
-        if (kicked != null && !kicked.isEmpty()) {
-            kicked.forEach(old -> {
+        // 仅踢掉 chat-service 的旧 WS，保留其他 service（如 game-service）
+        List<WebSocketSessionInfo> existing = sessionRegistry.getWebSocketSessions(principal.getName());
+        List<WebSocketSessionInfo> sameService = existing == null ? List.of() :
+                existing.stream()
+                        .filter(ws -> "chat-service".equals(ws.getService()))
+                        .toList();
+        if (sameService != null && !sameService.isEmpty()) {
+            sameService.forEach(old -> sessionRegistry.unregisterWebSocketSession(old.getSessionId()));
+        }
+        sessionRegistry.registerWebSocketSession(info, 0);
+        log.info("WS connected: service=chat-service, user={}, loginSessionId={}, session={}, kicked={}",
+                principal.getName(), loginSessionId, sessionId, sameService.size());
+
+        // 如果存在同 service 旧连接，逐一发送踢人通知并强制断开
+        if (sameService != null && !sameService.isEmpty()) {
+            sameService.forEach(old -> {
                 try {
                     disconnectHelper.sendKickMessage(principal.getName(), old.getSessionId(), "账号已在其他终端登录");
                     disconnectHelper.forceDisconnect(old.getSessionId());
