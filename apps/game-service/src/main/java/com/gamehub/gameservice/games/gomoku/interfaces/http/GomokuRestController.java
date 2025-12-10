@@ -1,5 +1,7 @@
 package com.gamehub.gameservice.games.gomoku.interfaces.http;
 
+import com.gamehub.gameservice.application.user.UserDirectoryService;
+import com.gamehub.gameservice.application.user.UserProfileView;
 import com.gamehub.gameservice.games.gomoku.domain.enums.Mode;
 import com.gamehub.gameservice.games.gomoku.domain.enums.Rule;
 import com.gamehub.gameservice.games.gomoku.domain.model.GomokuSnapshot;
@@ -9,6 +11,7 @@ import com.gamehub.gameservice.platform.ongoing.OngoingGameInfo;
 import com.gamehub.gameservice.platform.ongoing.OngoingGameTracker;
 import com.gamehub.web.common.ApiResponse;
 import com.gamehub.web.common.CurrentUserHelper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -18,20 +21,24 @@ import org.springframework.web.bind.annotation.*;
 /**
  * 五子棋游戏http接口请求控制器
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/gomoku")
 public class GomokuRestController {
 
     private final GomokuService svc;
     private final OngoingGameTracker ongoingGameTracker;
+    private final UserDirectoryService userDirectoryService;
     /** 用于从 HTTP 层主动广播房间 SNAPSHOT（例如加入/退出房间） */
     private final SimpMessagingTemplate messagingTemplate;
 
     public GomokuRestController(GomokuService svc,
                                  OngoingGameTracker ongoingGameTracker,
+                                 UserDirectoryService userDirectoryService,
                                  SimpMessagingTemplate messagingTemplate) {
         this.svc = svc;
         this.ongoingGameTracker = ongoingGameTracker;
+        this.userDirectoryService = userDirectoryService;
         this.messagingTemplate = messagingTemplate;
     }
 
@@ -49,8 +56,7 @@ public class GomokuRestController {
                                                        @RequestParam(name = "aiPiece", required = false) Character aiPiece,
                                                        @RequestParam(name = "rule", defaultValue="STANDARD") String rule,
                                                        @AuthenticationPrincipal Jwt jwt) {
-        var user = CurrentUserHelper.from(jwt);
-        String ownerUserId = user.userId();
+        String ownerUserId = CurrentUserHelper.getUserId(jwt);
         
         // 检查玩家是否已有正在进行的游戏房间
         var ongoingOpt = ongoingGameTracker.find(ownerUserId);
@@ -59,7 +65,19 @@ public class GomokuRestController {
                     .body(ApiResponse.conflict("您已有正在进行的游戏房间，请先完成或退出当前房间后再创建新房间"));
         }
         
-        String ownerName = user.getDisplayName(); // 使用统一的显示名称（nickname > username > userId）
+        // 从数据库获取最新的用户信息（优先读缓存，没命中再 Feign 调用）
+        // 复用 UserDirectoryService，避免重复代码
+        UserProfileView ownerProfile = userDirectoryService.getUserInfo(ownerUserId);
+        String ownerName;
+        if (ownerProfile != null) {
+            ownerName = ownerProfile.getDisplayName(); // 优先昵称，其次用户名，最后 userId
+        } else {
+            // 兜底：如果获取用户信息失败，使用 JWT 中的信息
+            var user = CurrentUserHelper.from(jwt);
+            ownerName = user != null ? user.getDisplayName() : ownerUserId;
+            log.warn("获取房主用户信息失败，使用 JWT 中的信息: userId={}", ownerUserId);
+        }
+        
         var m = "PVP".equalsIgnoreCase(mode) ? Mode.PVP : Mode.PVE;
         var r = "RENJU".equalsIgnoreCase(rule) ? Rule.RENJU : Rule.STANDARD;
         String roomId = svc.newRoom(m, aiPiece, r, ownerUserId, ownerName);
