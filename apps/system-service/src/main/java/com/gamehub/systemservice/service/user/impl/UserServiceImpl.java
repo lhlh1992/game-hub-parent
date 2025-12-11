@@ -18,6 +18,7 @@ import org.keycloak.admin.client.resource.UsersResource;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +37,7 @@ public class UserServiceImpl implements UserService {
     private final Keycloak keycloak;
     private final FileStorageService fileStorageService;
     private final UserProfileCacheService userProfileCacheService;
+    private final JdbcTemplate jdbcTemplate;
     
     @Value("${keycloak.realm:my-realm}")
     private String realm;
@@ -84,6 +86,7 @@ public class UserServiceImpl implements UserService {
                     .keycloakUserId(keycloakUserId)
                     .username(username)
                     .email(email)
+                    .playerId(generatePlayerIdFromSequence())
                     .userType(SysUser.UserType.NORMAL)
                     .status(1)
                     .build();
@@ -175,6 +178,7 @@ public class UserServiceImpl implements UserService {
                     .username(username)
                     .nickname(nickname)
                     .email(email)
+                    .playerId(generatePlayerIdFromSequence())
                     .userType(SysUser.UserType.NORMAL)
                     .status(1)
                     .build();
@@ -379,6 +383,7 @@ public class UserServiceImpl implements UserService {
                             .email(user.getEmail())
                             .phone(user.getPhone())
                             .userType(user.getUserType() != null ? user.getUserType().name() : "NORMAL")
+                            .playerId(user.getPlayerId())
                             .status(user.getStatus())
                             .bio(profile != null ? profile.getBio() : null)
                             .locale(profile != null ? profile.getLocale() : null)
@@ -565,6 +570,7 @@ public class UserServiceImpl implements UserService {
                 .email(user.getEmail())
                 .phone(user.getPhone())
                 .userType(user.getUserType() != null ? user.getUserType().name() : "NORMAL")
+                .playerId(user.getPlayerId())
                 .status(user.getStatus())
                 .bio(profile.getBio())
                 .locale(profile.getLocale())
@@ -573,6 +579,17 @@ public class UserServiceImpl implements UserService {
                 .build();
         userProfileCacheService.put(updated);
         return updated;
+    }
+
+    /**
+     * 生成全局唯一的玩家ID（使用数据库序列，避免并发撞库）
+     */
+    private long generatePlayerIdFromSequence() {
+        Long nextVal = jdbcTemplate.queryForObject("SELECT nextval('player_id_seq')", Long.class);
+        if (nextVal == null) {
+            throw new BusinessException("生成玩家ID失败：序列返回空值");
+        }
+        return nextVal;
     }
 }
 

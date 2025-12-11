@@ -92,6 +92,12 @@ public class SysUser {
     private String remark;
 
     /**
+     * 玩家ID（唯一数字ID，用于查找和分享）
+     */
+    @Column(name = "player_id", nullable = false, unique = true)
+    private Long playerId;
+
+    /**
      * 创建时间
      */
     @CreationTimestamp

@@ -29,6 +29,7 @@ public class UserInfo {
     private String phone;           // 手机
     private String userType;        // 用户类型（NORMAL/ADMIN）
     private Integer status;         // 状态：0-禁用，1-启用
+    private Long playerId;          // 玩家ID（唯一数字ID）
 
     // ========== 用户扩展信息（sys_user_profile）==========
     private String bio;             // 个人简介

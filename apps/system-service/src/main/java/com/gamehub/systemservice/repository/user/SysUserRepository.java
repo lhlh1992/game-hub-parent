@@ -46,6 +46,12 @@ public interface SysUserRepository extends JpaRepository<SysUser, UUID> {
     boolean existsByUsernameAndNotDeleted(@Param("username") String username);
 
     /**
+     * 检查玩家ID是否存在（未删除）
+     */
+    @Query("SELECT COUNT(u) > 0 FROM SysUser u WHERE u.playerId = :playerId AND u.deletedAt IS NULL")
+    boolean existsByPlayerIdAndNotDeleted(@Param("playerId") Long playerId);
+
+    /**
      * 批量根据 Keycloak 用户ID查询（未删除）
      */
     @Query("SELECT u FROM SysUser u WHERE u.keycloakUserId IN :keycloakUserIds AND u.deletedAt IS NULL")
