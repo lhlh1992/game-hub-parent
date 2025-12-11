@@ -39,6 +39,8 @@ public class UserProfileView {
     private String userType;
     /** 状态：0-禁用，1-启用 */
     private Integer status;
+    /** 玩家唯一数字ID（player_id） */
+    private Long playerId;
 
     // ===== 扩展档案（sys_user_profile）=====
     /** 个性签名 / 个人简介 */
