@@ -13,6 +13,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 /**
  * 好友控制器
  */
@@ -77,5 +79,63 @@ public class FriendController {
                     .body(ApiResponse.serverError("申请加好友失败: " + e.getMessage()));
         }
     }
+
+    /**
+     * 同意好友申请（接收方操作）
+     */
+    @PostMapping("/requests/{id}/accept")
+    public ResponseEntity<ApiResponse<Void>> accept(
+            @PathVariable("id") UUID requestId,
+            @AuthenticationPrincipal Jwt jwt) {
+        String receiverKeycloakUserId = CurrentUserHelper.getUserId(jwt);
+        try {
+            friendService.acceptFriendRequest(receiverKeycloakUserId, requestId);
+            return ResponseEntity.ok(ApiResponse.success("已同意好友申请", null));
+        } catch (BusinessException e) {
+            int httpStatus = switch (e.getCode()) {
+                case 400 -> 400;
+                case 403 -> 403;
+                case 404 -> 404;
+                case 409 -> 409;
+                default -> 500;
+            };
+            return ResponseEntity.status(httpStatus)
+                    .body(ApiResponse.error(e.getCode(), e.getMessage()));
+        } catch (Exception e) {
+            log.error("同意好友申请失败: requestId={}", requestId, e);
+            return ResponseEntity.status(500)
+                    .body(ApiResponse.serverError("同意好友申请失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 拒绝好友申请（接收方操作）
+     */
+    @PostMapping("/requests/{id}/reject")
+    public ResponseEntity<ApiResponse<Void>> reject(
+            @PathVariable("id") UUID requestId,
+            @AuthenticationPrincipal Jwt jwt) {
+        String receiverKeycloakUserId = CurrentUserHelper.getUserId(jwt);
+        try {
+            friendService.rejectFriendRequest(receiverKeycloakUserId, requestId);
+            return ResponseEntity.ok(ApiResponse.success("已拒绝好友申请", null));
+        } catch (BusinessException e) {
+            int httpStatus = switch (e.getCode()) {
+                case 400 -> 400;
+                case 403 -> 403;
+                case 404 -> 404;
+                case 409 -> 409;
+                default -> 500;
+            };
+            return ResponseEntity.status(httpStatus)
+                    .body(ApiResponse.error(e.getCode(), e.getMessage()));
+        } catch (Exception e) {
+            log.error("拒绝好友申请失败: requestId={}", requestId, e);
+            return ResponseEntity.status(500)
+                    .body(ApiResponse.serverError("拒绝好友申请失败: " + e.getMessage()));
+        }
+    }
 }
+
+
 

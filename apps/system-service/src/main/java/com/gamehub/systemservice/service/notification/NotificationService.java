@@ -44,6 +44,16 @@ public interface NotificationService {
      * 全部标记已读。
      */
     void markAllRead(UUID userId);
+
+    /**
+     * 通知好友申请结果（给申请人）
+     */
+    void notifyFriendResult(UUID targetUserId,
+                            String targetKeycloakUserId,
+                            String handlerKeycloakUserId,
+                            String title,
+                            String content,
+                            UUID friendRequestId);
 }
 
 

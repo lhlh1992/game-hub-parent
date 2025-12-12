@@ -17,5 +17,23 @@ public interface FriendService {
      * @throws com.gamehub.systemservice.exception.BusinessException 业务异常
      */
     boolean applyFriend(String requesterKeycloakUserId, String targetKeycloakUserId, String requestMessage);
+
+    /**
+     * 同意好友申请（接收方操作）
+     *
+     * @param receiverKeycloakUserId 接收方 Keycloak 用户ID（当前登录用户）
+     * @param requestId              好友申请ID
+     */
+    void acceptFriendRequest(String receiverKeycloakUserId, UUID requestId);
+
+    /**
+     * 拒绝好友申请（接收方操作）
+     *
+     * @param receiverKeycloakUserId 接收方 Keycloak 用户ID（当前登录用户）
+     * @param requestId              好友申请ID
+     */
+    void rejectFriendRequest(String receiverKeycloakUserId, UUID requestId);
 }
+
+
 

@@ -3,6 +3,7 @@ package com.gamehub.systemservice.controller.notification;
 import com.gamehub.systemservice.common.Result;
 import com.gamehub.systemservice.entity.user.SysUser;
 import com.gamehub.systemservice.service.notification.NotificationService;
+import com.gamehub.systemservice.service.notification.dto.NotificationTypeMetadata;
 import com.gamehub.systemservice.service.notification.dto.NotificationView;
 import com.gamehub.systemservice.service.user.UserService;
 import com.gamehub.web.common.ApiResponse;
@@ -92,6 +93,35 @@ public class NotificationController {
         }
         notificationService.markAllRead(userId);
         return Result.success();
+    }
+
+    /**
+     * 返回支持的通知类型元数据，便于前端展示/提示。
+     * 说明：实际业务动作仍由前端内置处理，不在此返回可执行代码，避免后端配置驱动前端行为过重。
+     */
+    @GetMapping("/metadata")
+    public ResponseEntity<ApiResponse<List<NotificationTypeMetadata>>> metadata() {
+        List<NotificationTypeMetadata> list = List.of(
+                NotificationTypeMetadata.builder()
+                        .type("FRIEND_REQUEST")
+                        .actionable(true)
+                        .actions(List.of("ACCEPT", "REJECT"))
+                        .description("好友申请，可同意/拒绝")
+                        .build(),
+                NotificationTypeMetadata.builder()
+                        .type("FRIEND_RESULT")
+                        .actionable(false)
+                        .actions(List.of())
+                        .description("好友申请结果通知（同意/拒绝），无需操作")
+                        .build(),
+                NotificationTypeMetadata.builder()
+                        .type("SYSTEM_ALERT")
+                        .actionable(false)
+                        .actions(List.of())
+                        .description("系统类通知，仅提示")
+                        .build()
+        );
+        return ResponseEntity.ok(ApiResponse.success(list));
     }
 }
 

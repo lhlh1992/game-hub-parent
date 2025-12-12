@@ -62,6 +62,45 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void notifyFriendResult(UUID targetUserId,
+                                   String targetKeycloakUserId,
+                                   String handlerKeycloakUserId,
+                                   String title,
+                                   String content,
+                                   UUID friendRequestId) {
+        Notification notification = Notification.builder()
+                .userId(targetUserId)
+                .type("FRIEND_RESULT")
+                .title(title)
+                .content(content)
+                .fromUserId(handlerKeycloakUserId)
+                .refType("FRIEND_REQUEST")
+                .refId(friendRequestId)
+                .status("UNREAD")
+                .sourceService("system-service")
+                .build();
+        notificationRepository.save(notification);
+
+        try {
+            NotifyPushRequest body = new NotifyPushRequest();
+            body.setUserId(targetKeycloakUserId);
+            body.setType("FRIEND_RESULT");
+            body.setTitle(title);
+            body.setContent(content);
+            body.setFromUserId(handlerKeycloakUserId);
+            body.setPayload(Map.of(
+                    "friendRequestId", friendRequestId != null ? friendRequestId.toString() : null
+            ));
+            body.setActions(new String[0]);
+            chatNotifyClient.push(body);
+        } catch (Exception e) {
+            log.warn("推送好友结果通知失败（已落库）：receiver={}, refId={}, err={}",
+                    targetKeycloakUserId, friendRequestId, e.getMessage());
+        }
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<NotificationView> listNotifications(UUID userId, String status, int limit) {
         int pageSize = Math.max(1, Math.min(limit, 100));

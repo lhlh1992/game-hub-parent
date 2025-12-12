@@ -99,6 +99,114 @@ public class FriendServiceImpl implements FriendService {
         }
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void acceptFriendRequest(String receiverKeycloakUserId, UUID requestId) {
+        handleFriendRequest(receiverKeycloakUserId, requestId, true);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void rejectFriendRequest(String receiverKeycloakUserId, UUID requestId) {
+        handleFriendRequest(receiverKeycloakUserId, requestId, false);
+    }
+
+    /**
+     * 处理好友申请（同意/拒绝）
+     *
+     * @param receiverKeycloakUserId 当前登录用户（接收方）Keycloak ID
+     * @param requestId              好友申请 ID
+     * @param accept                 true 同意，false 拒绝
+     */
+    private void handleFriendRequest(String receiverKeycloakUserId, UUID requestId, boolean accept) {
+        UUID receiverUuid = parseKeycloakId(receiverKeycloakUserId);
+        FriendRequest request = friendRequestRepository.findById(requestId)
+                .orElseThrow(() -> new BusinessException(404, "好友申请不存在"));
+
+        // 仅接收方可处理，且必须是待处理状态
+        if (!request.getReceiverId().equals(getSystemUserId(receiverUuid))) {
+            throw new BusinessException(403, "无权处理该申请");
+        }
+        if (request.getStatus() != FriendRequest.RequestStatus.PENDING) {
+            throw new BusinessException(409, "该申请已处理");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        request.setStatus(accept ? FriendRequest.RequestStatus.ACCEPTED : FriendRequest.RequestStatus.REJECTED);
+        request.setHandledAt(now);
+        friendRequestRepository.save(request);
+
+        // 同意则建立好友关系（双向）
+        if (accept) {
+            createFriendRelation(request.getRequesterId(), request.getReceiverId(), now);
+        }
+
+        // 通知申请人结果
+        notifyRequesterResult(request, accept);
+    }
+
+    private UUID parseKeycloakId(String userId) {
+        try {
+            return UUID.fromString(userId);
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(400, "无效的用户ID格式");
+        }
+    }
+
+    private UUID getSystemUserId(UUID keycloakId) {
+        return sysUserRepository.findByKeycloakUserIdAndNotDeleted(keycloakId)
+                .filter(user -> user.getDeletedAt() == null && user.isEnabled())
+                .map(SysUser::getId)
+                .orElseThrow(() -> new BusinessException(404, "用户不存在或已被禁用"));
+    }
+
+    private void createFriendRelation(UUID requesterId, UUID targetId, OffsetDateTime now) {
+        UserFriend relation1 = UserFriend.builder()
+                .userId(requesterId)
+                .friendId(targetId)
+                .status(UserFriend.FriendStatus.ACTIVE)
+                .isFavorite(false)
+                .lastInteractionTime(now)
+                .build();
+
+        UserFriend relation2 = UserFriend.builder()
+                .userId(targetId)
+                .friendId(requesterId)
+                .status(UserFriend.FriendStatus.ACTIVE)
+                .isFavorite(false)
+                .lastInteractionTime(now)
+                .build();
+
+        userFriendRepository.save(relation1);
+        userFriendRepository.save(relation2);
+    }
+
+    /**
+     * 通知申请人处理结果（FRIEND_RESULT）
+     */
+    private void notifyRequesterResult(FriendRequest request, boolean accept) {
+        String resultTitle = accept ? "好友申请通过" : "好友申请被拒绝";
+        String resultContent = accept ? "对方已同意你的好友申请" : "对方拒绝了你的好友申请";
+
+        // 申请人 keycloakId
+        SysUser requester = sysUserRepository.findById(request.getRequesterId())
+                .orElse(null);
+        SysUser receiver = sysUserRepository.findById(request.getReceiverId())
+                .orElse(null);
+        if (requester == null || receiver == null) {
+            return;
+        }
+
+        notificationService.notifyFriendResult(
+                requester.getId(),
+                requester.getKeycloakUserId().toString(),
+                receiver.getKeycloakUserId().toString(),
+                resultTitle,
+                resultContent,
+                request.getId()
+        );
+    }
+
     /**
      * 处理双向申请自动通过
      * 
@@ -203,5 +311,7 @@ public class FriendServiceImpl implements FriendService {
         return user.getKeycloakUserId() != null ? user.getKeycloakUserId().toString() : "玩家";
     }
 }
+
+
 
 

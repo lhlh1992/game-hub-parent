@@ -24,7 +24,14 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
     /**
      * 查询用户最近通知（按创建时间倒序）。
      */
-    @Query("SELECT n FROM Notification n WHERE n.userId = :userId AND (:status IS NULL OR n.status = :status) ORDER BY n.createdAt DESC")
+    @Query("""
+            SELECT n FROM Notification n
+            WHERE n.userId = :userId
+              AND (:status IS NULL OR n.status = :status)
+            ORDER BY 
+              CASE WHEN n.status = 'UNREAD' THEN 0 ELSE 1 END,
+              n.createdAt DESC
+            """)
     List<Notification> findByUserIdAndStatus(@Param("userId") UUID userId,
                                              @Param("status") String status,
                                              org.springframework.data.domain.Pageable pageable);
