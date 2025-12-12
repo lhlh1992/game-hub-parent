@@ -27,6 +27,34 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- OpenFeign（内部服务间调用） -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+
+
+        <!-- Spring Cloud LoadBalancer（服务发现与负载均衡，替代 Ribbon） -->
+        <!-- 说明：LoadBalancer 是 Spring Cloud 2020+ 默认的负载均衡器，不需要注册中心（如 Eureka/Nacos） -->
+        <!-- 可以通过配置文件指定服务地址，也可以配合 K8s Service + DNS 使用 -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
+        </dependency>
+
+        <!-- Spring Cloud Kubernetes LoadBalancer（K8s 环境专用，自动从 K8s API 获取服务实例） -->
+        <!-- 说明：在 K8s 环境下会自动启用，本地开发环境会自动降级到通用 LoadBalancer -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-kubernetes-client-loadbalancer</artifactId>
+        </dependency>
+
+        <!-- 熔断 / 降级：Spring Cloud Circuit Breaker + Resilience4j -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
+        </dependency>
+
         <!-- Spring Security 基础 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -8,6 +8,7 @@ import com.gamehub.systemservice.repository.friend.FriendRequestRepository;
 import com.gamehub.systemservice.repository.friend.UserFriendRepository;
 import com.gamehub.systemservice.repository.user.SysUserRepository;
 import com.gamehub.systemservice.service.friend.FriendService;
+import com.gamehub.systemservice.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class FriendServiceImpl implements FriendService {
     private final FriendRequestRepository friendRequestRepository;
     private final UserFriendRepository userFriendRepository;
     private final SysUserRepository sysUserRepository;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -83,7 +85,16 @@ public class FriendServiceImpl implements FriendService {
             return handleMutualRequest(requesterId, targetId, reverseRequest.get(), normalizedMessage);
         } else {
             // 正常申请流程：创建新的申请记录
-            createFriendRequest(requesterId, targetId, normalizedMessage);
+            FriendRequest created = createFriendRequest(requesterId, targetId, normalizedMessage);
+            // 推送通知给接收方（落库 + WS）
+            notificationService.notifyFriendRequest(
+                    targetUser.getId(),
+                    targetUser.getKeycloakUserId().toString(),
+                    requesterUser.getKeycloakUserId().toString(),
+                    resolveDisplayName(requesterUser),
+                    created.getId(),
+                    normalizedMessage
+            );
             return false;
         }
     }
@@ -147,7 +158,7 @@ public class FriendServiceImpl implements FriendService {
      * @param targetUserId 目标用户ID
      * @param requestMessage 申请留言（可选）
      */
-    private void createFriendRequest(UUID requesterId, UUID targetUserId, String requestMessage) {
+    private FriendRequest createFriendRequest(UUID requesterId, UUID targetUserId, String requestMessage) {
         FriendRequest request = FriendRequest.builder()
                 .requesterId(requesterId)
                 .receiverId(targetUserId)
@@ -158,6 +169,7 @@ public class FriendServiceImpl implements FriendService {
         FriendRequest saved = friendRequestRepository.save(request);
         log.info("创建好友申请: requesterId={}, receiverId={}, message={}, savedMessage={}", 
                 requesterId, targetUserId, requestMessage, saved.getRequestMessage());
+        return saved;
     }
 
     /**
@@ -174,5 +186,22 @@ public class FriendServiceImpl implements FriendService {
         // 保护性裁剪，避免超出数据库字段长度
         return trimmed.length() > 200 ? trimmed.substring(0, 200) : trimmed;
     }
+
+    /**
+     * 申请人展示名（用于通知文案）。
+     */
+    private String resolveDisplayName(com.gamehub.systemservice.entity.user.SysUser user) {
+        if (user == null) {
+            return "玩家";
+        }
+        if (user.getNickname() != null && !user.getNickname().isBlank()) {
+            return user.getNickname();
+        }
+        if (user.getUsername() != null && !user.getUsername().isBlank()) {
+            return user.getUsername();
+        }
+        return user.getKeycloakUserId() != null ? user.getKeycloakUserId().toString() : "玩家";
+    }
 }
+
 

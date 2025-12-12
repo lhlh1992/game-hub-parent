@@ -4,6 +4,18 @@ server:
 spring:
   application:
     name: system-service
+  cloud:
+    loadbalancer:
+      enabled: true
+    # 本地开发无注册中心，使用 Simple Discovery 配置 chat-service 实例，避免 LoadBalancer 503
+    discovery:
+      client:
+        simple:
+          instances:
+            chat-service:
+              - uri: http://127.0.0.1:8083
+                metadata:
+                  secure: false
   
   # 数据源配置（PostgreSQL）
   datasource:
