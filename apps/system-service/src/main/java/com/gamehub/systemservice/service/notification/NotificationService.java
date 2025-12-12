@@ -22,5 +22,28 @@ public interface NotificationService {
                              String requesterName,
                              UUID friendRequestId,
                              String requestMessage);
+
+    /**
+     * 查询通知列表（可按状态过滤，limit 默认 20）。
+     */
+    java.util.List<com.gamehub.systemservice.service.notification.dto.NotificationView> listNotifications(UUID userId,
+                                                                                                         String status,
+                                                                                                         int limit);
+
+    /**
+     * 未读数量。
+     */
+    long countUnread(UUID userId);
+
+    /**
+     * 标记单条已读（幂等）。
+     */
+    void markRead(UUID userId, UUID notificationId);
+
+    /**
+     * 全部标记已读。
+     */
+    void markAllRead(UUID userId);
 }
+
 
