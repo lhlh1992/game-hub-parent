@@ -408,7 +408,41 @@ public class FriendServiceImpl implements FriendService {
         log.debug("最终返回的好友列表数量: {}", result.size());
         return result;
     }
+
+    @Override
+    public boolean isFriend(String userId1, String userId2) {
+        // 1. 参数校验
+        if (userId1 == null || userId2 == null || userId1.equals(userId2)) {
+            return false;
+        }
+
+        // 2. 将 Keycloak 用户ID 转换为 UUID
+        UUID user1Uuid;
+        UUID user2Uuid;
+        try {
+            user1Uuid = UUID.fromString(userId1);
+            user2Uuid = UUID.fromString(userId2);
+        } catch (IllegalArgumentException e) {
+            log.warn("无效的 Keycloak 用户ID格式: userId1={}, userId2={}", userId1, userId2);
+            return false;
+        }
+
+        // 3. 查询两个用户的系统用户ID
+        UUID user1SystemId;
+        UUID user2SystemId;
+        try {
+            user1SystemId = getSystemUserId(user1Uuid);
+            user2SystemId = getSystemUserId(user2Uuid);
+        } catch (BusinessException e) {
+            log.debug("查询系统用户ID失败: userId1={}, userId2={}, err={}", userId1, userId2, e.getMessage());
+            return false;
+        }
+
+        // 4. 检查是否是好友关系（状态为ACTIVE）
+        return userFriendRepository.existsActiveFriendRelation(user1SystemId, user2SystemId);
+    }
 }
+
 
 
 

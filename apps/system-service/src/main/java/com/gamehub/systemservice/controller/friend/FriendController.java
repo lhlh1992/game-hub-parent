@@ -152,6 +152,28 @@ public class FriendController {
                     .body(ApiResponse.serverError("获取好友列表失败: " + e.getMessage()));
         }
     }
+
+    /**
+     * 检查两个用户是否是好友关系
+     * 用于私聊等功能的前置验证
+     *
+     * @param userId1 用户1的Keycloak用户ID
+     * @param userId2 用户2的Keycloak用户ID
+     * @return 是否是好友关系
+     */
+    @GetMapping("/check/{userId1}/{userId2}")
+    public ResponseEntity<ApiResponse<Boolean>> checkFriendRelation(
+            @PathVariable("userId1") String userId1,
+            @PathVariable("userId2") String userId2) {
+        try {
+            boolean isFriend = friendService.isFriend(userId1, userId2);
+            return ResponseEntity.ok(ApiResponse.success(isFriend));
+        } catch (Exception e) {
+            log.error("检查好友关系失败: userId1={}, userId2={}", userId1, userId2, e);
+            return ResponseEntity.status(500)
+                    .body(ApiResponse.serverError("检查好友关系失败: " + e.getMessage()));
+        }
+    }
 }
 
 

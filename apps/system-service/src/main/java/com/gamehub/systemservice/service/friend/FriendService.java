@@ -44,6 +44,16 @@ public interface FriendService {
      * @return 好友列表
      */
     List<FriendInfo> getFriendsList(String currentUserKeycloakUserId);
+
+    /**
+     * 检查两个用户是否是好友关系（状态为ACTIVE）
+     * 用于私聊等功能的前置验证
+     *
+     * @param userId1 用户1的Keycloak用户ID（String格式）
+     * @param userId2 用户2的Keycloak用户ID（String格式）
+     * @return 是否是好友关系
+     */
+    boolean isFriend(String userId1, String userId2);
 }
 
 
