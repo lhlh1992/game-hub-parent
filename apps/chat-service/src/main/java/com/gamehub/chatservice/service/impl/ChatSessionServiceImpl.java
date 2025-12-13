@@ -147,20 +147,31 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 
         // 2. 如果提供了 messageId，使用它；否则使用会话的最后一条消息ID
         UUID readMessageId = messageId;
-        if (readMessageId == null) {
-            readMessageId = messageRepository.findFirstBySessionIdOrderByCreatedAtDesc(sessionId)
-                    .map(ChatMessage::getId)
-                    .orElse(null);
+        OffsetDateTime readTime = null;
+        
+        if (readMessageId != null) {
+            // 如果提供了 messageId，查询该消息的 created_at
+            Optional<ChatMessage> readMessage = messageRepository.findById(readMessageId);
+            if (readMessage.isPresent()) {
+                readTime = readMessage.get().getCreatedAt();
+            }
+        } else {
+            // 如果没有提供 messageId，查询最后一条消息
+            Optional<ChatMessage> lastMessage = messageRepository.findFirstBySessionIdOrderByCreatedAtDesc(sessionId);
+            if (lastMessage.isPresent()) {
+                readMessageId = lastMessage.get().getId();
+                readTime = lastMessage.get().getCreatedAt();
+            }
         }
-
+        
         // 3. 更新已读状态
-        // 即使没有消息（readMessageId 为 null），也要更新 last_read_time
-        // 这样在计算未读数时，如果 last_read_time 不为 null，即使 last_read_message_id 为 null，也能正确判断
+        // 优先使用消息的 created_at 作为 last_read_time，确保时间戳准确
+        // 如果没有消息，使用当前时间（会话还没有消息的情况）
         member.setLastReadMessageId(readMessageId);
-        member.setLastReadTime(OffsetDateTime.now());
+        member.setLastReadTime(readTime != null ? readTime : OffsetDateTime.now());
         memberRepository.save(member);
-        log.debug("标记消息已读: sessionId={}, userId={}, messageId={}", 
-                sessionId, userId, readMessageId);
+        log.debug("标记消息已读: sessionId={}, userId={}, messageId={}, readTime={}", 
+                sessionId, userId, readMessageId, member.getLastReadTime());
     }
 
     @Override
@@ -174,35 +185,18 @@ public class ChatSessionServiceImpl implements ChatSessionService {
             return messageRepository.countAllUnreadMessages(sessionId);
         }
 
-        // 3. 如果 last_read_time 不为 null，说明用户已经打开过会话
-        // 即使 last_read_message_id 为 null（会话没有消息），也应该认为已读
-        if (member.getLastReadTime() != null && member.getLastReadMessageId() == null) {
-            // 用户已经打开过会话，但会话还没有消息，未读数为0
-            return 0;
-        }
-
-        // 4. 如果 last_read_time 为 null，说明用户从未打开过会话，返回所有未撤回的消息数
+        // 3. 如果 last_read_time 为 null，说明用户从未打开过会话，返回所有未撤回的消息数
         if (member.getLastReadTime() == null) {
             return messageRepository.countAllUnreadMessages(sessionId);
         }
 
-        // 5. 计算未读消息数（基于时间戳比较，避免子查询）
-        // 优先使用最后已读消息的 created_at，如果没有则使用 last_read_time
-        OffsetDateTime lastReadTime = null;
-        if (member.getLastReadMessageId() != null) {
-            // 查询最后已读消息的时间
-            Optional<ChatMessage> lastReadMessage = messageRepository.findById(member.getLastReadMessageId());
-            if (lastReadMessage.isPresent()) {
-                lastReadTime = lastReadMessage.get().getCreatedAt();
-            }
-        }
+        // 4. 计算未读消息数（基于时间戳比较，避免子查询）
+        // 直接使用 last_read_time 进行计算，因为标记已读时已经确保 last_read_time 是准确的
+        // 这样可以避免因为查询 last_read_message_id 对应的消息时可能的时间差或精度问题
+        OffsetDateTime lastReadTime = member.getLastReadTime();
         
-        // 如果查询不到最后已读消息（可能被删除了），使用 last_read_time 作为兜底
-        if (lastReadTime == null) {
-            lastReadTime = member.getLastReadTime();
-        }
-        
-        // 此时 lastReadTime 一定不为 null，使用 countUnreadMessagesAfter
+        // 此时 lastReadTime 一定不为 null（因为前面已经判断过），使用 countUnreadMessagesAfter
+        // 查询 created_at > lastReadTime 的消息数
         return messageRepository.countUnreadMessagesAfter(sessionId, lastReadTime);
     }
 
