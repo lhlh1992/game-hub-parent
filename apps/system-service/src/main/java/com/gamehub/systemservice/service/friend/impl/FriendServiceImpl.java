@@ -141,6 +141,10 @@ public class FriendServiceImpl implements FriendService {
             createFriendRelation(request.getRequesterId(), request.getReceiverId(), now);
         }
 
+        // 清除接收方通知的操作按钮（避免重新登录后仍显示操作按钮）
+        UUID receiverSystemUserId = getSystemUserId(receiverUuid);
+        notificationService.clearNotificationActions(receiverSystemUserId, "FRIEND_REQUEST", requestId);
+
         // 通知申请人结果
         notifyRequesterResult(request, accept);
     }
@@ -203,7 +207,8 @@ public class FriendServiceImpl implements FriendService {
                 receiver.getKeycloakUserId().toString(),
                 resultTitle,
                 resultContent,
-                request.getId()
+                request.getId(),
+                accept
         );
     }
 

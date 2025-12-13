@@ -35,6 +35,19 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
     List<Notification> findByUserIdAndStatus(@Param("userId") UUID userId,
                                              @Param("status") String status,
                                              org.springframework.data.domain.Pageable pageable);
+
+    /**
+     * 根据用户ID、关联类型和关联ID查找通知（用于处理好友申请后清除操作按钮）。
+     */
+    @Query("""
+            SELECT n FROM Notification n
+            WHERE n.userId = :userId
+              AND n.refType = :refType
+              AND n.refId = :refId
+            """)
+    List<Notification> findByUserIdAndRefTypeAndRefId(@Param("userId") UUID userId,
+                                                      @Param("refType") String refType,
+                                                      @Param("refId") UUID refId);
 }
 
 

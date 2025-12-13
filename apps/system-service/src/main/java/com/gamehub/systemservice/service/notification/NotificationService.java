@@ -47,13 +47,24 @@ public interface NotificationService {
 
     /**
      * 通知好友申请结果（给申请人）
+     * @param accepted true表示同意，false表示拒绝
      */
     void notifyFriendResult(UUID targetUserId,
                             String targetKeycloakUserId,
                             String handlerKeycloakUserId,
                             String title,
                             String content,
-                            UUID friendRequestId);
+                            UUID friendRequestId,
+                            boolean accepted);
+
+    /**
+     * 清除通知的操作按钮（处理完好友申请后调用，避免重新登录后仍显示操作按钮）。
+     *
+     * @param userId 用户ID（接收方）
+     * @param refType 关联类型（如 "FRIEND_REQUEST"）
+     * @param refId 关联ID（如 friendRequestId）
+     */
+    void clearNotificationActions(UUID userId, String refType, UUID refId);
 }
 
 
