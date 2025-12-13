@@ -3,21 +3,26 @@ package com.gamehub.chatservice.service.impl;
 import com.gamehub.chatservice.entity.ChatMessage;
 import com.gamehub.chatservice.entity.ChatSession;
 import com.gamehub.chatservice.entity.ChatSessionMember;
+import com.gamehub.chatservice.infrastructure.client.SystemUserClient;
 import com.gamehub.chatservice.repository.ChatMessageRepository;
 import com.gamehub.chatservice.repository.ChatSessionMemberRepository;
 import com.gamehub.chatservice.repository.ChatSessionRepository;
 import com.gamehub.chatservice.service.ChatSessionService;
+import com.gamehub.chatservice.service.UserProfileCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -33,11 +38,22 @@ public class ChatSessionServiceImpl implements ChatSessionService {
     private final ChatSessionRepository sessionRepository;
     private final ChatSessionMemberRepository memberRepository;
     private final ChatMessageRepository messageRepository;
+    private final UserProfileCacheService userProfileCacheService;
+    private final SystemUserClient systemUserClient;
 
     @Override
     public UUID getOrCreatePrivateSessionId(UUID userId1, UUID userId2) {
         ChatSession session = getOrCreatePrivateSession(userId1, userId2);
         return session.getId();
+    }
+
+    @Override
+    public UUID getPrivateSessionId(UUID userId1, UUID userId2) {
+        // 只查询，不创建
+        String supportKey = buildPrivateSessionKey(userId1, userId2);
+        return sessionRepository.findBySupportKeyAndSessionType(supportKey, ChatSession.SessionType.PRIVATE)
+                .map(ChatSession::getId)
+                .orElse(null);
     }
 
     @Override
@@ -155,7 +171,7 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 
         // 2. 如果成员不存在，返回所有未撤回的消息数
         if (member == null) {
-            return messageRepository.countUnreadMessages(sessionId, null);
+            return messageRepository.countAllUnreadMessages(sessionId);
         }
 
         // 3. 如果 last_read_time 不为 null，说明用户已经打开过会话
@@ -167,21 +183,54 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 
         // 4. 如果 last_read_time 为 null，说明用户从未打开过会话，返回所有未撤回的消息数
         if (member.getLastReadTime() == null) {
-            return messageRepository.countUnreadMessages(sessionId, null);
+            return messageRepository.countAllUnreadMessages(sessionId);
         }
 
-        // 5. 计算未读消息数（基于 last_read_message_id）
-        UUID lastReadMessageId = member.getLastReadMessageId();
-        return messageRepository.countUnreadMessages(sessionId, lastReadMessageId);
+        // 5. 计算未读消息数（基于时间戳比较，避免子查询）
+        // 优先使用最后已读消息的 created_at，如果没有则使用 last_read_time
+        OffsetDateTime lastReadTime = null;
+        if (member.getLastReadMessageId() != null) {
+            // 查询最后已读消息的时间
+            Optional<ChatMessage> lastReadMessage = messageRepository.findById(member.getLastReadMessageId());
+            if (lastReadMessage.isPresent()) {
+                lastReadTime = lastReadMessage.get().getCreatedAt();
+            }
+        }
+        
+        // 如果查询不到最后已读消息（可能被删除了），使用 last_read_time 作为兜底
+        if (lastReadTime == null) {
+            lastReadTime = member.getLastReadTime();
+        }
+        
+        // 此时 lastReadTime 一定不为 null，使用 countUnreadMessagesAfter
+        return messageRepository.countUnreadMessagesAfter(sessionId, lastReadTime);
     }
 
     @Override
     public List<SessionInfo> listUserSessions(UUID userId) {
-        // 1. 查询用户参与的所有会话
-        List<ChatSession> sessions = sessionRepository.findSessionsByUserId(userId);
+        try {
+            // 1. 查询用户参与的所有会话（通过成员表）
+            List<ChatSession> sessionsByMember = sessionRepository.findSessionsByUserId(userId);
+            log.debug("通过成员表查询到 {} 个会话", sessionsByMember.size());
+            
+            // 2. 查询用户有消息的私聊会话（通过消息表，补充成员表可能缺失的情况）
+            List<ChatSession> sessionsByMessage = sessionRepository.findPrivateSessionsWithMessagesByUserId(userId, ChatSession.SessionType.PRIVATE);
+            log.debug("通过消息表查询到 {} 个会话", sessionsByMessage.size());
+            
+            // 3. 合并两个列表，去重（使用 sessionId 作为唯一标识）
+            java.util.Map<UUID, ChatSession> sessionMap = new java.util.HashMap<>();
+            if (sessionsByMember != null) {
+                sessionsByMember.forEach(s -> sessionMap.put(s.getId(), s));
+            }
+            if (sessionsByMessage != null) {
+                sessionsByMessage.forEach(s -> sessionMap.putIfAbsent(s.getId(), s));
+            }
+            
+            List<ChatSession> allSessions = new ArrayList<>(sessionMap.values());
+            log.debug("合并后共有 {} 个会话", allSessions.size());
 
-        // 2. 为每个会话查询成员信息和未读数
-        return sessions.stream()
+        // 4. 为每个会话查询成员信息和未读数
+        return allSessions.stream()
                 .map(session -> {
                     // 查询成员记录
                     ChatSessionMember member = memberRepository.findBySessionIdAndUserId(session.getId(), userId)
@@ -197,17 +246,132 @@ public class ChatSessionServiceImpl implements ChatSessionService {
                     // 对于私聊会话，查询对方用户ID（用于前端匹配）
                     UUID otherUserId = null;
                     if (session.getSessionType() == ChatSession.SessionType.PRIVATE) {
+                        // 方法1：从成员表查询
                         List<ChatSessionMember> allMembers = memberRepository.findBySessionIdAndLeftAtIsNull(session.getId());
                         otherUserId = allMembers.stream()
                                 .filter(m -> !m.getUserId().equals(userId))
                                 .map(ChatSessionMember::getUserId)
                                 .findFirst()
                                 .orElse(null);
+                        
+                        // 方法2：如果成员表查不到，从 support_key 解析（格式：min(user1,user2)|max(user1,user2)）
+                        if (otherUserId == null && session.getSupportKey() != null) {
+                            String[] parts = session.getSupportKey().split("\\|");
+                            if (parts.length == 2) {
+                                try {
+                                    UUID user1 = UUID.fromString(parts[0]);
+                                    UUID user2 = UUID.fromString(parts[1]);
+                                    otherUserId = user1.equals(userId) ? user2 : user1;
+                                } catch (Exception e) {
+                                    log.warn("解析 support_key 失败: supportKey={}", session.getSupportKey(), e);
+                                }
+                            }
+                        }
+                        
+                        // 方法3：如果还是查不到，从消息中推断（查询所有消息的发送者，找出不是当前用户的）
+                        if (otherUserId == null) {
+                            // 先尝试从最后一条消息
+                            if (lastMessage != null && !lastMessage.getSenderId().equals(userId)) {
+                                otherUserId = lastMessage.getSenderId();
+                            } else {
+                                // 如果最后一条消息是当前用户发的，查询第一条消息
+                                Optional<ChatMessage> firstMessage = messageRepository.findFirstBySessionIdOrderByCreatedAtAsc(session.getId());
+                                if (firstMessage.isPresent() && !firstMessage.get().getSenderId().equals(userId)) {
+                                    otherUserId = firstMessage.get().getSenderId();
+                                }
+                            }
+                        }
                     }
 
                     return new SessionInfo(session, member, unreadCount, lastMessage, otherUserId);
                 })
+                .filter(info -> {
+                    // 过滤掉无法确定对方用户的私聊会话（避免前端显示错误）
+                    if (info.session().getSessionType() == ChatSession.SessionType.PRIVATE) {
+                        if (info.otherUserId() == null) {
+                            log.warn("私聊会话无法确定对方用户，已过滤: sessionId={}, userId={}", 
+                                    info.session().getId(), userId);
+                        }
+                        return info.otherUserId() != null;
+                    }
+                    return true;
+                })
                 .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("查询用户会话列表失败: userId={}", userId, e);
+            // 返回空列表而不是抛出异常，避免500错误
+            return new ArrayList<>();
+        }
+    }
+
+    @Override
+    public List<SessionInfoWithUser> listUserSessionsWithUserInfo(UUID userId) {
+        try {
+            // 1. 先获取基础会话列表
+            List<SessionInfo> baseSessions = listUserSessions(userId);
+
+            // 2. 收集所有私聊会话的对方用户ID
+            List<String> otherUserIds = baseSessions.stream()
+                    .filter(info -> info.session().getSessionType() == ChatSession.SessionType.PRIVATE
+                            && info.otherUserId() != null)
+                    .map(info -> info.otherUserId().toString())
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            // 3. 批量获取用户信息（使用缓存和并行处理）
+            Map<String, UserProfileCacheService.UserProfileView> userInfoMap = userProfileCacheService.batchGet(
+                    otherUserIds,
+                    userIdStr -> {
+                        try {
+                            SystemUserClient.UserInfo userInfo = systemUserClient.getUserInfo(userIdStr);
+                            if (userInfo != null) {
+                                return new UserProfileCacheService.UserProfileView(
+                                        userInfo.userId(),
+                                        userInfo.username(),
+                                        userInfo.nickname(),
+                                        userInfo.avatarUrl()
+                                );
+                            }
+                        } catch (Exception e) {
+                            log.warn("获取用户信息失败: userId={}", userIdStr, e);
+                        }
+                        return null;
+                    }
+            );
+
+            // 4. 构建包含用户信息的会话列表
+            return baseSessions.stream()
+                    .map(info -> {
+                        String otherUserNickname = null;
+                        String otherUserAvatarUrl = null;
+
+                        if (info.otherUserId() != null) {
+                            UserProfileCacheService.UserProfileView userProfile = userInfoMap.get(info.otherUserId().toString());
+                            if (userProfile != null) {
+                                // 优先使用 nickname，如果没有则使用 username
+                                otherUserNickname = StringUtils.hasText(userProfile.nickname())
+                                        ? userProfile.nickname()
+                                        : userProfile.username();
+                                otherUserAvatarUrl = userProfile.avatarUrl();
+                            }
+                        }
+
+                        return new ChatSessionService.SessionInfoWithUser(
+                                info.session(),
+                                info.member(),
+                                info.unreadCount(),
+                                info.lastMessage(),
+                                info.otherUserId(),
+                                otherUserNickname,
+                                otherUserAvatarUrl
+                        );
+                    })
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("查询用户会话列表（含用户信息）失败: userId={}", userId, e);
+            // 返回空列表而不是抛出异常，避免500错误
+            return new ArrayList<>();
+        }
     }
 
     /**
@@ -227,3 +391,4 @@ public class ChatSessionServiceImpl implements ChatSessionService {
         }
     }
 }
+

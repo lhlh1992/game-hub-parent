@@ -35,21 +35,33 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
     List<ChatMessage> findBySessionIdOrderByCreatedAtDesc(UUID sessionId, Pageable pageable);
 
     /**
-     * 查询会话中指定消息之后的所有消息（用于计算未读数）
-     * 
-     * 注意：如果 lastReadMessageId 为 null，表示用户还没有已读任何消息，返回所有未撤回的消息数
-     * 如果 lastReadMessageId 不为 null，返回 id > lastReadMessageId 的未撤回消息数
+     * 查询会话中所有未撤回的消息数（用于计算未读数，当用户从未打开过会话时）
      *
      * @param sessionId 会话ID
-     * @param lastReadMessageId 最后已读消息ID（null 表示未读任何消息）
      * @return 未读消息数量
      */
-    @Query("SELECT COUNT(m) FROM ChatMessage m " +
-           "WHERE m.sessionId = :sessionId " +
-           "AND m.isRecalled = false " +
-           "AND (:lastReadMessageId IS NULL OR m.id > :lastReadMessageId)")
-    long countUnreadMessages(@Param("sessionId") UUID sessionId, 
-                             @Param("lastReadMessageId") UUID lastReadMessageId);
+    @Query(value = "SELECT COUNT(*) FROM chat_message m " +
+           "WHERE m.session_id = :sessionId " +
+           "AND m.is_recalled = false",
+           nativeQuery = true)
+    long countAllUnreadMessages(@Param("sessionId") UUID sessionId);
+
+    /**
+     * 查询会话中指定时间之后的所有消息（用于计算未读数）
+     * 
+     * 注意：lastReadTime 不能为 null，如果为 null 请使用 countAllUnreadMessages
+     *
+     * @param sessionId 会话ID
+     * @param lastReadTime 最后已读时间（不能为 null）
+     * @return 未读消息数量
+     */
+    @Query(value = "SELECT COUNT(*) FROM chat_message m " +
+           "WHERE m.session_id = :sessionId " +
+           "AND m.is_recalled = false " +
+           "AND m.created_at > :lastReadTime",
+           nativeQuery = true)
+    long countUnreadMessagesAfter(@Param("sessionId") UUID sessionId, 
+                                  @Param("lastReadTime") java.time.OffsetDateTime lastReadTime);
 
     /**
      * 查询会话中最后一条消息
@@ -58,4 +70,13 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
      * @return 最后一条消息
      */
     Optional<ChatMessage> findFirstBySessionIdOrderByCreatedAtDesc(UUID sessionId);
+
+    /**
+     * 查询会话中第一条消息（按时间正序）
+     *
+     * @param sessionId 会话ID
+     * @return 第一条消息
+     */
+    Optional<ChatMessage> findFirstBySessionIdOrderByCreatedAtAsc(UUID sessionId);
 }
+

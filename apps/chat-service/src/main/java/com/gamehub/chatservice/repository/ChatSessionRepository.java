@@ -44,4 +44,24 @@ public interface ChatSessionRepository extends JpaRepository<ChatSession, UUID> 
            "WHERE m.userId = :userId AND m.leftAt IS NULL " +
            "ORDER BY s.lastMessageTime DESC NULLS LAST, s.createdAt DESC")
     List<ChatSession> findSessionsByUserId(@Param("userId") UUID userId);
+
+    /**
+     * 查询用户有消息的私聊会话（通过消息表关联，即使成员记录缺失也能找到）
+     * 按最后消息时间倒序排列
+     * 
+     * 用于补充查询：找出用户发送过或接收过消息的私聊会话
+     * 查询条件：会话中有消息，且（用户是发送者 OR 用户是成员）
+     *
+     * @param userId 用户ID
+     * @return 会话列表
+     */
+    @Query("SELECT DISTINCT s FROM ChatSession s " +
+           "INNER JOIN ChatMessage msg ON s.id = msg.sessionId " +
+           "WHERE s.sessionType = :sessionType " +
+           "AND msg.isRecalled = false " +
+           "AND (msg.senderId = :userId OR EXISTS (SELECT 1 FROM ChatSessionMember csm WHERE csm.sessionId = s.id AND csm.userId = :userId)) " +
+           "ORDER BY s.lastMessageTime DESC NULLS LAST, s.createdAt DESC")
+    List<ChatSession> findPrivateSessionsWithMessagesByUserId(@Param("userId") UUID userId, 
+                                                              @Param("sessionType") ChatSession.SessionType sessionType);
 }
+

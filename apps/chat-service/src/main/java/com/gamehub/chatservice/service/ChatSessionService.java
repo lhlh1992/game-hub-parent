@@ -25,13 +25,23 @@ public interface ChatSessionService {
 
     /**
      * 通过两个用户ID获取私聊会话ID（如果不存在则创建）
-     * 用于前端获取 sessionId 以便标记已读
+     * 用于发送消息时创建会话
      *
      * @param userId1 用户1的Keycloak用户ID（UUID格式）
      * @param userId2 用户2的Keycloak用户ID（UUID格式）
      * @return 会话ID
      */
     UUID getOrCreatePrivateSessionId(UUID userId1, UUID userId2);
+
+    /**
+     * 通过两个用户ID查询私聊会话ID（仅查询，不创建）
+     * 用于前端获取 sessionId 以便标记已读
+     *
+     * @param userId1 用户1的Keycloak用户ID（UUID格式）
+     * @param userId2 用户2的Keycloak用户ID（UUID格式）
+     * @return 会话ID，如果不存在则返回 null
+     */
+    UUID getPrivateSessionId(UUID userId1, UUID userId2);
 
     /**
      * 保存私聊消息到数据库
@@ -83,6 +93,15 @@ public interface ChatSessionService {
     List<SessionInfo> listUserSessions(UUID userId);
 
     /**
+     * 查询用户的所有会话列表（包含未读数和用户信息）
+     * 优化版本：批量获取用户信息，使用缓存和并行处理
+     *
+     * @param userId 用户ID（Keycloak用户ID，UUID格式）
+     * @return 会话列表（包含未读数和用户信息）
+     */
+    List<SessionInfoWithUser> listUserSessionsWithUserInfo(UUID userId);
+
+    /**
      * 会话信息DTO（包含未读数）
      * 
      * @param session 会话实体
@@ -98,4 +117,26 @@ public interface ChatSessionService {
             ChatMessage lastMessage,
             UUID otherUserId
     ) {}
+
+    /**
+     * 会话信息DTO（包含未读数和用户信息）
+     * 
+     * @param session 会话实体
+     * @param member 当前用户的成员记录
+     * @param unreadCount 未读消息数
+     * @param lastMessage 最后一条消息
+     * @param otherUserId 对方用户ID（仅私聊会话使用）
+     * @param otherUserNickname 对方用户昵称（仅私聊会话使用）
+     * @param otherUserAvatarUrl 对方用户头像URL（仅私聊会话使用）
+     */
+    record SessionInfoWithUser(
+            ChatSession session,
+            ChatSessionMember member,
+            long unreadCount,
+            ChatMessage lastMessage,
+            UUID otherUserId,
+            String otherUserNickname,
+            String otherUserAvatarUrl
+    ) {}
 }
+

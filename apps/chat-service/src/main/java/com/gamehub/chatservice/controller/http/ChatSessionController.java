@@ -20,13 +20,13 @@ import java.util.stream.Collectors;
  * 聊天会话 HTTP 接口
  * 提供会话列表查询、消息查询、未读消息计数等功能
  */
-@Slf4j
-@RestController
-@RequestMapping("/api/sessions")
-@RequiredArgsConstructor
-public class ChatSessionController {
+    @Slf4j
+    @RestController
+    @RequestMapping("/api/sessions")
+    @RequiredArgsConstructor
+    public class ChatSessionController {
 
-    private final ChatSessionService chatSessionService;
+        private final ChatSessionService chatSessionService;
 
     /**
      * 查询当前用户的所有会话列表（包含未读数）
@@ -42,8 +42,10 @@ public class ChatSessionController {
 
         try {
             UUID userId = UUID.fromString(jwt.getSubject());
-            List<ChatSessionService.SessionInfo> sessions = chatSessionService.listUserSessions(userId);
+            // 使用优化后的方法，自动处理缓存和并行获取用户信息
+            List<ChatSessionService.SessionInfoWithUser> sessions = chatSessionService.listUserSessionsWithUserInfo(userId);
 
+            // 构建响应
             List<SessionResponse> response = sessions.stream()
                     .map(info -> {
                         SessionResponse resp = new SessionResponse();
@@ -59,9 +61,11 @@ public class ChatSessionController {
                             resp.setLastMessageTime(info.lastMessage().getCreatedAt());
                         }
                         
-                        // 对于私聊会话，设置对方用户ID（用于前端匹配）
+                        // 对于私聊会话，设置对方用户ID和用户信息
                         if (info.otherUserId() != null) {
                             resp.setOtherUserId(info.otherUserId().toString());
+                            resp.setOtherUserNickname(info.otherUserNickname());
+                            resp.setOtherUserAvatarUrl(info.otherUserAvatarUrl());
                         }
                         
                         return resp;
@@ -148,15 +152,16 @@ public class ChatSessionController {
     }
 
     /**
-     * 通过两个用户ID获取或创建私聊会话ID
+     * 通过两个用户ID查询私聊会话ID（仅查询，不创建）
      * 用于前端获取 sessionId 以便标记已读
+     * 如果会话不存在，返回 404（表示还没有发送过消息）
      *
      * @param otherUserId 对方用户ID（Keycloak用户ID，UUID格式）
      * @param jwt          JWT Token，用于获取当前用户ID
-     * @return 会话ID
+     * @return 会话ID（如果不存在则返回 404）
      */
     @GetMapping("/private/{otherUserId}")
-    public ResponseEntity<SessionIdResponse> getOrCreatePrivateSessionId(
+    public ResponseEntity<SessionIdResponse> getPrivateSessionId(
             @PathVariable("otherUserId") String otherUserId,
             @AuthenticationPrincipal Jwt jwt) {
         if (jwt == null || !StringUtils.hasText(jwt.getSubject())) {
@@ -167,13 +172,18 @@ public class ChatSessionController {
             UUID currentUserId = UUID.fromString(jwt.getSubject());
             UUID otherUserUuid = UUID.fromString(otherUserId);
 
-            UUID sessionId = chatSessionService.getOrCreatePrivateSessionId(currentUserId, otherUserUuid);
+            UUID sessionId = chatSessionService.getPrivateSessionId(currentUserId, otherUserUuid);
+            
+            // 如果会话不存在，返回 404（表示还没有发送过消息，不需要标记已读）
+            if (sessionId == null) {
+                return ResponseEntity.notFound().build();
+            }
 
             SessionIdResponse response = new SessionIdResponse();
             response.setSessionId(sessionId.toString());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            log.error("获取或创建私聊会话失败: currentUserId={}, otherUserId={}", jwt.getSubject(), otherUserId, e);
+            log.error("查询私聊会话失败: currentUserId={}, otherUserId={}", jwt.getSubject(), otherUserId, e);
             return ResponseEntity.status(500).build();
         }
     }
@@ -218,6 +228,8 @@ public class ChatSessionController {
         private java.time.OffsetDateTime lastMessageTime;
         private long unreadCount;
         private String otherUserId; // 对方用户ID（仅私聊会话使用）
+        private String otherUserNickname; // 对方用户昵称（仅私聊会话使用）
+        private String otherUserAvatarUrl; // 对方用户头像URL（仅私聊会话使用）
     }
 
     @Data
@@ -242,3 +254,4 @@ public class ChatSessionController {
         private String sessionId;
     }
 }
+
