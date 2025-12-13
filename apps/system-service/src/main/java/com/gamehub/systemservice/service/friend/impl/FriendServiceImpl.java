@@ -1,5 +1,7 @@
 package com.gamehub.systemservice.service.friend.impl;
 
+import com.gamehub.systemservice.dto.response.FriendInfo;
+import com.gamehub.systemservice.dto.response.UserInfo;
 import com.gamehub.systemservice.entity.friend.FriendRequest;
 import com.gamehub.systemservice.entity.friend.UserFriend;
 import com.gamehub.systemservice.entity.user.SysUser;
@@ -9,14 +11,18 @@ import com.gamehub.systemservice.repository.friend.UserFriendRepository;
 import com.gamehub.systemservice.repository.user.SysUserRepository;
 import com.gamehub.systemservice.service.friend.FriendService;
 import com.gamehub.systemservice.service.notification.NotificationService;
+import com.gamehub.systemservice.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * 好友服务实现类
@@ -30,6 +36,7 @@ public class FriendServiceImpl implements FriendService {
     private final UserFriendRepository userFriendRepository;
     private final SysUserRepository sysUserRepository;
     private final NotificationService notificationService;
+    private final UserService userService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -314,6 +321,92 @@ public class FriendServiceImpl implements FriendService {
             return user.getUsername();
         }
         return user.getKeycloakUserId() != null ? user.getKeycloakUserId().toString() : "玩家";
+    }
+
+    @Override
+    public List<FriendInfo> getFriendsList(String currentUserKeycloakUserId) {
+        // 1. 将 Keycloak 用户ID 转换为 UUID
+        UUID currentUserKeycloakUuid;
+        try {
+            currentUserKeycloakUuid = UUID.fromString(currentUserKeycloakUserId);
+        } catch (IllegalArgumentException e) {
+            log.warn("无效的 Keycloak 用户ID格式: {}", currentUserKeycloakUserId);
+            return List.of();
+        }
+
+        // 2. 通过 Keycloak 用户ID 查询系统用户ID
+        UUID currentSystemUserId = getSystemUserId(currentUserKeycloakUuid);
+        log.debug("查询好友列表: Keycloak用户ID={}, 系统用户ID={}", currentUserKeycloakUserId, currentSystemUserId);
+
+        // 3. 查询当前用户的所有好友关系（状态为ACTIVE），使用系统用户ID
+        List<UserFriend> friendRelations = userFriendRepository.findActiveFriendsByUserId(currentSystemUserId);
+        log.debug("查询到的好友关系数量: {}", friendRelations.size());
+        
+        if (friendRelations.isEmpty()) {
+            log.debug("当前用户没有好友关系");
+            return List.of();
+        }
+
+        // 3. 提取所有好友的系统用户ID（UserFriend.friendId 是系统用户ID，UUID类型）
+        List<UUID> friendSystemUserIds = friendRelations.stream()
+                .map(UserFriend::getFriendId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // 4. 批量查询好友的系统用户信息，获取 Keycloak 用户ID
+        List<SysUser> friendSysUsers = sysUserRepository.findAllById(friendSystemUserIds);
+        Map<UUID, SysUser> friendSysUserMap = friendSysUsers.stream()
+                .collect(Collectors.toMap(SysUser::getId, user -> user, (a, b) -> a));
+
+        // 5. 提取所有好友的 Keycloak 用户ID（String格式）
+        List<String> friendKeycloakUserIds = friendSysUsers.stream()
+                .map(user -> user.getKeycloakUserId() != null ? user.getKeycloakUserId().toString() : null)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toList());
+
+        if (friendKeycloakUserIds.isEmpty()) {
+            log.warn("好友列表中没有任何有效的 Keycloak 用户ID");
+            return List.of();
+        }
+
+        // 6. 批量查询好友的完整用户信息（UserInfo）
+        List<UserInfo> friendUserInfos = userService.findUserInfosByKeycloakUserIds(friendKeycloakUserIds);
+        log.debug("查询到的用户信息数量: {}, 期望数量: {}", friendUserInfos.size(), friendKeycloakUserIds.size());
+        
+        // 7. 构建 Keycloak 用户ID 到用户信息的映射
+        Map<String, UserInfo> friendInfoMap = friendUserInfos.stream()
+                .collect(Collectors.toMap(UserInfo::getUserId, info -> info, (a, b) -> a));
+
+        // 8. 组装 FriendInfo 列表
+        List<FriendInfo> result = friendRelations.stream()
+                .map(uf -> {
+                    // 从系统用户ID获取 Keycloak 用户ID
+                    SysUser friendSysUser = friendSysUserMap.get(uf.getFriendId());
+                    String friendKeycloakUserId = friendSysUser != null && friendSysUser.getKeycloakUserId() != null
+                            ? friendSysUser.getKeycloakUserId().toString()
+                            : null;
+                    
+                    // 获取完整的用户信息
+                    UserInfo friendUserInfo = friendKeycloakUserId != null 
+                            ? friendInfoMap.get(friendKeycloakUserId)
+                            : null;
+                    
+                    return FriendInfo.builder()
+                            .friendRelationId(uf.getId().toString())
+                            .friendId(friendKeycloakUserId) // 使用 Keycloak 用户ID
+                            .friendNickname(uf.getFriendNickname())
+                            .friendGroup(uf.getFriendGroup())
+                            .isFavorite(uf.getIsFavorite())
+                            .lastInteractionTime(uf.getLastInteractionTime())
+                            .friendInfo(friendUserInfo)
+                            .online(null) // 在线状态需要从chat-service获取，暂时为null
+                            .build();
+                })
+                .filter(fi -> fi.getFriendId() != null && fi.getFriendInfo() != null) // 过滤掉无效的数据
+                .collect(Collectors.toList());
+        
+        log.debug("最终返回的好友列表数量: {}", result.size());
+        return result;
     }
 }
 

@@ -1,5 +1,8 @@
 package com.gamehub.systemservice.service.friend;
 
+import com.gamehub.systemservice.dto.response.FriendInfo;
+
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -33,6 +36,14 @@ public interface FriendService {
      * @param requestId              好友申请ID
      */
     void rejectFriendRequest(String receiverKeycloakUserId, UUID requestId);
+
+    /**
+     * 获取当前用户的好友列表
+     *
+     * @param currentUserKeycloakUserId 当前用户的Keycloak用户ID（String格式）
+     * @return 好友列表
+     */
+    List<FriendInfo> getFriendsList(String currentUserKeycloakUserId);
 }
 
 

@@ -135,6 +135,23 @@ public class FriendController {
                     .body(ApiResponse.serverError("拒绝好友申请失败: " + e.getMessage()));
         }
     }
+
+    /**
+     * 获取当前用户的好友列表
+     */
+    @GetMapping
+    public ResponseEntity<ApiResponse<java.util.List<com.gamehub.systemservice.dto.response.FriendInfo>>> getFriendsList(
+            @AuthenticationPrincipal Jwt jwt) {
+        String currentUserKeycloakUserId = CurrentUserHelper.getUserId(jwt);
+        try {
+            java.util.List<com.gamehub.systemservice.dto.response.FriendInfo> friends = friendService.getFriendsList(currentUserKeycloakUserId);
+            return ResponseEntity.ok(ApiResponse.success(friends));
+        } catch (Exception e) {
+            log.error("获取好友列表失败: userId={}", currentUserKeycloakUserId, e);
+            return ResponseEntity.status(500)
+                    .body(ApiResponse.serverError("获取好友列表失败: " + e.getMessage()));
+        }
+    }
 }
 
 
