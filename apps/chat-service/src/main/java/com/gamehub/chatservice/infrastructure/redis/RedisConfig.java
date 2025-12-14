@@ -9,7 +9,7 @@ import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSeriali
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 /**
- * Redis 连接与序列化配置（复用 game-service 的策略）。
+ * Redis 连接与序列化配置。
  */
 @Configuration
 public class RedisConfig {

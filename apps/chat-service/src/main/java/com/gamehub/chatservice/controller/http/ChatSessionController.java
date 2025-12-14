@@ -1,9 +1,11 @@
 package com.gamehub.chatservice.controller.http;
 
+import com.gamehub.chatservice.controller.http.dto.MessageResponse;
+import com.gamehub.chatservice.controller.http.dto.SessionIdResponse;
+import com.gamehub.chatservice.controller.http.dto.SessionResponse;
+import com.gamehub.chatservice.controller.http.dto.UnreadCountResponse;
 import com.gamehub.chatservice.entity.ChatMessage;
-import com.gamehub.chatservice.entity.ChatSession;
 import com.gamehub.chatservice.service.ChatSessionService;
-import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -20,11 +22,11 @@ import java.util.stream.Collectors;
  * 聊天会话 HTTP 接口
  * 提供会话列表查询、消息查询、未读消息计数等功能
  */
-    @Slf4j
-    @RestController
-    @RequestMapping("/api/sessions")
-    @RequiredArgsConstructor
-    public class ChatSessionController {
+@Slf4j
+@RestController
+@RequestMapping("/api/sessions")
+@RequiredArgsConstructor
+public class ChatSessionController {
 
         private final ChatSessionService chatSessionService;
 
@@ -217,41 +219,6 @@ import java.util.stream.Collectors;
             log.error("查询未读消息数失败: sessionId={}, userId={}", sessionId, jwt.getSubject(), e);
             return ResponseEntity.status(500).build();
         }
-    }
-
-    @Data
-    public static class SessionResponse {
-        private String sessionId;
-        private String sessionType;
-        private String sessionName;
-        private String lastMessage;
-        private java.time.OffsetDateTime lastMessageTime;
-        private long unreadCount;
-        private String otherUserId; // 对方用户ID（仅私聊会话使用）
-        private String otherUserNickname; // 对方用户昵称（仅私聊会话使用）
-        private String otherUserAvatarUrl; // 对方用户头像URL（仅私聊会话使用）
-    }
-
-    @Data
-    public static class MessageResponse {
-        private String messageId;
-        private String sessionId;
-        private String senderId;
-        private String messageType;
-        private String content;
-        private java.time.OffsetDateTime createdAt;
-        private Boolean isRecalled;
-    }
-
-    @Data
-    public static class UnreadCountResponse {
-        private String sessionId;
-        private long unreadCount;
-    }
-
-    @Data
-    public static class SessionIdResponse {
-        private String sessionId;
     }
 }
 

@@ -1,0 +1,28 @@
+# Kubernetes 环境配置
+# 说明：此文件只包含需要覆盖的配置，其他配置会从 application.yml 继承
+# 在 K8s 中，K8s Service 会自动提供负载均衡和服务发现
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # K8s 环境内，Keycloak 地址改为 K8s Service 名
+          issuer-uri: http://keycloak:8180/realms/my-realm
+  data:
+    redis:
+      # K8s 环境内，Redis 地址改为 K8s Service 名
+      host: redis
+  cloud:
+    discovery:
+      client:
+        simple:
+          instances:
+            system-service:
+              # Kubernetes 环境下，使用 K8s Service 名（K8s DNS 自动解析）
+              # K8s Service 会自动为多个 Pod 提供负载均衡（默认是轮询）
+              - uri: http://system-service  # K8s Service 名（不需要端口，Service 会自动路由）
+            game-service:
+              # Kubernetes 环境下，使用 K8s Service 名（K8s DNS 自动解析）
+              # K8s Service 会自动为多个 Pod 提供负载均衡（默认是轮询）
+              - uri: http://game-service  # K8s Service 名（不需要端口，Service 会自动路由）

@@ -12,7 +12,7 @@ import org.springframework.util.StringUtils;
 /**
  * 订阅房间事件（创建/删除），用于清理房间聊天记录。（暂时没用）
  */
-@Component
+// @Component  // 暂时禁用，等待 game-service 实现房间事件发布
 @Slf4j
 @RequiredArgsConstructor
 public class RoomEventConsumer {
@@ -20,7 +20,7 @@ public class RoomEventConsumer {
     private final ChatHistoryService chatHistoryService;
     private final ObjectMapper objectMapper;
 
-    @KafkaListener(topics = "${chat.room-events-topic:room-events}", groupId = "chat-service-room-events")
+    //@KafkaListener(topics = "${chat.room-events-topic:room-events}", groupId = "chat-service-room-events")
     public void onRoomEvent(String payload) {
         log.debug("Received room event: {}", payload);
         try {
