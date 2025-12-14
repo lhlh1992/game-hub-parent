@@ -76,6 +76,14 @@ spring:
       INDENT_OUTPUT: true
     time-zone: Asia/Shanghai
     date-format: yyyy-MM-dd HH:mm:ss
+  
+  # 文件上传配置
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 5MB  # 单个文件最大大小（5MB，头像足够）
+      max-request-size: 10MB  # 整个请求最大大小（10MB，支持多文件上传）
+      file-size-threshold: 2KB  # 文件写入磁盘的阈值
 
 # Actuator 健康检查配置
 management:
