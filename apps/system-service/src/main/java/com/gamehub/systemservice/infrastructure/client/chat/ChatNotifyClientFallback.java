@@ -16,3 +16,4 @@ public class ChatNotifyClientFallback implements ChatNotifyClient {
     }
 }
 
+

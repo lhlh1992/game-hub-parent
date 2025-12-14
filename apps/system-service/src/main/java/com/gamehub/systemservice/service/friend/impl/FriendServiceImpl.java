@@ -415,7 +415,6 @@ public class FriendServiceImpl implements FriendService {
         if (userId1 == null || userId2 == null || userId1.equals(userId2)) {
             return false;
         }
-
         // 2. 将 Keycloak 用户ID 转换为 UUID
         UUID user1Uuid;
         UUID user2Uuid;
@@ -442,6 +441,7 @@ public class FriendServiceImpl implements FriendService {
         return userFriendRepository.existsActiveFriendRelation(user1SystemId, user2SystemId);
     }
 }
+
 
 
 

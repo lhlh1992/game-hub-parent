@@ -1,5 +1,6 @@
 package com.gamehub.chatservice.infrastructure.client;
 
+import com.gamehub.web.common.ApiResponse;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,15 +22,15 @@ public interface SystemUserClient {
 
     /**
      * 检查两个用户是否是好友关系
-     * 注意：此接口需要在 system-service 中实现
+     * 注意：system-service 返回的是 ApiResponse<Boolean>，需要提取 data 字段
      *
      * @param userId1 用户1的Keycloak用户ID（String格式）
      * @param userId2 用户2的Keycloak用户ID（String格式）
-     * @return 是否是好友关系
+     * @return ApiResponse包装的布尔值，需要提取 data 字段
      */
     @GetMapping("/api/friends/check/{userId1}/{userId2}")
     @CircuitBreaker(name = "systemUserClient")
-    boolean isFriend(@PathVariable String userId1, @PathVariable String userId2);
+    ApiResponse<Boolean> isFriend(@PathVariable String userId1, @PathVariable String userId2);
 
     record UserInfo(String userId, String username, String nickname, String avatarUrl, String email) {}
 }

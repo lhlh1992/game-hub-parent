@@ -103,3 +103,4 @@ public class ChatSession {
         GROUP     // 群聊
     }
 }
+

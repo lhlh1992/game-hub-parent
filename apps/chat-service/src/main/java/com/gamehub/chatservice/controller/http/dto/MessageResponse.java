@@ -17,3 +17,4 @@ public class MessageResponse {
     private OffsetDateTime createdAt;
     private Boolean isRecalled;
 }
+

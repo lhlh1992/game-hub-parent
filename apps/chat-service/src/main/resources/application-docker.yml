@@ -23,3 +23,4 @@ spring:
             game-service:
               # Docker Compose 环境下，使用容器服务名（容器 DNS 自动解析）
               - uri: http://game-service:8081
+

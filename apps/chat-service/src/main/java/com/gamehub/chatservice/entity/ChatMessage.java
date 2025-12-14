@@ -110,3 +110,4 @@ public class ChatMessage {
         SYSTEM   // 系统消息
     }
 }
+

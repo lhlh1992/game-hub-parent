@@ -47,3 +47,4 @@ public interface FriendRequestRepository extends JpaRepository<FriendRequest, UU
                                                       @Param("receiverId") UUID receiverId);
 }
 
+

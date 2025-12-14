@@ -10,3 +10,4 @@ public class UnreadCountResponse {
     private String sessionId;
     private long unreadCount;
 }
+

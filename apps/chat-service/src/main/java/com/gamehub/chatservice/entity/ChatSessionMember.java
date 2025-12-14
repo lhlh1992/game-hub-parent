@@ -94,3 +94,4 @@ public class ChatSessionMember {
         OWNER    // 群主
     }
 }
+

@@ -17,3 +17,4 @@ public interface ChatNotifyClient {
     void push(@RequestBody NotifyPushRequest request);
 }
 
+

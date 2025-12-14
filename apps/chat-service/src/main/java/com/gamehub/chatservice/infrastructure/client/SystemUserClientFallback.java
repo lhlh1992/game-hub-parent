@@ -1,5 +1,6 @@
 package com.gamehub.chatservice.infrastructure.client;
 
+import com.gamehub.web.common.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -19,11 +20,11 @@ public class SystemUserClientFallback implements SystemUserClient {
     }
 
     @Override
-    public boolean isFriend(String userId1, String userId2) {
-        log.warn("system-service unavailable, default isFriend=false, userId1={}, userId2={}", userId1, userId2);
+    public ApiResponse<Boolean> isFriend(String userId1, String userId2) {
+        log.warn("system-service unavailable, default isFriend=true (degradation), userId1={}, userId2={}", userId1, userId2);
         // 降级策略：如果 system-service 不可用，为了可用性允许发送（但记录警告）
-        // 生产环境建议改为 return false，确保安全性
-        return true;
+        // 生产环境建议改为 return ApiResponse.success(false)，确保安全性
+        return ApiResponse.success(true);
     }
 }
 

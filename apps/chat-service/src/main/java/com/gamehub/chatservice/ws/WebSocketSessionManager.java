@@ -1,5 +1,6 @@
 package com.gamehub.chatservice.ws;
 
+import com.gamehub.chatservice.config.WebSocketTokenStore;
 import com.gamehub.session.SessionRegistry;
 import com.gamehub.session.model.WebSocketSessionInfo;
 import lombok.extern.slf4j.Slf4j;
@@ -23,11 +24,14 @@ public class WebSocketSessionManager {
 
     private final SessionRegistry sessionRegistry;
     private final WebSocketDisconnectHelper disconnectHelper;
+    private final WebSocketTokenStore tokenStore;
 
     public WebSocketSessionManager(SessionRegistry sessionRegistry,
-                                   WebSocketDisconnectHelper disconnectHelper) {
+                                   WebSocketDisconnectHelper disconnectHelper,
+                                   WebSocketTokenStore tokenStore) {
         this.sessionRegistry = sessionRegistry;
         this.disconnectHelper = disconnectHelper;
+        this.tokenStore = tokenStore;
     }
 
     @EventListener
@@ -79,6 +83,8 @@ public class WebSocketSessionManager {
             return;
         }
         sessionRegistry.unregisterWebSocketSession(sessionId);
+        // 清理 token 存储，避免内存泄漏
+        tokenStore.removeToken(sessionId);
         log.info("WS disconnected: session={}", sessionId);
     }
 

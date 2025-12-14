@@ -3,6 +3,8 @@ package com.gamehub.chatservice.controller.ws;
 import com.gamehub.chatservice.controller.ws.dto.SendMessage;
 import com.gamehub.chatservice.controller.ws.dto.SendPrivateMessage;
 import com.gamehub.chatservice.service.ChatMessagingService;
+import com.gamehub.chatservice.config.WebSocketTokenStore;
+import com.gamehub.web.common.feign.JwtTokenHolder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -21,6 +23,7 @@ import org.springframework.util.StringUtils;
 public class ChatWsController {
 
     private final ChatMessagingService chatMessagingService;
+    private final WebSocketTokenStore tokenStore;
 
     /**
      * 发送大厅消息
@@ -81,15 +84,24 @@ public class ChatWsController {
             return;
         }
         
-        boolean success = chatMessagingService.sendPrivateMessage(
+        // 兜底方案：如果 ThreadLocal 中没有 token，从 Redis 中获取并设置
+        // 这可以确保 Feign 调用时一定有 token
+        String token = JwtTokenHolder.getToken();
+        if (token == null || token.isBlank()) {
+            String sessionId = sha.getSessionId();
+            if (sessionId != null) {
+                token = tokenStore.getToken(sessionId);
+                if (token != null && !token.isBlank()) {
+                    JwtTokenHolder.setToken(token);
+                }
+            }
+        }
+        
+        chatMessagingService.sendPrivateMessage(
                 senderId,
                 cmd.getTargetUserId(),
                 cmd.getContent(),
                 cmd.getClientOpId()
         );
-        
-        if (!success) {
-            log.debug("私聊消息发送失败: senderId={}, targetUserId={}", senderId, cmd.getTargetUserId());
-        }
     }
 }

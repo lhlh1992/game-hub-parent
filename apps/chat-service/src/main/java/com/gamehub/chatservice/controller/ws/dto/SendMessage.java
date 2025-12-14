@@ -11,3 +11,4 @@ public class SendMessage {
     private String content;     // 消息内容
     private String clientOpId;  // 预留幂等键（客户端操作ID，用于去重）
 }
+

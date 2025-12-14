@@ -26,3 +26,4 @@ spring:
               # Kubernetes 环境下，使用 K8s Service 名（K8s DNS 自动解析）
               # K8s Service 会自动为多个 Pod 提供负载均衡（默认是轮询）
               - uri: http://game-service  # K8s Service 名（不需要端口，Service 会自动路由）
+

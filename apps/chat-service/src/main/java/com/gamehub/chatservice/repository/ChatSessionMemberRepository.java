@@ -51,3 +51,4 @@ public interface ChatSessionMemberRepository extends JpaRepository<ChatSessionMe
            "WHERE m.sessionId = :sessionId AND m.leftAt IS NULL")
     long countActiveMembersBySessionId(@Param("sessionId") UUID sessionId);
 }
+

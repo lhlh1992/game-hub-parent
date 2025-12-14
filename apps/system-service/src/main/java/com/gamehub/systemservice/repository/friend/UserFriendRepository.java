@@ -51,3 +51,4 @@ public interface UserFriendRepository extends JpaRepository<UserFriend, UUID> {
                                                   @Param("friendId") UUID friendId);
 }
 
+

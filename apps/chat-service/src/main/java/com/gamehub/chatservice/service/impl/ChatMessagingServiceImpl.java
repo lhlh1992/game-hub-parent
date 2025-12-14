@@ -8,6 +8,7 @@ import com.gamehub.chatservice.service.ChatMessagingService;
 import com.gamehub.chatservice.service.ChatSessionService;
 import com.gamehub.chatservice.service.UserProfileCacheService;
 import com.gamehub.chatservice.service.dto.ChatMessagePayload;
+import com.gamehub.web.common.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -102,9 +103,10 @@ public class ChatMessagingServiceImpl implements ChatMessagingService {
         
         // 2. 验证好友关系：只有好友之间才能发送私聊消息
         try {
-            boolean isFriend = systemUserClient.isFriend(senderId, targetUserId);
-            if (!isFriend) {
-                log.warn("私聊消息发送失败：不是好友关系, senderId={}, targetUserId={}", senderId, targetUserId);
+            ApiResponse<Boolean> response = systemUserClient.isFriend(senderId, targetUserId);
+            if (response == null || response.code() != 200 || response.data() == null || !response.data()) {
+                log.warn("私聊消息发送失败：不是好友关系, senderId={}, targetUserId={}, response={}", 
+                        senderId, targetUserId, response);
                 return false;
             }
         } catch (Exception e) {

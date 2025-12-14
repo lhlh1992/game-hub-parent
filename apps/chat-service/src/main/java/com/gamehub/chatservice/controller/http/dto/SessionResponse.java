@@ -19,3 +19,4 @@ public class SessionResponse {
     private String otherUserNickname; // 对方用户昵称（仅私聊会话使用）
     private String otherUserAvatarUrl; // 对方用户头像URL（仅私聊会话使用）
 }
+
