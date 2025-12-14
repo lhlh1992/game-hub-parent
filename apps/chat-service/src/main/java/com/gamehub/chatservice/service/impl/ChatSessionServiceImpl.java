@@ -180,24 +180,25 @@ public class ChatSessionServiceImpl implements ChatSessionService {
         ChatSessionMember member = memberRepository.findBySessionIdAndUserId(sessionId, userId)
                 .orElse(null);
 
-        // 2. 如果成员不存在，返回所有未撤回的消息数
+        // 2. 如果成员不存在，返回所有未撤回的消息数（排除自己发的消息）
         if (member == null) {
-            return messageRepository.countAllUnreadMessages(sessionId);
+            return messageRepository.countAllUnreadMessages(sessionId, userId);
         }
 
-        // 3. 如果 last_read_time 为 null，说明用户从未打开过会话，返回所有未撤回的消息数
+        // 3. 如果 last_read_time 为 null，说明用户从未打开过会话，返回所有未撤回的消息数（排除自己发的消息）
         if (member.getLastReadTime() == null) {
-            return messageRepository.countAllUnreadMessages(sessionId);
+            return messageRepository.countAllUnreadMessages(sessionId, userId);
         }
 
         // 4. 计算未读消息数（基于时间戳比较，避免子查询）
         // 直接使用 last_read_time 进行计算，因为标记已读时已经确保 last_read_time 是准确的
         // 这样可以避免因为查询 last_read_message_id 对应的消息时可能的时间差或精度问题
+        // 同时排除用户自己发的消息（自己发的消息不算未读）
         OffsetDateTime lastReadTime = member.getLastReadTime();
         
         // 此时 lastReadTime 一定不为 null（因为前面已经判断过），使用 countUnreadMessagesAfter
-        // 查询 created_at > lastReadTime 的消息数
-        return messageRepository.countUnreadMessagesAfter(sessionId, lastReadTime);
+        // 查询 created_at > lastReadTime 且 sender_id != userId 的消息数
+        return messageRepository.countUnreadMessagesAfter(sessionId, lastReadTime, userId);
     }
 
     @Override

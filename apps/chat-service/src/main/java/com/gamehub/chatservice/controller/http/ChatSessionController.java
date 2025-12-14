@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
 
         try {
             UUID userId = UUID.fromString(jwt.getSubject());
-            // 使用优化后的方法，自动处理缓存和并行获取用户信息
+            //自动处理缓存和并行获取用户信息
             List<ChatSessionService.SessionInfoWithUser> sessions = chatSessionService.listUserSessionsWithUserInfo(userId);
 
             // 构建响应

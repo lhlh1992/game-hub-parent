@@ -36,32 +36,39 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
 
     /**
      * 查询会话中所有未撤回的消息数（用于计算未读数，当用户从未打开过会话时）
+     * 排除用户自己发的消息（自己发的消息不算未读）
      *
      * @param sessionId 会话ID
-     * @return 未读消息数量
-     */
-    @Query(value = "SELECT COUNT(*) FROM chat_message m " +
-           "WHERE m.session_id = :sessionId " +
-           "AND m.is_recalled = false",
-           nativeQuery = true)
-    long countAllUnreadMessages(@Param("sessionId") UUID sessionId);
-
-    /**
-     * 查询会话中指定时间之后的所有消息（用于计算未读数）
-     * 
-     * 注意：lastReadTime 不能为 null，如果为 null 请使用 countAllUnreadMessages
-     *
-     * @param sessionId 会话ID
-     * @param lastReadTime 最后已读时间（不能为 null）
+     * @param userId 用户ID（用于排除自己发的消息）
      * @return 未读消息数量
      */
     @Query(value = "SELECT COUNT(*) FROM chat_message m " +
            "WHERE m.session_id = :sessionId " +
            "AND m.is_recalled = false " +
-           "AND m.created_at > :lastReadTime",
+           "AND m.sender_id != :userId",
+           nativeQuery = true)
+    long countAllUnreadMessages(@Param("sessionId") UUID sessionId, @Param("userId") UUID userId);
+
+    /**
+     * 查询会话中指定时间之后的所有消息（用于计算未读数）
+     * 排除用户自己发的消息（自己发的消息不算未读）
+     * 
+     * 注意：lastReadTime 不能为 null，如果为 null 请使用 countAllUnreadMessages
+     *
+     * @param sessionId 会话ID
+     * @param lastReadTime 最后已读时间（不能为 null）
+     * @param userId 用户ID（用于排除自己发的消息）
+     * @return 未读消息数量
+     */
+    @Query(value = "SELECT COUNT(*) FROM chat_message m " +
+           "WHERE m.session_id = :sessionId " +
+           "AND m.is_recalled = false " +
+           "AND m.created_at > :lastReadTime " +
+           "AND m.sender_id != :userId",
            nativeQuery = true)
     long countUnreadMessagesAfter(@Param("sessionId") UUID sessionId, 
-                                  @Param("lastReadTime") java.time.OffsetDateTime lastReadTime);
+                                  @Param("lastReadTime") java.time.OffsetDateTime lastReadTime,
+                                  @Param("userId") UUID userId);
 
     /**
      * 查询会话中最后一条消息
