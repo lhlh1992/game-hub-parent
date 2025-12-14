@@ -2033,6 +2033,180 @@ private void pushToChatService(String receiverKeycloakUserId,
 - **中期**：新增可操作通知类型成本降低 70%
 - **长期**：新增通知类型成本降低 90%，完全解耦
 
+#### 9.1.5 详细改进方案
+
+> **注意**：以下为改进建议，并非当前实现。当前实现见 4.3 节。
+
+**方案A：渐进式改进（推荐）**
+
+适合当前阶段，在保持现有功能的基础上逐步优化。
+
+**后端改进**：
+
+1. **抽象通用通知方法**：
+```java
+// NotificationService.java
+/**
+ * 通用通知创建方法
+ */
+void notify(String type, UUID userId, String title, String content, 
+            List<String> actions, Map<String, Object> payload);
+```
+
+2. **状态查询策略化**：
+```java
+// 定义状态查询接口
+interface NotificationStatusResolver {
+    boolean supports(String type);
+    Map<String, Object> resolveStatus(UUID refId);
+}
+
+// 注册多个实现
+private final Map<String, NotificationStatusResolver> statusResolvers;
+
+// toView() 中使用
+if (statusResolvers.containsKey(n.getType())) {
+    Map<String, Object> status = statusResolvers.get(n.getType())
+        .resolveStatus(n.getRefId());
+    payload.putAll(status);
+}
+```
+
+**前端改进**：
+
+1. **使用元数据动态渲染**：
+```javascript
+// 初始化时获取元数据
+const [metadata, setMetadata] = useState({})
+useEffect(() => {
+  fetchNotificationMetadata().then(data => {
+    const map = {}
+    data.forEach(m => { map[m.type] = m })
+    setMetadata(map)
+  })
+}, [])
+
+// 动态渲染按钮
+{metadata[item.type]?.actionable && actions.length > 0 && (
+  <div className="notify-actions">
+    {actions.map(action => (
+      <button onClick={(e) => handleAction(item, action, e)}>
+        {getActionLabel(item.type, action)}
+      </button>
+    ))}
+  </div>
+)}
+```
+
+2. **统一操作处理**：
+```javascript
+// 建立 action handler 映射表
+const actionHandlers = {
+  'FRIEND_REQUEST': {
+    'ACCEPT': (item) => acceptFriendRequest(item.payload.friendRequestId),
+    'REJECT': (item) => rejectFriendRequest(item.payload.friendRequestId)
+  },
+  'GAME_INVITE': {
+    'ACCEPT': (item) => acceptGameInvite(item.payload.gameInviteId),
+    'REJECT': (item) => rejectGameInvite(item.payload.gameInviteId)
+  }
+}
+
+const handleAction = async (item, action, e) => {
+  const handler = actionHandlers[item.type]?.[action]
+  if (handler) {
+    await handler(item)
+  }
+}
+```
+
+**方案B：全面重构（长期）**
+
+适合通知类型较多、需要高度灵活性的场景。
+
+**核心思想**：插件化通知处理器
+
+```
+NotificationHandler (接口)
+  ├── FriendRequestHandler
+  ├── GameInviteHandler
+  └── TeamInviteHandler
+```
+
+**实现要点**：
+1. 每个通知类型对应一个 Handler
+2. Handler 负责：创建通知、查询状态、处理操作
+3. 通过 Spring 的 `ApplicationContext` 自动注册 Handler
+4. 前端通过 metadata 动态渲染，通过统一 API 处理操作
+
+**后端实现示例**：
+```java
+// 通知处理器接口
+interface NotificationHandler {
+    String getType();
+    void notify(NotificationContext context);
+    Map<String, Object> resolveStatus(UUID refId);
+    void handleAction(String action, UUID refId, UUID userId);
+}
+
+// 好友申请处理器
+@Component
+class FriendRequestHandler implements NotificationHandler {
+    @Override
+    public String getType() { return "FRIEND_REQUEST"; }
+    
+    @Override
+    public void notify(NotificationContext context) {
+        // 创建好友申请通知
+    }
+    
+    @Override
+    public Map<String, Object> resolveStatus(UUID refId) {
+        // 查询好友申请状态
+    }
+    
+    @Override
+    public void handleAction(String action, UUID refId, UUID userId) {
+        // 处理同意/拒绝
+    }
+}
+```
+
+**前端实现示例**：
+```javascript
+// 统一操作 API
+POST /api/notifications/{id}/actions/{action}
+
+// 前端统一处理
+const handleAction = async (item, action) => {
+  await post(`/api/notifications/${item.id}/actions/${action}`)
+}
+```
+
+#### 9.1.6 已知风险与改进建议
+
+**当前实现存在的风险**：
+
+1. **API 前缀硬编码**：
+   - 问题：前端 accept/reject 仅尝试 `/system-service/api/...`、`/api/...` 两条路径，若部署前缀不同需改为可配置
+   - 建议：将 API 前缀配置化，从配置文件或环境变量读取
+
+2. **分页/历史缺失**：
+   - 问题：通知仅取最新 10 条，无分页/加载更多，历史不可见
+   - 建议：支持分页查询，提供"加载更多"功能，支持查看历史通知
+
+3. **未读计数一致性**：
+   - 问题：本地未读数更新与后端可能短暂不一致（处理失败时）
+   - 建议：在处理成功后重新拉取 `unread-count` 兜底，确保一致性
+
+4. **推送去重依赖 id**：
+   - 问题：WebSocket 推送依赖 `notificationId` 进行去重；若缺失 `notificationId`，前端会使用 `friendRequestId` 或时间戳作为 fallback，但可能不够精确
+   - 建议：确保所有 WebSocket 推送都携带 `notificationId`，前端已实现基于 `notificationId` 的去重逻辑（优先使用 `notificationId`，fallback 到 `refType + refId` 组合）
+
+5. **安全问题**：
+   - 问题：内部推送接口仅 JWT，无额外签名/白名单，需确保只经网关受控暴露
+   - 建议：在生产环境中添加 IP 白名单或签名验证机制
+
 ### 9.2 好友系统扩展性
 
 **当前实现**：
