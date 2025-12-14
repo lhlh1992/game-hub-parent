@@ -532,7 +532,7 @@ docker-compose down
 ## 📞 联系方式
 
 - **Issues**：[GitHub Issues](https://github.com/your-username/game-hub-parent/issues)
-- **Email**：your-email@example.com
+- **Email**：602979266@qq.com
 
 ---
 
