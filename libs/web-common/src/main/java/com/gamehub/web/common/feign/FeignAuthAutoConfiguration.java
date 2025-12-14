@@ -75,7 +75,7 @@ public class FeignAuthAutoConfiguration {
                 if (authorization != null && !authorization.isBlank()) {
                     template.header("Authorization", authorization);
                 } else {
-                    log.error("无法获取 JWT Token，Feign 调用将不携带 Token（可能导致 401 错误）, url={}", template.url());
+                    log.error("无法获取 JWT Token，Feign 调用将不携带 Token（会导致 401 错误）, url={}", template.url());
                 }
             }
         };

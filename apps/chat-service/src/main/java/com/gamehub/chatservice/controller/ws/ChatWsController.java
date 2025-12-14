@@ -85,14 +85,41 @@ public class ChatWsController {
         }
         
         // 兜底方案：如果 ThreadLocal 中没有 token，从 Redis 中获取并设置
-        // 这可以确保 Feign 调用时一定有 token
+        // 关键修复：优先使用 loginSessionId（sid）获取 token，因为 token 刷新时 sid 不变
         String token = JwtTokenHolder.getToken();
         if (token == null || token.isBlank()) {
-            String sessionId = sha.getSessionId();
-            if (sessionId != null) {
-                token = tokenStore.getToken(sessionId);
+            // 优先从 JWT 中提取 loginSessionId（sid）
+            String loginSessionId = null;
+            if (sha.getUser() instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken jwtAuth) {
+                org.springframework.security.oauth2.jwt.Jwt jwt = jwtAuth.getToken();
+                Object sidObj = jwt.getClaim("sid");
+                if (sidObj != null) {
+                    loginSessionId = sidObj.toString();
+                }
+                if (loginSessionId == null || loginSessionId.isBlank()) {
+                    Object sessionStateObj = jwt.getClaim("session_state");
+                    if (sessionStateObj != null) {
+                        loginSessionId = sessionStateObj.toString();
+                    }
+                }
+            }
+            
+            // 优先使用 loginSessionId 获取 token
+            if (loginSessionId != null && !loginSessionId.isBlank()) {
+                token = tokenStore.getToken(loginSessionId);
                 if (token != null && !token.isBlank()) {
                     JwtTokenHolder.setToken(token);
+                }
+            }
+            
+            // 降级：如果使用 loginSessionId 获取失败，尝试使用 WebSocket sessionId
+            if ((token == null || token.isBlank())) {
+                String wsSessionId = sha.getSessionId();
+                if (wsSessionId != null) {
+                    token = tokenStore.getToken(wsSessionId);
+                    if (token != null && !token.isBlank()) {
+                        JwtTokenHolder.setToken(token);
+                    }
                 }
             }
         }

@@ -94,10 +94,27 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
                     JwtAuthenticationToken authentication = new JwtAuthenticationToken(jwt, authorities, name);
                     accessor.setUser(authentication);
                     
-                    // 保存原始 token 到存储（以 sessionId 为 key）
-                    String sessionId = accessor.getSessionId();
-                    if (sessionId != null) {
-                        tokenStore.putToken(sessionId, token);
+                    // 关键修复：使用 sid（loginSessionId）作为 key，而不是 WebSocket sessionId
+                    // 因为 sid 在整个登录生命周期内不变，即使 token 刷新也不会变
+                    // 这样 token 刷新时，可以覆盖旧的 token，而不是创建新的 key
+                    String loginSessionId = extractLoginSessionId(jwt);
+                    String wsSessionId = accessor.getSessionId();
+                    
+                    // 策略：同时保存两个 key（双重保障）
+                    // 1. 使用 loginSessionId 作为主要 key（支持 token 刷新）
+                    // 2. 使用 wsSessionId 作为备用 key（向后兼容，当 loginSessionId 为 null 时使用）
+                    boolean saved = false;
+                    if (loginSessionId != null && !loginSessionId.isBlank()) {
+                        tokenStore.putToken(loginSessionId, token);
+                        saved = true;
+                    }
+                    
+                    if (wsSessionId != null) {
+                        tokenStore.putToken(wsSessionId, token);
+                    } else {
+                        if (!saved) {
+                            log.error("CONNECT 时无法获取 loginSessionId 或 sessionId，无法保存 token");
+                        }
                     }
                     
                     // 保存原始 token 到 ThreadLocal，供 Feign 调用时使用
@@ -118,32 +135,83 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
             }
         } else {
             // 对于非 CONNECT 消息（如 SEND 消息），从已建立的会话中获取用户身份并设置到 SecurityContext
+            // 关键修复：优先使用 loginSessionId（sid）获取 token，因为 token 刷新时 sid 不变
+            
+            // 获取 WebSocket sessionId
+            String wsSessionId = accessor.getSessionId();
+            if (wsSessionId == null) {
+                Object sessionIdObj = message.getHeaders().get("simpSessionId");
+                if (sessionIdObj != null) {
+                    wsSessionId = sessionIdObj.toString();
+                }
+            }
+            
+            // 首先尝试从 accessor.getUser() 中提取 loginSessionId（sid）
+            String loginSessionId = null;
             if (accessor.getUser() instanceof JwtAuthenticationToken jwtAuth) {
                 SecurityContext securityContext = new SecurityContextImpl();
                 securityContext.setAuthentication(jwtAuth);
                 SecurityContextHolder.setContext(securityContext);
                 
-                // 从存储中获取原始 token（在 CONNECT 时保存的）
-                String sessionId = accessor.getSessionId();
-                
-                // 如果方式1失败，从消息 header 中获取（Spring WebSocket 会将 sessionId 存储在 header 中）
-                if (sessionId == null) {
-                    Object sessionIdObj = message.getHeaders().get("simpSessionId");
-                    if (sessionIdObj != null) {
-                        sessionId = sessionIdObj.toString();
+                // 从 JWT 中提取 loginSessionId（sid）
+                Jwt jwt = jwtAuth.getToken();
+                loginSessionId = extractLoginSessionId(jwt);
+            }
+            
+            // 关键修复：优先使用 loginSessionId 获取 token（因为 token 刷新时 sid 不变）
+            String token = null;
+            if (loginSessionId != null && !loginSessionId.isBlank()) {
+                token = tokenStore.getToken(loginSessionId);
+                if (token != null && !token.isBlank()) {
+                    JwtTokenHolder.setToken(token);
+                }
+            }
+            
+            // 降级：如果使用 loginSessionId 获取失败，尝试使用 WebSocket sessionId
+            if ((token == null || token.isBlank()) && wsSessionId != null) {
+                token = tokenStore.getToken(wsSessionId);
+                if (token != null && !token.isBlank()) {
+                    JwtTokenHolder.setToken(token);
+                    
+                    // 如果从 wsSessionId 获取到 token，尝试从 token 中提取 loginSessionId 并更新存储
+                    try {
+                        Jwt jwt = jwtDecoder.decode(token);
+                        String extractedLoginSessionId = extractLoginSessionId(jwt);
+                        if (extractedLoginSessionId != null && !extractedLoginSessionId.isBlank()) {
+                            // 使用 loginSessionId 重新保存 token（确保后续查询能使用 loginSessionId）
+                            tokenStore.putToken(extractedLoginSessionId, token);
+                        }
+                    } catch (Exception e) {
+                        // 忽略提取失败
                     }
                 }
-                
-                if (sessionId != null) {
-                    String token = tokenStore.getToken(sessionId);
-                    if (token != null && !token.isBlank()) {
-                        JwtTokenHolder.setToken(token);
-                    } else {
-                        log.warn("存储中没有 token, sessionId={}, 可能原因：1) Redis 连接失败 2) token 已过期 3) sessionId 不匹配", sessionId);
+            }
+            
+            // 如果获取到 token，设置到 ThreadLocal 和 SecurityContext
+            if (token != null && !token.isBlank()) {
+                // 如果 accessor.getUser() 不存在，但 token 存在，尝试从 token 恢复用户信息
+                if (accessor.getUser() == null) {
+                    try {
+                        Jwt jwt = jwtDecoder.decode(token);
+                        Collection<GrantedAuthority> authorities = authoritiesConverter.convert(jwt);
+                        String name = Objects.requireNonNullElse(
+                                jwt.getClaimAsString("preferred_username"),
+                                jwt.getSubject()
+                        );
+                        JwtAuthenticationToken authentication = new JwtAuthenticationToken(jwt, authorities, name);
+                        accessor.setUser(authentication);
+                        
+                        SecurityContext securityContext = new SecurityContextImpl();
+                        securityContext.setAuthentication(authentication);
+                        SecurityContextHolder.setContext(securityContext);
+                    } catch (Exception e) {
+                        // 忽略恢复失败
                     }
-                } else {
-                    log.warn("无法获取 sessionId, 无法从存储中获取 token, user={}", jwtAuth.getName());
                 }
+            } else {
+                String userName = accessor.getUser() != null ? accessor.getUser().getName() : "unknown";
+                log.error("存储中没有 token, loginSessionId={}, wsSessionId={}, user={}", 
+                        loginSessionId, wsSessionId, userName);
             }
         }
         return message;
@@ -152,6 +220,32 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
     private static String firstHeader(StompHeaderAccessor accessor, String key) {
         List<String> vals = accessor.getNativeHeader(key);
         return (vals == null || vals.isEmpty()) ? null : vals.get(0);
+    }
+    
+    /**
+     * 从 JWT 中提取 loginSessionId（sid）。
+     * 优先使用 sid，如果没有则尝试使用 session_state（向后兼容）。
+     */
+    private String extractLoginSessionId(Jwt jwt) {
+        // 优先使用 sid
+        Object sidObj = jwt.getClaim("sid");
+        if (sidObj != null) {
+            String sid = sidObj.toString();
+            if (sid != null && !sid.isBlank()) {
+                return sid;
+            }
+        }
+        
+        // 如果没有 sid，尝试使用 session_state（向后兼容）
+        Object sessionStateObj = jwt.getClaim("session_state");
+        if (sessionStateObj != null) {
+            String sessionState = sessionStateObj.toString();
+            if (sessionState != null && !sessionState.isBlank()) {
+                return sessionState;
+            }
+        }
+        
+        return null;
     }
 }
 

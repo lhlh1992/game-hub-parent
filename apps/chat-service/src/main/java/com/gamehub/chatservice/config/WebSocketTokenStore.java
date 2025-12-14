@@ -73,29 +73,37 @@ public class WebSocketTokenStore {
     }
     
     /**
+     * 检查 Redis 连接状态（用于诊断）
+     */
+    public boolean isRedisAvailable() {
+        return redisAvailable;
+    }
+    
+    /**
      * 保存 token（以 sessionId 为 key）
      * TTL: 1 小时（与 JWT token 过期时间一致）
+     * 
+     * 策略：同时写入 Redis 和内存存储（双重保障）
+     * - Redis：支持多实例，自动过期
+     * - 内存：降级保障，即使 Redis 失败也能工作
      */
     public void putToken(String sessionId, String token) {
         if (sessionId == null || token == null) {
             return;
         }
         
+        // 策略：同时写入 Redis 和内存存储（双重保障）
         if (redisAvailable) {
             try {
                 String key = TOKEN_KEY_PREFIX + sessionId;
                 redis.opsForValue().set(key, token, DEFAULT_TTL.toSeconds(), TimeUnit.SECONDS);
-                log.debug("已保存 token 到 Redis, sessionId={}, key={}", sessionId, key);
-                return;
             } catch (Exception e) {
-                log.warn("Redis 保存失败，降级到内存存储, sessionId={}, error={}", sessionId, e.getMessage());
-                redisAvailable = false;
+                log.warn("Redis 保存失败，将使用内存存储, sessionId={}, error={}", sessionId, e.getMessage());
             }
         }
         
-        // 降级到内存存储
+        // 无论 Redis 是否成功，都写入内存存储（降级保障）
         fallbackStore.put(sessionId, token);
-        log.debug("已保存 token 到内存存储（降级）, sessionId={}", sessionId);
     }
     
     /**
@@ -110,26 +118,16 @@ public class WebSocketTokenStore {
             try {
                 String key = TOKEN_KEY_PREFIX + sessionId;
                 String token = redis.opsForValue().get(key);
-                if (token != null) {
-                    log.debug("从 Redis 获取 token, sessionId={}, key={}", sessionId, key);
+                if (token != null && !token.isBlank()) {
                     return token;
-                } else {
-                    log.debug("Redis 中没有 token, sessionId={}, key={}", sessionId, key);
                 }
             } catch (Exception e) {
                 log.warn("Redis 获取失败，尝试从内存存储获取, sessionId={}, error={}", sessionId, e.getMessage());
-                redisAvailable = false;
             }
         }
         
         // 降级到内存存储
-        String token = fallbackStore.get(sessionId);
-        if (token != null) {
-            log.debug("从内存存储获取 token（降级）, sessionId={}", sessionId);
-        } else {
-            log.debug("内存存储中也没有 token, sessionId={}", sessionId);
-        }
-        return token;
+        return fallbackStore.get(sessionId);
     }
     
     /**
@@ -144,17 +142,12 @@ public class WebSocketTokenStore {
             try {
                 String key = TOKEN_KEY_PREFIX + sessionId;
                 redis.delete(key);
-                log.debug("已移除 token, sessionId={}, key={}", sessionId, key);
-                return;
             } catch (Exception e) {
-                log.warn("Redis 删除失败，从内存存储删除, sessionId={}, error={}", sessionId, e.getMessage());
-                redisAvailable = false;
+                log.warn("Redis 删除失败, sessionId={}, error={}", sessionId, e.getMessage());
             }
         }
         
-        // 降级到内存存储
         fallbackStore.remove(sessionId);
-        log.debug("已从内存存储移除 token（降级）, sessionId={}", sessionId);
     }
 }
 

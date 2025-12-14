@@ -9,6 +9,7 @@ import com.gamehub.chatservice.service.ChatSessionService;
 import com.gamehub.chatservice.service.UserProfileCacheService;
 import com.gamehub.chatservice.service.dto.ChatMessagePayload;
 import com.gamehub.web.common.ApiResponse;
+import com.gamehub.web.common.feign.JwtTokenHolder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -105,10 +106,15 @@ public class ChatMessagingServiceImpl implements ChatMessagingService {
         try {
             ApiResponse<Boolean> response = systemUserClient.isFriend(senderId, targetUserId);
             if (response == null || response.code() != 200 || response.data() == null || !response.data()) {
-                log.warn("私聊消息发送失败：不是好友关系, senderId={}, targetUserId={}, response={}", 
-                        senderId, targetUserId, response);
+                log.warn("私聊消息发送失败：不是好友关系, senderId={}, targetUserId={}", senderId, targetUserId);
                 return false;
             }
+        } catch (feign.FeignException.Unauthorized e) {
+            // 401 错误：Token 缺失或无效
+            log.error("验证好友关系时 Token 无效或缺失: senderId={}, targetUserId={}", senderId, targetUserId);
+            // 如果验证失败，为了可用性，允许发送（但记录警告）
+            // 生产环境建议改为 return false，确保安全性
+            log.warn("好友关系验证失败，但允许消息发送（降级策略）");
         } catch (Exception e) {
             log.error("验证好友关系失败: senderId={}, targetUserId={}", senderId, targetUserId, e);
             // 如果验证失败，为了可用性，允许发送（但记录警告）
