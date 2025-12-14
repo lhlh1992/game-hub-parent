@@ -2,7 +2,10 @@ package com.gamehub.chatservice.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gamehub.chatservice.entity.ChatMessage;
 import com.gamehub.chatservice.service.ChatHistoryService;
+import com.gamehub.chatservice.service.ChatSessionService;
+import com.gamehub.chatservice.service.UserProfileCacheService;
 import com.gamehub.chatservice.service.dto.ChatMessagePayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +17,7 @@ import org.springframework.util.StringUtils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -44,6 +48,8 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
 
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
+    private final ChatSessionService chatSessionService;
+    private final UserProfileCacheService userProfileCacheService;
 
     @Override
     public void appendRoomMessage(ChatMessagePayload payload, int maxSize) {
@@ -131,26 +137,123 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         String key = PRIVATE_KEY_PREFIX + sessionId;
         int fetch = limit > 0 ? limit : DEFAULT_PRIVATE_MAX_SIZE;
         
+        // 1. 先尝试从Redis读取
         Long size = stringRedisTemplate.opsForList().size(key);
-        if (size == null || size == 0) {
-            return Collections.emptyList();
-        }
-        
-        long start = Math.max(-fetch, -size);
-        List<String> raw = stringRedisTemplate.opsForList().range(key, start, -1);
-        if (raw == null || raw.isEmpty()) {
-            return Collections.emptyList();
-        }
-        
-        List<ChatMessagePayload> result = new ArrayList<>(raw.size());
-        for (String item : raw) {
-            try {
-                result.add(objectMapper.readValue(item, new TypeReference<>() {}));
-            } catch (Exception ignore) {
-                // ignore malformed
+        if (size != null && size > 0) {
+            long start = Math.max(-fetch, -size);
+            List<String> raw = stringRedisTemplate.opsForList().range(key, start, -1);
+            if (raw != null && !raw.isEmpty()) {
+                List<ChatMessagePayload> result = new ArrayList<>(raw.size());
+                for (String item : raw) {
+                    try {
+                        result.add(objectMapper.readValue(item, new TypeReference<>() {}));
+                    } catch (Exception ignore) {
+                        // ignore malformed
+                    }
+                }
+                return result;
             }
         }
-        return result;
+        
+        // 2. Redis为空，从数据库查询并回填Redis
+        try {
+            UUID user1Uuid = UUID.fromString(userId1);
+            UUID user2Uuid = UUID.fromString(userId2);
+            
+            // 查询数据库中的sessionId（UUID格式）
+            UUID dbSessionId = chatSessionService.getPrivateSessionId(user1Uuid, user2Uuid);
+            if (dbSessionId == null) {
+                // 会话不存在，返回空列表
+                log.debug("私聊会话不存在: userId1={}, userId2={}", userId1, userId2);
+                return Collections.emptyList();
+            }
+            
+            // 从数据库查询消息（最多fetch条）
+            List<ChatMessage> dbMessages = chatSessionService.listMessages(dbSessionId, fetch);
+            if (dbMessages == null || dbMessages.isEmpty()) {
+                log.debug("数据库中没有消息: sessionId={}", dbSessionId);
+                return Collections.emptyList();
+            }
+            
+            // 转换为ChatMessagePayload并写回Redis
+            List<ChatMessagePayload> result = new ArrayList<>(dbMessages.size());
+            for (ChatMessage msg : dbMessages) {
+                try {
+                    // 确定targetUserId（另一个用户）
+                    // 如果发送者是user1，则接收者是user2；反之亦然
+                    String targetUserId = msg.getSenderId().equals(user1Uuid) ? userId2 : userId1;
+                    
+                    // 解析发送者显示名称
+                    String senderName = resolveDisplayName(msg.getSenderId().toString());
+                    
+                    ChatMessagePayload payload = ChatMessagePayload.builder()
+                            .type("PRIVATE")
+                            .roomId(null)
+                            .senderId(msg.getSenderId().toString())
+                            .senderName(senderName)
+                            .targetUserId(targetUserId)
+                            .content(msg.getContent())
+                            .timestamp(msg.getCreatedAt().toInstant().toEpochMilli())
+                            .clientOpId(msg.getClientOpId())
+                            .build();
+                    
+                    result.add(payload);
+                } catch (Exception e) {
+                    log.warn("转换消息失败: messageId={}, err={}", msg.getId(), e.getMessage());
+                }
+            }
+            
+            // 写回Redis（批量写入，保持时间顺序）
+            if (!result.isEmpty()) {
+                try {
+                    // 先清空（如果存在），然后批量写入
+                    stringRedisTemplate.delete(key);
+                    for (ChatMessagePayload payload : result) {
+                        String json = objectMapper.writeValueAsString(payload);
+                        stringRedisTemplate.opsForList().rightPush(key, json);
+                    }
+                    // 截断到指定大小并设置TTL
+                    int keep = fetch > 0 ? fetch : DEFAULT_PRIVATE_MAX_SIZE;
+                    stringRedisTemplate.opsForList().trim(key, -keep, -1);
+                    stringRedisTemplate.expire(key, DEFAULT_TTL_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+                    log.debug("从数据库加载并回填Redis: sessionId={}, messageCount={}", dbSessionId, result.size());
+                } catch (Exception e) {
+                    log.warn("回填Redis失败: sessionId={}, err={}", dbSessionId, e.getMessage());
+                    // 即使回填失败，也返回结果
+                }
+            }
+            
+            return result;
+        } catch (IllegalArgumentException e) {
+            log.warn("无效的用户ID格式: userId1={}, userId2={}, err={}", userId1, userId2, e.getMessage());
+            return Collections.emptyList();
+        } catch (Exception e) {
+            log.error("从数据库查询私聊历史失败: userId1={}, userId2={}", userId1, userId2, e);
+            return Collections.emptyList();
+        }
+    }
+    
+    /**
+     * 解析发送者显示名称
+     * 优先使用缓存中的用户信息，缓存未命中时使用 userId 作为兜底
+     *
+     * @param userId 用户ID（Keycloak用户ID，String格式）
+     * @return 显示名称
+     */
+    private String resolveDisplayName(String userId) {
+        try {
+            return userProfileCacheService.get(userId)
+                    .map(info -> {
+                        if (StringUtils.hasText(info.nickname())) return info.nickname();
+                        if (StringUtils.hasText(info.username())) return info.username();
+                        return info.userId();
+                    })
+                    // 缓存未命中，不做远程调用，交给前端兜底
+                    .orElse(userId);
+        } catch (Exception e) {
+            log.warn("resolveDisplayName failed for userId={}", userId, e);
+            return userId;
+        }
     }
 
     /**
