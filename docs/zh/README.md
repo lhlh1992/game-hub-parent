@@ -1,8 +1,8 @@
-# 🎮 Game Hub - 实时对战游戏平台
+# 🎮 Game Hub - 实时对战小游戏平台
 
-> 基于 Java 微服务架构的生产级实时对战游戏平台，具备 WebSocket 实时通信、会话治理、房间状态管理和跨服务协作能力。
+> 基于 Java 微服务架构的生产级实时对战小游戏平台，具备 WebSocket 实时通信、会话治理、房间状态管理和跨服务协作能力。
 
-[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/) [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.13-brightgreen.svg)](https://spring.io/projects/spring-boot) [![Spring Cloud](https://img.shields.io/badge/Spring%20Cloud-2023.0.6-blue.svg)](https://spring.io/projects/spring-cloud) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/) [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.13-brightgreen.svg)](https://spring.io/projects/spring-boot) [![Spring Cloud](https://img.shields.io/badge/Spring%20Cloud-2023.0.6-blue.svg)](https://spring.io/projects/spring-cloud)
 
 ---
 
@@ -533,16 +533,16 @@ docker-compose down
 
 ### 服务文档
 
-- [game-service技术说明文档.md](zh/game-service/game-service技术说明文档.md) - 游戏服务详细说明
-- [chat-service技术文档.md](zh/chat-service/chat-service技术文档.md) - 聊天服务详细说明
-- [system-service技术文档.md](zh/system-service/system-service技术文档.md) - 用户服务详细说明
+- [game-service技术说明文档.md](game-service/game-service技术说明文档.md) - 游戏服务详细说明
+- [chat-service技术文档.md](chat-service/chat-service技术文档.md) - 聊天服务详细说明
+- [system-service技术文档.md](system-service/system-service技术文档.md) - 用户服务详细说明
 
 ### 其他文档
 
 - [单设备登录系统完整实现详解.md](单设备登录系统完整实现详解.md) - 单设备登录实现
 - [MinIO存储结构.md](MinIO存储结构.md) - 文件存储说明
 - [项目风险清单与示例.md](项目风险清单与示例.md) - 项目风险分析
-- [演示与截图指南](demo-guide.md) - 如何准备演示与放置截图
+- [演示与截图](demo-guide.md)
 
 ---
 
