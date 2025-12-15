@@ -13,7 +13,9 @@ public class NotifyPushRequest {
     private String content;         // 内容
     private String fromUserId;      // 触发方（可选）
     private Object payload;         // 透传数据
+    private String notificationId;  // 通知唯一ID（建议传 sys_notification.id）
     private String[] actions;       // 可操作按钮（可选）
 }
+
 
 

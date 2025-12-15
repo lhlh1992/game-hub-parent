@@ -13,6 +13,11 @@ import java.util.Map;
 @Builder
 public class NotificationMessagePayload {
     /**
+     * 通知唯一ID（推荐传 UUID 字符串，便于前端去重和标记已读）
+     */
+    private String id;
+
+    /**
      * 通知类型，如：INFO、FRIEND_REQUEST、SYSTEM_ALERT 等。
      */
     private String type;

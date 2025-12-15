@@ -43,9 +43,16 @@ public class NotifyRequest {
     private Object payload;
 
     /**
+     * 通知唯一ID（可选，建议传递），用于前端去重、标记已读。
+     * 建议传 sys_notification.id 或业务侧生成的 UUID。
+     */
+    private String notificationId;
+
+    /**
      * 可操作类型（可选），如 ["ACCEPT","REJECT"]。
      */
     private String[] actions;
 }
+
 
 

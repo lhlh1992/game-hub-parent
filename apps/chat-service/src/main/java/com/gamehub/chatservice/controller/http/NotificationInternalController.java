@@ -6,6 +6,7 @@ import com.gamehub.chatservice.service.dto.NotificationMessagePayload;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -39,7 +40,17 @@ public class NotificationInternalController {
                     jwt.getSubject(), jwt.getClaimAsString("client_id"));
         }
 
+        // 优先从请求体的 notificationId 获取；若缺失则尝试从 payload 中提取
+        String notificationId = request.getNotificationId();
+        if (notificationId == null && request.getPayload() instanceof Map<?, ?> payloadMap) {
+            Object nid = payloadMap.get("notificationId");
+            if (nid != null) {
+                notificationId = String.valueOf(nid);
+            }
+        }
+
         NotificationMessagePayload payload = NotificationMessagePayload.builder()
+                .id(notificationId)
                 .type(request.getType())
                 .title(request.getTitle())
                 .content(request.getContent())

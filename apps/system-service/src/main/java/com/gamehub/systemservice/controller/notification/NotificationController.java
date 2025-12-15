@@ -73,11 +73,23 @@ public class NotificationController {
      * 单条标记已读。
      */
     @PostMapping("/{id}/read")
-    public Result<Void> markRead(@AuthenticationPrincipal Jwt jwt, @PathVariable("id") UUID id) {
+    public Result<Void> markRead(@AuthenticationPrincipal Jwt jwt, @PathVariable("id") String idStr) {
         UUID userId = resolveSystemUserId(jwt);
         if (userId == null) {
             return Result.error(404, "用户不存在");
         }
+        
+        // 尝试将字符串转换为 UUID
+        UUID id;
+        try {
+            id = UUID.fromString(idStr);
+        } catch (IllegalArgumentException e) {
+            log.warn("无效的通知ID格式: {}", idStr);
+            // 如果 ID 不是 UUID 格式（例如前端生成的自定义 ID），静默处理，不报错
+            // 因为可能是 WebSocket 推送的临时通知，没有持久化到数据库
+            return Result.success();
+        }
+        
         notificationService.markRead(userId, id);
         return Result.success();
     }

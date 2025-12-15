@@ -221,6 +221,9 @@ public class NotificationServiceImpl implements NotificationService {
         body.setContent(requesterName + " 请求加你为好友");
         body.setFromUserId(requesterKeycloakUserId);
         body.setPayload(buildPayload(friendRequestId, requestMessage, requesterName, notificationId));
+        if (notificationId != null) {
+            body.setNotificationId(notificationId.toString());
+        }
         body.setActions(new String[]{"ACCEPT", "REJECT"});
 
         chatNotifyClient.push(body);
