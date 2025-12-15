@@ -46,7 +46,7 @@
 - 聊天：大厅/房间聊天，消息持久化与已读状态。
 - 个人中心：用户资料、战绩统计、基础设置。
 
-> 完整截图与演示说明见：[演示与截图指南](docs/demo-guide.md)（集中展示所有页面截图）。
+> 完整截图与演示说明见：[演示与截图指南](demo-guide.md)（集中展示所有页面截图）。
 
 ---
 
@@ -311,7 +311,7 @@ docker-compose up -d postgres redis kafka keycloak minio
 4. 创建 Client：`gamehub-client`
 5. 配置用户和角色
 
-详细配置请参考：[Keycloak配置指南.md](docs/Keycloak配置指南.md)
+详细配置请参考：[Keycloak配置指南.md](Keycloak配置指南.md)
 
 ### 4. 初始化数据库
 
@@ -400,7 +400,7 @@ mvn spring-boot:run
 - AI 引擎
 - 游戏状态管理
 
-**API 文档**：参考 [game-service技术说明文档.md](docs/game-service/game-service技术说明文档.md)
+**API 文档**：参考 [game-service技术说明文档.md](game-service/game-service技术说明文档.md)
 
 ### System Service（用户服务）
 
@@ -414,7 +414,7 @@ mvn spring-boot:run
 - 文件存储（头像上传）
 - Keycloak 事件监听
 
-**API 文档**：参考 [system-service技术文档.md](docs/system-service/system-service技术文档.md)
+**API 文档**：参考 [system-service技术文档.md](system-service/system-service技术文档.md)
 
 ### Chat Service（聊天服务）
 
@@ -427,7 +427,7 @@ mvn spring-boot:run
 - 系统通知推送
 - 消息持久化（Redis + PostgreSQL）
 
-**API 文档**：参考 [chat-service技术文档.md](docs/chat-service/chat-service技术文档.md)
+**API 文档**：参考 [chat-service技术文档.md](chat-service/chat-service技术文档.md)
 
 ---
 
@@ -474,7 +474,7 @@ service/
 2. 实现游戏规则、AI、状态管理等模块
 3. 参考 `gomoku/` 目录的实现
 
-详细说明请参考：[项目总体蓝图与架构层级图.md](docs/项目总体蓝图与架构层级图.md)
+详细说明请参考：[项目总体蓝图与架构层级图.md](项目总体蓝图与架构层级图.md)
 
 ### 测试
 
@@ -527,23 +527,22 @@ docker-compose down
 
 ### 核心文档
 
-- [项目总体蓝图与架构层级图.md](docs/项目总体蓝图与架构层级图.md) - 项目整体架构和规划
-- [完整数据库设计-V1.0.md](docs/完整数据库设计-V1.0.md) - 数据库表结构设计
-- [Keycloak配置指南.md](docs/Keycloak配置指南.md) - Keycloak 配置说明
+- [项目总体蓝图与架构层级图.md](项目总体蓝图与架构层级图.md) - 项目整体架构和规划
+- [完整数据库设计-V1.0.md](完整数据库设计-V1.0.md) - 数据库表结构设计
+- [Keycloak配置指南.md](Keycloak配置指南.md) - Keycloak 配置说明
 
 ### 服务文档
 
-- [game-service技术说明文档.md](docs/game-service/game-service技术说明文档.md) - 游戏服务详细说明
-- [chat-service技术文档.md](docs/chat-service/chat-service技术文档.md) - 聊天服务详细说明
-- [system-service技术文档.md](docs/system-service/system-service技术文档.md) - 用户服务详细说明
-- [gateway/AUTH_GUIDE.md](apps/gateway/AUTH_GUIDE.md) - 认证授权流程说明
+- [game-service技术说明文档.md](zh/game-service/game-service技术说明文档.md) - 游戏服务详细说明
+- [chat-service技术文档.md](zh/chat-service/chat-service技术文档.md) - 聊天服务详细说明
+- [system-service技术文档.md](zh/system-service/system-service技术文档.md) - 用户服务详细说明
 
 ### 其他文档
 
-- [单设备登录系统完整实现详解.md](docs/单设备登录系统完整实现详解.md) - 单设备登录实现
-- [MinIO存储结构.md](docs/MinIO存储结构.md) - 文件存储说明
-- [项目风险清单与示例.md](docs/项目风险清单与示例.md) - 项目风险分析
-- [演示与截图指南](docs/demo-guide.md) - 如何准备演示与放置截图
+- [单设备登录系统完整实现详解.md](单设备登录系统完整实现详解.md) - 单设备登录实现
+- [MinIO存储结构.md](MinIO存储结构.md) - 文件存储说明
+- [项目风险清单与示例.md](项目风险清单与示例.md) - 项目风险分析
+- [演示与截图指南](demo-guide.md) - 如何准备演示与放置截图
 
 ---
 
