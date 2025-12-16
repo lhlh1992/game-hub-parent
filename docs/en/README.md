@@ -46,7 +46,7 @@ Engineering-view capability checkpoints:
 - Chat: lobby/room chat, persistence, read/unread.
 - Profile: user info, stats, basic settings.
 
-> Full screenshots and demo guide: [Demo & Screens](../zh/demo-guide.md) (Chinese, full set).
+> Full screenshots and demo guide: [Demo & Screens](../en/demo-guide.md).
 
 ---
 
@@ -246,12 +246,12 @@ Wait ~1–2 minutes.
 3. Create Realm: `gamehub`  
 4. Create Client: `gamehub-client`  
 5. Add users/roles  
-See: [Keycloak Guide](../zh/Keycloak配置指南.md) (Chinese)
+See: [Keycloak Guide](Keycloak-Configuration-Guide.md) (Note: English version may not be available yet, see Chinese version in ../zh/)
 
 ### 4) Initialize DB (if needed)
 ```bash
 docker exec -it pgsql psql -U postgres -d mydb
-# run init SQL (see ../zh/完整数据库设计-V1.0.md) (Chinese)
+# run init SQL (see Complete-Database-Design-V1.0.md)
 ```
 
 ### 5) Build
@@ -285,15 +285,15 @@ Frontend repo: `game-hub-web` (see its README).
 
 ### Game Service (8081)
 - Gomoku logic (PVP/PVE), rooms, WS real-time play, timers, AI, state mgmt
-- API docs: [../zh/game-service/game-service技术说明文档.md](../zh/game-service/game-service技术说明文档.md) (ZH)
+- API docs: [game-service-technical-doc.md](game-service/game-service-technical-doc.md)
 
 ### System Service (8082)
 - Users, RBAC, friends, notifications, avatar upload, Keycloak events
-- API docs: [../zh/system-service/system-service技术文档.md](../zh/system-service/system-service技术文档.md) (ZH)
+- API docs: [system-service-tech-doc.md](system-service/system-service-tech-doc.md)
 
 ### Chat Service (8083)
 - Lobby chat, room chat, private chat, system notifications, Redis+PostgreSQL
-- API docs: [../zh/chat-service/chat-service技术文档.md](../zh/chat-service/chat-service技术文档.md) (ZH)
+- API docs: [chat-service-technical-doc.md](chat-service/chat-service-technical-doc.md)
 
 ---
 
@@ -334,18 +334,17 @@ cd apps/game-service && mvn test
 ---
 
 ## 📚 Docs
-- Architecture & planning: [../zh/项目总体蓝图与架构层级图.md](../zh/项目总体蓝图与架构层级图.md) (ZH)
-- DB design: [../zh/完整数据库设计-V1.0.md](../zh/完整数据库设计-V1.0.md) (ZH)
-- Keycloak guide: [../zh/Keycloak配置指南.md](../zh/Keycloak配置指南.md) (ZH)
-- Service docs (ZH):  
-  - [game-service技术说明文档.md](../zh/game-service/game-service技术说明文档.md)  
-  - [chat-service技术文档.md](../zh/chat-service/chat-service技术文档.md)  
-  - [system-service技术文档.md](../zh/system-service/system-service技术文档.md)
-- Others (ZH):  
-  - [单设备登录系统完整实现详解.md](../zh/单设备登录系统完整实现详解.md)  
-  - [MinIO存储结构.md](../zh/MinIO存储结构.md)  
-  - [项目风险清单与示例.md](../zh/项目风险清单与示例.md)
-- Demo & screenshots: [../zh/demo-guide.md](../zh/demo-guide.md) (ZH)
+- Architecture & planning: [Project-Overall-Blueprint-and-Architecture-Hierarchy.md](Project-Overall-Blueprint-and-Architecture-Hierarchy.md)
+- DB design: [Complete-Database-Design-V1.0.md](Complete-Database-Design-V1.0.md)
+- Keycloak guide: [Keycloak-Configuration-Guide.md](Keycloak-Configuration-Guide.md) (Note: English version may not be available yet, see Chinese version in ../zh/)
+- Service docs:  
+  - [game-service-technical-doc.md](game-service/game-service-technical-doc.md)  
+  - [chat-service-technical-doc.md](chat-service/chat-service-technical-doc.md)  
+  - [system-service-tech-doc.md](system-service/system-service-tech-doc.md)
+- Others:  
+  - [Complete-Implementation-Guide-for-Single-Device-Login-System.md](Complete-Implementation-Guide-for-Single-Device-Login-System.md)  
+  - [Project-Risk-List-and-Examples.md](Project-Risk-List-and-Examples.md)
+- Demo & screenshots: [demo-guide.md](demo-guide.md)
 
 ---
 
