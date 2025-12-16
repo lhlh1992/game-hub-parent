@@ -1879,6 +1879,6 @@ sendResume(roomId, seatKeyRef.current) // 从localStorage读取
 ---
 
 **文档版本**：v1.0  
-**最后更新**：2024年  
+**最后更新**：2025年  
 **维护者**：开发团队
 
