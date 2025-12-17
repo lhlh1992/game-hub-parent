@@ -607,4 +607,36 @@ Plan to track risks via:
 
 ---
 
+## XIV. Multi-Instance Deployment Risk Overview (Summary)
+
+> **For details, see**: `docs/en/1.0-Multi-Instance-Deployment-Impact-Analysis.md`. This section is a high-level summary of the core problem types. For per-feature impact and concrete upgrade plans, refer to the dedicated multi-instance analysis document.
+
+For version 1.0, the core risks under multi-instance deployment can be summarized into four categories:
+
+1. **Missing Room Affinity**  
+   - HTTP / WebSocket requests for the **same room** may be routed to **different instances** under load balancing, while business code implicitly assumes “the same room stays on one instance”.  
+   - Impact: room-level logic such as AI delayed moves and countdown restore may be executed once per instance, leading to duplicate execution or state flapping.  
+   - Typical mitigation: implement room-affinity routing in Gateway based on `roomId` (e.g., consistent hashing).
+
+2. **In-Memory State Not Shared Across Instances**  
+   - Key state (such as `rooms`, `pendingAi`, local caches, state held by schedulers) is stored in each instance’s JVM memory with no unified persistence in Redis or event-based synchronization.  
+   - Impact: for the same room, the Room / countdown / AI state in different instances may diverge, causing dirty memory, duplicate or missing tasks.  
+   - Typical mitigation: move “source of truth” to Redis with CAS / distributed locks; treat in-memory state as cache only, optionally with versioning or forced reload.
+
+3. **Non-Uniform Idempotency & Retry Strategy (HTTP / WS / Kafka)**  
+   - Only a few spots implement idempotency (e.g., move CAS, private chat `clientOpId`); overall, HTTP / WebSocket / Kafka lack a unified idempotency design.  
+   - Impact: under network jitter, timeouts and retries, multi-tab / multi-device usage, and Kafka retries/rebalances, the system may create duplicate rooms/friend requests, re-apply WS commands, and re-consume events that later carry non-idempotent logic (stats, rewards).  
+   - Typical mitigation: unify three layers of idempotency—**state idempotency (Redis CAS)**, **request idempotency (`X-Idempotency-Key` + Redis SETNX)**, and **message idempotency (`eventId` + Redis de-dup)**.
+
+4. **WebSocket Broadcast Limited to Single Instance (SimpleBroker Limitations)**  
+   - game-service and chat-service both use `enableSimpleBroker("/topic", "/queue")`; SimpleBroker manages subscriptions and broadcasts **only inside one instance**.  
+   - Impact: the same `/topic/...` destination effectively becomes “one small island per instance” under multi-instance:  
+     - Lobby `/topic/chat.lobby` becomes “one lobby per instance”;  
+     - Game `/topic/room.{roomId}` / room operations / countdown TICK/TIMEOUT: if room members connect to different instances, they cannot see each other’s messages or state updates.  
+   - Typical mitigation: upgrade STOMP broadcasting from in-memory SimpleBroker to an external broker (RabbitMQ StompRelay / Redis PubSub, etc.), or temporarily combine external broker with room affinity to reduce the impact before full migration.
+
+> **Usage tip**: In architecture reviews or interviews, you can first use this section to explain the four major risk types, then refer to `1.0-Multi-Instance-Deployment-Impact-Analysis.md` when you need to dive into “specific feature + code location + upgrade plan”. The two documents are meant to be used together.
+
+---
+
 > **Document Maintenance**: Keep this doc updated as project evolves; add new risks promptly; mark resolved risks with solutions.
