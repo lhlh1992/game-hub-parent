@@ -32,14 +32,14 @@ Game Hub focuses on **engineering capabilities** behind a real-time battle platf
 
 - **Backend**
   - Java 21, Spring Boot 3.3.x, Spring Cloud 2023.x
-  - Spring WebSocket + STOMP, Spring Security, OpenFeign
+  - Spring WebSocket + STOMP, **Spring Security / OAuth2** (resource server & client), OpenFeign
 - **Infra & Storage**
   - PostgreSQL for user/auth/chat data
   - Redis for room / match / session state & countdown
   - Kafka as event bus
   - MinIO for avatars / replays / assets
 - **Identity & Auth**
-  - Keycloak (OAuth2 / OIDC) with per-session control and login events integration
+  - **Keycloak (OAuth2 / OIDC)** + Spring Security OAuth2 integration, with per-session control and login events integration
 
 ---
 
