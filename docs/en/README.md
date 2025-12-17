@@ -186,7 +186,12 @@ graph TB
 
 ### Status
 ✅ Done: Gomoku (PVP/PVE); Keycloak auth; WebSocket+STOMP; friends/chat; single-device login/kick-off  
-🚧 Planned: Matchmaking; stats & replay; admin UI; observability (Prom/Grafana); Kubernetes
+🚧 Planned: Matchmaking; stats & replay; admin UI; observability (Prom/Grafana); Kubernetes  
+
+⚠️ **Deployment Limitation (Current Version)**  
+- **Version 1.0 has known issues under multi-instance deployment and is currently recommended for single-instance deployment only.**  
+- For detailed problem analysis and upgrade plans for multi-instance deployment, see:  
+  - [1.0 Multi-Instance Deployment Impact Analysis](1.0-Multi-Instance-Deployment-Impact-Analysis.md)
 
 ---
 
