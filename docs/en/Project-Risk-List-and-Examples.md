@@ -350,7 +350,7 @@
 - **Example**: Host resources exhausted; cannot add nodes.
 - **Improvement**:
   - Move to Kubernetes for horizontal scaling.
--  - Or Docker Swarm multi-node.
+  - Or Docker Swarm multi-node.
 
 ---
 
@@ -381,10 +381,30 @@
 - **Risk**: Lost/duplicate events → inconsistent data.
 - **Example**: Session invalidation lost; Gateway not cleaned; user still access.
 - **Improvement**:
-  - Idempotent handlers so duplicates harmless.
-  - Or event sourcing to rebuild state.
+  - Enable idempotent production (`enable.idempotence=true`) + `acks=all` on producers so retries don’t create duplicate messages and messages are durably replicated;
+  - Design a unique `eventId` per event (e.g. `userId + loginSessionId + timestamp`) and record processed IDs in Redis/DB so consumers can **idempotently** skip duplicates;
+  - For purely idempotent side effects (e.g. disconnecting a WebSocket) it’s acceptable to rely on operation-level idempotency, but any future non-idempotent logic (stats, rewards) must use `eventId`-based de-duplication;
+  - Or use event sourcing to rebuild state.
 
-### 7.3 Data Consistency
+### 7.3 Idempotency Design Fragmentation (HTTP / WebSocket / Kafka)
+- **Risk Level**: 🟡 **Medium** (network jitter / retries)
+- **Trigger Condition**: **HTTP/WS timeouts & retries, browser refresh/multi-tab/multi-device, Kafka retries/rebalances**
+- **Risk**:
+  - Different layers use different ad-hoc idempotency patterns (CAS, `clientOpId`, Kafka idempotent producer) without a unified design, which under high concurrency or multi-instance deployments can lead to:
+    - HTTP APIs creating duplicate resources (duplicate rooms, duplicate friend requests);
+    - WebSocket commands (ready/start/kick, etc.) being re-applied after reconnect, causing state flapping;
+    - Kafka events being re-consumed and non-idempotent side effects (e.g. future stats/rewards) executing multiple times.
+- **Current Assessment**:
+  - **State idempotency (Game / Redis)**: moves rely on Redis CAS (`expectedStep + expectedTurn`) so the same move cannot be applied twice;
+  - **Request idempotency (HTTP / WS)**: private messages use `clientOpId` for idempotency, but other create/mutate APIs mostly rely on state checks and frontend throttling, with no unified `idempotency-key` scheme;
+  - **Message idempotency (Kafka)**: producers use idempotent production with `acks=all`, consumers mostly rely on “disconnect WS is idempotent” and don’t de-duplicate events explicitly.
+- **Improvement**:
+  - In **Gateway Filters / Spring MVC interceptors**, standardize reading an `X-Idempotency-Key` / `requestId` header for create/one-off mutation APIs (create room, friend request, etc.), and use Redis `SETNX` (or DB) to record processed requests so duplicates either return the first result or are rejected;
+  - For critical WS commands (ready/start/restart/kick/resign, etc.), extend payloads with `clientOpId` and de-duplicate on the server side to avoid state flapping on reconnect/retry;
+  - For Kafka events, introduce a unified `eventId` field and track processed IDs in Redis/DB so consumers achieve true **message-level idempotency**, complementing the producer-side idempotence;
+  - Document the three layers of idempotency (state / request / message) and their respective mechanisms so new APIs/events follow the same pattern.
+
+### 7.4 Data Consistency
 - **Risk Level**: 🟠 **High** (inconsistency)
 - **Trigger Condition**: **Manual cross-service data divergence**
 - **Risk**: Cross-service data inconsistent (Keycloak vs system DB).
@@ -393,7 +413,7 @@
   - Saga or distributed TX.
   - Or periodic sync for eventual consistency.
 
-### 7.4 Service Version Compatibility
+### 7.5 Service Version Compatibility
 - **Risk Level**: 🟠 **High** (version upgrade)
 - **Trigger Condition**: **API incompatibility during upgrades**
 - **Risk**: Upgrades break calls.
@@ -527,8 +547,8 @@
 | Level | Count | Items |
 |------|------|--------|
 | 🔴 **Critical** | 6 | 1.4 Keycloak failure degradation<br>3.1 Keycloak event handling failure<br>6.1 Redis SPOF<br>6.4 Keycloak availability<br>9.1 JWT Token leakage<br>9.2 SQL injection |
-| 🟠 **High** | 16 | 1.3 WebSocket token passing security<br>2.1 Multi-node consistency/mutex<br>2.4 AI CAS hardcoded<br>2.6 Memory vs Redis divergence<br>3.2 User sync consistency<br>3.3 Keycloak Admin API failure<br>3.4 DB transaction boundaries<br>4.1 Message persistence failure<br>4.8 Private chat friend fallback risk<br>6.2 PostgreSQL consistency (lag)<br>6.3 Kafka message loss<br>7.2 Event loss/dup<br>7.3 Data consistency<br>7.4 Service version compatibility<br>9.3 XSS<br>9.4 CSRF<br>10.1 DB pool exhaustion |
-| 🟡 **Medium** | 16 | 1.1 JWT blacklist perf (2000+ QPS)<br>1.2 Session check perf (2000+ QPS)<br>2.2 Countdown restore<br>2.3 KEYS scan (keyspace >100k)<br>2.5 Turn TTL/cleanup<br>2.8 WS broadcast order/idempotency<br>3.5 Soft-delete residue (>100k)<br>4.4 WS connection limit (>50k)<br>4.6 Message history perf (>100k)<br>5.1 Token refresh failure<br>5.2 WS reconnect state loss<br>5.3 Concurrent request races<br>5.4 Memory leak<br>6.5 Docker Compose single host<br>8.1 Observability lacking<br>8.2 Log standard lacking<br>8.3 Alerts missing<br>10.2 Redis memory overflow (>80%)<br>10.3 WS connection limit (>50k, shared) |
+| 🟠 **High** | 16 | 1.3 WebSocket token passing security<br>2.1 Multi-node consistency/mutex<br>2.4 AI CAS hardcoded<br>2.6 Memory vs Redis divergence<br>3.2 User sync consistency<br>3.3 Keycloak Admin API failure<br>3.4 DB transaction boundaries<br>4.1 Message persistence failure<br>4.8 Private chat friend fallback risk<br>6.2 PostgreSQL consistency (lag)<br>6.3 Kafka message loss<br>7.2 Event loss/dup<br>7.4 Data consistency<br>7.5 Service version compatibility<br>9.3 XSS<br>9.4 CSRF<br>10.1 DB pool exhaustion |
+| 🟡 **Medium** | 17 | 1.1 JWT blacklist perf (2000+ QPS)<br>1.2 Session check perf (2000+ QPS)<br>2.2 Countdown restore<br>2.3 KEYS scan (keyspace >100k)<br>2.5 Turn TTL/cleanup<br>2.8 WS broadcast order/idempotency<br>3.5 Soft-delete residue (>100k)<br>4.4 WS connection limit (>50k)<br>4.6 Message history perf (>100k)<br>5.1 Token refresh failure<br>5.2 WS reconnect state loss<br>5.3 Concurrent request races<br>5.4 Memory leak<br>6.5 Docker Compose single host<br>7.3 Idempotency design fragmentation (HTTP / WebSocket / Kafka)<br>8.1 Observability lacking<br>8.2 Log standard lacking<br>8.3 Alerts missing<br>10.2 Redis memory overflow (>80%)<br>10.3 WS connection limit (>50k, shared) |
 | 🟢 **Low** | 9 | 1.5 Hardcoded routes<br>2.7 Auth legacy naming<br>2.9 Config tunability<br>4.2 Notification push failure (mitigated)<br>4.3 User cache inconsistency (resolved)<br>4.5 Private msg idempotency (resolved)<br>4.7 Room event subscribe failure<br>7.1 Inter-service call failure (mitigated)<br>8.4 Config management chaos |
 
 ### Trigger Condition Stats
@@ -563,12 +583,13 @@
 
 ### P2 (Planned)
 1. **🟠 High**: **Cross-service**: Event loss/dup handling (7.2).
-2. **🟠 High**: **Cross-service**: Data consistency (7.3).
-3. **🟠 High**: **Chat-service**: Persist room messages to Postgres; ensure TX (4.1).
-4. **🟡 Medium**: **Gateway**: JWT blacklist perf optimization (only if QPS > 2000; <500 no need) (1.1).
-5. **🟡 Medium**: **Observability**: Metrics/logs/TraceId/alerts; unify serialization as JSON (8.1, 8.2, 8.3).
-6. **🟢 Low**: **Cross-service**: Circuit breaker/retry/fallback (Resilience4j) (7.1) - ✅ already mitigated.
-7. **🟢 Low**: **Game-service**: Rename `SeatsBinding` fields (`seatXSessionId` → `seatXUserId`) for readability (2.7).
+2. **🟠 High**: **Cross-service**: Data consistency (7.4).
+3. **🟡 Medium**: **Cross-service**: Unified idempotency design across HTTP / WebSocket / Kafka (7.3).
+4. **🟠 High**: **Chat-service**: Persist room messages to Postgres; ensure TX (4.1).
+5. **🟡 Medium**: **Gateway**: JWT blacklist perf optimization (only if QPS > 2000; <500 no need) (1.1).
+6. **🟡 Medium**: **Observability**: Metrics/logs/TraceId/alerts; unify serialization as JSON (8.1, 8.2, 8.3).
+7. **🟢 Low**: **Cross-service**: Circuit breaker/retry/fallback (Resilience4j) (7.1) - ✅ already mitigated.
+8. **🟢 Low**: **Game-service**: Rename `SeatsBinding` fields (`seatXSessionId` → `seatXUserId`) for readability (2.7).
 
 ### P3 (Long-term)
 1. **🟡 Medium**: **Infra**: Move to Kubernetes for scale (6.5).
@@ -587,4 +608,3 @@ Plan to track risks via:
 ---
 
 > **Document Maintenance**: Keep this doc updated as project evolves; add new risks promptly; mark resolved risks with solutions.
-
