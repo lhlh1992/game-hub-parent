@@ -342,6 +342,7 @@ cd apps/game-service && mvn test
 - Architecture & planning: [Project-Overall-Blueprint-and-Architecture-Hierarchy.md](Project-Overall-Blueprint-and-Architecture-Hierarchy.md)
 - DB design: [Complete-Database-Design-V1.0.md](Complete-Database-Design-V1.0.md)
 - Keycloak guide: [Keycloak-Configuration-Guide.md](Keycloak-Configuration-Guide.md) (Note: English version may not be available yet, see Chinese version in ../zh/)
+- Multi-instance deployment: [1.0-Multi-Instance-Deployment-Impact-Analysis.md](1.0-Multi-Instance-Deployment-Impact-Analysis.md) - issues & upgrade plan for multi-instance deployment in v1.0
 - Service docs:  
   - [game-service-technical-doc.md](game-service/game-service-technical-doc.md)  
   - [chat-service-technical-doc.md](chat-service/chat-service-technical-doc.md)  
