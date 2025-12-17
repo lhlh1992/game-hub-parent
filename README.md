@@ -15,7 +15,7 @@ Game Hub focuses on **engineering capabilities** behind a real-time battle platf
 - **Rejoin & state recovery**  
   - Full **match re-entry & state restore**: board, timers, and room status are rebuilt from Redis after client reconnects or service restarts
 - **Session governance & single-device login**  
-  - Keycloak + JWT + session registry + token blacklist, with “kick other devices” support
+  - OAuth2 / Spring Security + Keycloak + JWT + session registry + token blacklist, with “kick other devices” support
 - **Distributed countdown timer**
   - Turn timers and timeout handling coordinated via Redis-based scheduler
 - **Event-driven architecture**
