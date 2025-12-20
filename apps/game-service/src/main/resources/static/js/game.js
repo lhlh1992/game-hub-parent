@@ -44,7 +44,7 @@ function normalizeGrid(raw) {
     if (Array.isArray(raw) && typeof raw[0] === 'string') {
         return raw.map(row => row.split(''));
     }
-    // 【关键修复】如果是二维数组，创建深拷贝，避免引用问题
+    // 关键修复：如果是二维数组，创建深拷贝，避免引用问题
     if (Array.isArray(raw) && Array.isArray(raw[0])) {
         return raw.map(row => [...row]); // 创建新数组，避免引用问题
     }
@@ -71,7 +71,7 @@ function detectWinLines(grid, winnerPiece) {
         [1, -1]  // ↗
     ];
     
-    // 【修复】标准化 winnerPiece：处理各种格式
+    // 修复：标准化 winnerPiece：处理各种格式
     // 后端约定：BLACK='X', WHITE='O'
     // 但传输时可能变成：数字 0='X'（黑棋），数字 1='O'（白棋）
     let normalizedWinner = winnerPiece;
@@ -89,7 +89,7 @@ function detectWinLines(grid, winnerPiece) {
     for (let x = 0; x < n; x++) {
         for (let y = 0; y < n; y++) {
             const piece = grid[x][y];
-            // 【修复】匹配各种格式：'X'/'O', 0/1, '0'/'1'
+            // 修复：匹配各种格式：'X'/'O', 0/1, '0'/'1'
             let pieceMatches = false;
             if (normalizedWinner === 'X') {
                 pieceMatches = (piece === 'X' || piece === 'x' || piece === 0 || piece === '0');
@@ -165,7 +165,7 @@ function renderBoard(grid, lastMove, winPieces) {
     const n = grid.length;
     const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O'];
     
-    // 【交叉点布局】动态获取网格线位置，不要写死
+    // 交叉点布局：动态获取网格线位置，不要写死
     const rootStyle = getComputedStyle(document.documentElement);
     const cellSizeStr = rootStyle.getPropertyValue('--cell').trim();
     const cellSize = parseFloat(cellSizeStr) || 32;
@@ -177,7 +177,7 @@ function renderBoard(grid, lastMove, winPieces) {
     const paddingRight = parseFloat(boardStyle.paddingRight) || 40;
     const paddingBottom = parseFloat(boardStyle.paddingBottom) || 40;
     
-    // 【关键修复】网格线CSS: 现在padding统一为40px，确保对称
+    // 关键修复：网格线CSS: 现在padding统一为40px，确保对称
     // - left: calc(40px - 0.75px) = 39.25px（网格线容器左边缘）
     // - top: calc(40px - 0.75px) = 39.25px（网格线容器上边缘）
     // repeating-linear-gradient从0开始，第一条线在0-1.5px，中心在0.75px
@@ -208,7 +208,7 @@ function renderBoard(grid, lastMove, winPieces) {
             
             const cell = document.createElement('div');
             let className = 'cell';
-            // 【修复】处理各种棋子值格式：'X'/'O', '0'/'1', 数字 0/1
+            // 修复：处理各种棋子值格式：'X'/'O', '0'/'1', 数字 0/1
             // 标准化棋子值
             let pieceType = null;
             if (v === 'X' || v === 'x' || v === 0 || v === '0') {
@@ -250,7 +250,7 @@ function renderBoard(grid, lastMove, winPieces) {
     const createdCells = boardEl.querySelectorAll('.cell');
     
     // ====================================================================
-    // 【天元和星位标记】在棋盘交叉点上添加标记点
+    // 天元和星位标记：在棋盘交叉点上添加标记点
     // ====================================================================
     // 对于15x15棋盘：
     // - 天元：正中央 (7, 7)
@@ -286,7 +286,7 @@ function renderBoard(grid, lastMove, winPieces) {
     });
     
     // ====================================================================
-    // 【五连胜利连线】如果有五连，画一条红线连接五个棋子
+    // 五连胜利连线：如果有五连，画一条红线连接五个棋子
     // ====================================================================
     if (winPieces && winPieces.size >= 5) {
         // 将 winPieces Set 转换为数组并排序，确保顺序正确
@@ -336,7 +336,7 @@ function renderBoard(grid, lastMove, winPieces) {
         svg.appendChild(line);
         boardEl.appendChild(svg);
         
-        // 【胜利弹窗】在画红线的同时显示庆祝弹窗
+        // 胜利弹窗：在画红线的同时显示庆祝弹窗
         // 从全局 state 获取获胜方信息
         if (state && (state.outcome || state.winner)) {
             const winner = state.winner || (state.outcome === 'X_WIN' ? 'X' : state.outcome === 'O_WIN' ? 'O' : null);
@@ -347,7 +347,7 @@ function renderBoard(grid, lastMove, winPieces) {
     }
     
     // ====================================================================
-    // 【坐标轴标签】稳定实现 - 自适应不同分辨率
+    // 坐标轴标签：稳定实现 - 自适应不同分辨率
     // ====================================================================
     // 关键点：
     // 1. 使用双重 requestAnimationFrame 确保布局完成
@@ -418,7 +418,7 @@ function renderBoard(grid, lastMove, winPieces) {
         });
     });
     
-    // 【关键】监听窗口 resize，确保分辨率变化时重新计算坐标轴位置
+    // 关键：监听窗口 resize，确保分辨率变化时重新计算坐标轴位置
     // 使用防抖，避免频繁触发
     let resizeTimer = null;
     const handleResize = () => {
@@ -470,7 +470,7 @@ function onCellClick(e) {
         return;
     }
     
-    // 【重要】确保点击的是真正的cell元素
+    // 重要：确保点击的是真正的cell元素
     if (!e.currentTarget || !e.currentTarget.classList.contains('cell')) {
         e.preventDefault();
         e.stopPropagation();
@@ -555,12 +555,12 @@ function handleGameEvent(evt) {
         lastClient = { x: state.lastMove.x, y: state.lastMove.y };
     }
     
-    // 【纯前端实现】游戏结束时，检测五连并闪烁
+    // 纯前端实现：游戏结束时，检测五连并闪烁
     let winPieces = null;
     if (state?.over || state?.outcome) {
         const outcome = state.outcome || (state.winner === 'X' ? 'X_WIN' : state.winner === 'O' || state.winner === '0' ? 'O_WIN' : null);
         if (outcome && (outcome === 'X_WIN' || outcome === 'O_WIN')) {
-            // 【修复】处理各种格式：0='X'（黑棋），1='O'（白棋）
+            // 修复：处理各种格式：0='X'（黑棋），1='O'（白棋）
             let winnerPiece = outcome === 'X_WIN' ? 'X' : 'O';
             // 如果后端返回的是数字，需要正确映射
             if (state.winner === 0 || state.winner === '0') {
@@ -628,10 +628,10 @@ function renderFullSync(snap) {
     grid = snap.board.cells;
     const currentGrid = grid;
     
-    // 【纯前端实现】游戏结束时，检测五连并画线
+    // 纯前端实现：游戏结束时，检测五连并画线
     let winPieces = null;
     if (snap.outcome && (snap.outcome === 'X_WIN' || snap.outcome === 'O_WIN')) {
-        // 【修复】处理各种格式：0='X'（黑棋），1='O'（白棋）
+        // 修复：处理各种格式：0='X'（黑棋），1='O'（白棋）
         let winnerPiece = snap.outcome === 'X_WIN' ? 'X' : 'O';
         // 如果后端返回的是数字，需要正确映射
         if (snap.winner === 0 || snap.winner === '0') {

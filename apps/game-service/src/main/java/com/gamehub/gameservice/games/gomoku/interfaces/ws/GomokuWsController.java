@@ -163,7 +163,7 @@ public class GomokuWsController {
             GameStateRecord rec = buildRecord(s, roomId, gameId, expectedStep + 1);
             persistStateAtomically(roomId, gameId, expectedStep, expectedTurn, rec, 0L);
             
-            sendState(roomId, s); // ★ sendState 会再发 SNAPSHOT
+            sendState(roomId, s); // sendState 会再发 SNAPSHOT
         } catch (IllegalStateException e) {
             // 房间已满或不是玩家，拒绝操作
             sendError(roomId, "权限不足：只有房间内的玩家才能认输");
@@ -240,7 +240,7 @@ public class GomokuWsController {
             cancelAi(roomId);
             coordinator.stop(roomId);
             GomokuState s = gomokuService.newGame(roomId);
-            sendState(roomId, s);  // ★ sendState 会再发 SNAPSHOT
+            sendState(roomId, s);  // sendState 会再发 SNAPSHOT
         } catch (IllegalStateException e) {
             // 房间已满或不是玩家，拒绝操作
             sendError(roomId, "权限不足：只有房间内的玩家才能重开");
@@ -496,7 +496,7 @@ public class GomokuWsController {
     }
 
     /**
-     * 【已废弃】广播准备状态更新
+     * 已废弃：广播准备状态更新
      * 
      * @deprecated 请使用 broadcastSnapshot(roomId) 统一广播房间全貌。
      *             此方法保留仅为向后兼容，新代码不应调用。
@@ -508,7 +508,7 @@ public class GomokuWsController {
     }
 
     /**
-     * 【已废弃】广播房间状态更新
+     * 已废弃：广播房间状态更新
      * 
      * @deprecated 请使用 broadcastSnapshot(roomId) 统一广播房间全貌。
      *             此方法保留仅为向后兼容，新代码不应调用。
@@ -537,13 +537,13 @@ public class GomokuWsController {
         }
     }
 
-    // ★ 首次坐下/绑定执子后，点对点推送 seatKey（用于刷新恢复）
+    // 首次坐下/绑定执子后，点对点推送 seatKey（用于刷新恢复）
     @Data
     static class SeatGranted {
         private final String seatKey;
         private final char   side;    // 'X' 或 'O'（你项目里 BLACK/WHITE 实际是字符）
     }
 
-    // ★ when using sessionId as "user", add headers so convertAndSendToUser routes correctly
+    // when using sessionId as "user", add headers so convertAndSendToUser routes correctly
     // 发送到用户目的地时，默认按认证主体名路由，无需附加 headers
 }

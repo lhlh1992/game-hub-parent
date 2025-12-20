@@ -30,7 +30,7 @@ public class RedisRoomRepository implements RoomRepository {
     /** 通用 Redis 操作封装（String/Hash/Script 等） */
     private final RedisOps ops;
 
-    // ★ 新增：直接用 Spring Data Redis 的 HashOperations，避免封装名差异导致的红线
+    // 新增：直接用 Spring Data Redis 的 HashOperations，避免封装名差异导致的红线
     private final RedisTemplate<String, Object> redisTemplate;
 
     /**
@@ -291,7 +291,7 @@ public class RedisRoomRepository implements RoomRepository {
         int owins = parseInt(h.get("whiteWins"), 0);
         int draws = parseInt(h.get("draws"), 0);
 
-        SeriesView sv = new SeriesView();       // ★ 你的类没有四参构造器
+        SeriesView sv = new SeriesView();       // 注意：你的类没有四参构造器
         // 以下 setter 名称与常见 Lombok @Data 保持一致；若你的字段名不同，请按你的类名改动
         sv.setIndex(round);
         sv.setBlackWins(bwins);

@@ -107,7 +107,7 @@ public class SessionRegistry {
     }
 
     /**
-     * 【单点登录】注册登录会话：在登记新会话前，将该用户的所有 ACTIVE 会话标记为 KICKED（返回被踢下线的旧会话）。
+     * 单点登录：在登记新会话前，将该用户的所有 ACTIVE 会话标记为 KICKED（返回被踢下线的旧会话）。
      * 
      * 重要变更（步骤2）：
      * - 不再删除旧会话，而是标记为 KICKED，保留审计记录
@@ -403,7 +403,7 @@ public class SessionRegistry {
     }
 
     /**
-     * 【单点 WS】注册 WebSocket 会话：在登记新 WS 前，先清理该用户的所有历史 WS 会话（返回被踢下线的旧连接）。
+     * 单点 WS：在登记新 WS 前，先清理该用户的所有历史 WS 会话（返回被踢下线的旧连接）。
      * 调用方可据此主动断开旧连接（通知客户端“新设备登录”）。
      */
     public List<WebSocketSessionInfo> registerWebSocketSessionEnforceSingle(WebSocketSessionInfo sessionInfo, long ttlSeconds) {

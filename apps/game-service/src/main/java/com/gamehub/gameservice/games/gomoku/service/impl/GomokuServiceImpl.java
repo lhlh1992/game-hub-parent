@@ -278,7 +278,7 @@ public class GomokuServiceImpl implements GomokuService {
             throw new IllegalStateException(GameMessages.GAME_NOT_STARTED);
         }
         
-        GomokuState s = r.getSeries().getCurrent().getState();  // ✅ 必须落到"当前盘"
+        GomokuState s = r.getSeries().getCurrent().getState();  // 必须落到"当前盘"
 
         //已结束局直接返回
         if (s.over()) return s;
@@ -290,7 +290,7 @@ public class GomokuServiceImpl implements GomokuService {
         if (!GomokuJudge.isLegal(s.board(), x, y)) {
             throw new IllegalArgumentException(GameMessages.ILLEGAL_MOVE);
         }
-        // 【已移除】边界限制已移除，允许在 0-14 的所有交叉点落子
+        // 已移除：边界限制已移除，允许在 0-14 的所有交叉点落子
         // 15x15 棋盘有 15 个交叉点（0-14），都可以落子
         // 黑方禁手（仅在 RENJU 模式判断）
         if (r.getRule() == Rule.RENJU && piece == Board.BLACK

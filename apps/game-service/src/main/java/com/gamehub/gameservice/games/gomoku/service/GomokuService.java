@@ -26,7 +26,7 @@ public interface GomokuService {
     GomokuState getState(String roomId);
 
     /**
-     * ✅ 新增：一站式下子（必要时自动让 AI 走一步）
+     * 新增：一站式下子（必要时自动让 AI 走一步）
      * 语义：
      *   - 先执行玩家这一步；
      *   - 若房间模式=PVE 且这一步不是 AI 的棋色，则自动调用建议并为 AI 落子；

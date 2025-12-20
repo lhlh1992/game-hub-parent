@@ -29,7 +29,7 @@ public class RedisGameStateRepository implements GameStateRepository {
 
     private final RedisOps ops;
 
-    private final RedisTemplate<String, Object> redisTemplate; // ★ 新增注入，用于原生事务
+    private final RedisTemplate<String, Object> redisTemplate; // 新增：注入用于原生事务
 
     /**
      * 保存棋局状态（JSON 存储，带 TTL）
