@@ -177,7 +177,119 @@ services:
     networks:
       pgnet:
         ipv4_address: 172.30.0.14       # 固定 IP（按你当前段落递增）
+    
+   
+  kafka:
+      image: apache/kafka:latest
+      container_name: kafka
 
+      ports:
+        # 宿主机固定 9092（本机 IDE / Java / Kafka-UI 连 localhost:9092）
+        # 映射到容器 19092（宿主机专用 listener）
+        - "9092:19092"
+
+      volumes:
+        # Kafka 数据持久化到 Windows
+        - D:/DockerData/kafka/data:/opt/kafka/data
+
+      environment:
+        # ===== Kafka 节点 ID（KRaft 模式必须）
+        KAFKA_NODE_ID: 1
+
+        # ===== Kafka 进程角色（KRaft 模式，无需 Zookeeper）
+        KAFKA_PROCESS_ROLES: broker,controller
+
+        # ===== Kafka 实际监听端口（容器内部）
+        # INTERNAL   ：Docker 网络内访问（kafka:9092）
+        # EXTERNAL   ：宿主机访问（容器内 19092，宿主机映射到 9092）
+        # CONTROLLER ：KRaft 内部通信（不对外）
+        KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:19092,CONTROLLER://0.0.0.0:9093
+
+        # ===== Kafka 对外公布的访问地址（最关键）
+        # Docker 内部服务 → kafka:9092
+        # 宿主机程序     → localhost:9092（实际走到容器 19092）
+        KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:9092
+
+        # ===== listener 名称 → 协议映射
+        KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+
+        # ===== broker 之间通讯用哪个 listener（必须属于 advertised.listeners 的名字）
+        # 你这里的 listener 名是 INTERNAL/EXTERNAL，不是 PLAINTEXT，所以必须显式指定
+        KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+
+        # ===== 指定 controller 使用哪个 listener
+        KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+        # ===== KRaft controller 投票成员列表
+        KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+        # ===== 单机必须为 1 的配置
+        KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+        KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+        KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+        # ===== consumer group 启动不延迟重平衡
+        KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+        # ===== 关闭topic自动创建
+        KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      networks:
+        - pgnet
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      # Kafka-UI 页面：http://localhost:8080
+      - "9081:8080"
+    environment:
+      # UI 里显示的集群名称（随便起）
+      KAFKA_CLUSTERS_0_NAME: local-kafka
+
+      # Kafka 地址：注意这里必须用容器内地址 kafka:9092（不是 localhost）
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+
+      # 可选：动态配置（UI里临时加集群/改配置）
+      DYNAMIC_CONFIG_ENABLED: "true"
+    networks:
+      - pgnet
+      
+      
+      
+  # 服务名（compose 内部引用用）
+  mysql8:
+    # 使用官方 MySQL 8.0 镜像
+    image: mysql:8.0
+
+    # 固定容器名（方便你 docker ps / logs）
+    container_name: mysql8
+    # 自动重启策略：除非你手动 stop，否则异常退出会拉起
+    restart: unless-stopped
+    # 端口映射：宿主机 3306 -> 容器 3306（你说默认端口不变）
+    ports:
+      # 字符串写法更稳（避免被当成数字解析）
+      - "3306:3306"
+    # 环境变量（初始化 & 时区）
+    environment:
+      # root 密码（第一次初始化数据目录时生效）
+      MYSQL_ROOT_PASSWORD: zaqxsw
+      # 容器内时区（影响时间函数/日志时间）
+      TZ: Asia/Shanghai
+
+    # 目录映射（Windows 路径建议用正斜杠）
+    volumes:
+      # 数据目录（最关键：持久化 MySQL 数据）
+      - "D:/DockerData/mysql8/data:/var/lib/mysql"
+      # 配置目录（你自己放 .cnf 文件到 D:/DockerData/mysql8/conf）
+      - "D:/DockerData/mysql8/conf:/etc/mysql/conf.d"
+      # 日志目录（可选：把容器日志落到宿主机）
+      - "D:/DockerData/mysql8/logs:/var/log/mysql"
+    networks:
+      pgnet:
+        ipv4_address: 172.30.0.15      # 固定 IP（按你当前段落递增）
+
+    
 
   # ========================================
   # 【2025-01-XX 新增】Gateway 网关服务
@@ -207,13 +319,15 @@ services:
         condition: service_healthy
     networks:
       pgnet:
-        ipv4_address: 172.30.0.15          # 固定 IP
+        ipv4_address: 172.30.0.99          # 固定 IP
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 40s
+
+ 
 
 networks:
   pgnet:
